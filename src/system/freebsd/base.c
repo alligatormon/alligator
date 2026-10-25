@@ -214,7 +214,6 @@ void get_memory_usage_hw(void)
 	u_int wire_count = 0;
 	int64_t free_memory, avail_memory, active_memory, inact_memory, wire_memory, usage_memory;
 	int64_t swap_total = 0, swap_used = 0, swap_free = 0;
-	struct kvm_swap swap;
 	kvm_t *kd;
 
 	sz = sizeof(vmt);
@@ -254,13 +253,42 @@ void get_memory_usage_hw(void)
 
 	kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
 	if (kd) {
-		if (kvm_getswapinfo(kd, &swap, 1, 0) == 0) {
-			swap_total = swap.ksw_total * (int64_t)getpagesize();
-			swap_used = swap.ksw_used * (int64_t)getpagesize();
-			swap_free = swap_total - swap_used;
+		/*
+		 * kvm_getswapinfo(3): fills up to maxswap-1 per-device slots;
+		 * return value is the device count (excludes totals). Grand
+		 * totals are written at swap[nswap] and are NOT part of the
+		 * return value — do not treat index 0 as totals when maxswap>1.
+		 */
+		struct kvm_swap swaps[16];
+		int maxswap = (int)(sizeof(swaps) / sizeof(swaps[0]));
+		int nswap;
+		int i;
+		int pagesize = getpagesize();
+
+		nswap = kvm_getswapinfo(kd, swaps, maxswap, 0);
+		if (nswap >= 0) {
+			struct kvm_swap *tot = &swaps[nswap];
+
+			swap_total = tot->ksw_total * (int64_t)pagesize;
+			swap_used = tot->ksw_used * (int64_t)pagesize;
+			swap_free = swap_total >= swap_used ? swap_total - swap_used : 0;
 			metric_add_labels("memory_usage_hw", &swap_total, DATATYPE_INT, ac->system_carg, "type", "swap_total");
 			metric_add_labels("memory_usage_hw", &swap_free, DATATYPE_INT, ac->system_carg, "type", "swap_free");
 			metric_add_labels("memory_usage_hw", &swap_used, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
+
+			for (i = 0; i < nswap; i++) {
+				uint64_t size_bytes = (uint64_t)swaps[i].ksw_total * (uint64_t)pagesize;
+				uint64_t used_bytes = (uint64_t)swaps[i].ksw_used * (uint64_t)pagesize;
+				uint64_t free_bytes = size_bytes >= used_bytes ? size_bytes - used_bytes : 0;
+				char *dev = swaps[i].ksw_devname[0] ? swaps[i].ksw_devname : (char *)"unknown";
+
+				metric_add_labels2("swap_device_bytes", &size_bytes, DATATYPE_UINT,
+					ac->system_carg, "device", dev, "type", "size");
+				metric_add_labels2("swap_device_bytes", &used_bytes, DATATYPE_UINT,
+					ac->system_carg, "device", dev, "type", "used");
+				metric_add_labels2("swap_device_bytes", &free_bytes, DATATYPE_UINT,
+					ac->system_carg, "device", dev, "type", "free");
+			}
 		}
 		kvm_close(kd);
 	}

@@ -449,7 +449,16 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 			metric_add_labels("system_serial", &okval, DATATYPE_UINT, ac->system_carg, "serial", trim_whitespaces(str[smbios->u.system.serial_number-1]));
 		break;
 	case 2:
+		/*
+		 * Board Type 10 = Motherboard. On FreeBSD VMs (SeaBIOS/QEMU) Type 2
+		 * often uses Unknown/Other; still emit baseboard_* when strings exist.
+		 */
+#ifdef __FreeBSD__
+		if (smbios->u.module.type == 10 || smbios->u.module.manufacturer ||
+			smbios->u.module.product_name) {
+#else
 		if (smbios->u.module.type == 10) {
+#endif
 			if (smbios->u.module.manufacturer)
 				metric_add_labels("baseboard_manufacturer", &okval, DATATYPE_UINT, ac->system_carg, "manufacturer", trim_whitespaces(str[smbios->u.module.manufacturer-1]));
 			if (smbios->u.module.product_name)

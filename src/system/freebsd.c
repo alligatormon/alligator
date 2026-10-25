@@ -40,6 +40,7 @@
 #include <jail.h>
 #include <sys/rctl.h>
 #include <errno.h>
+#include <string.h>
 
 #define d64 PRId64
 #define u64 PRIu64
@@ -85,24 +86,171 @@ static double pct_delta(uint64_t delta, uint64_t total)
 	return pct < 0.0 ? 0.0 : pct;
 }
 
+/*
+ * FreeBSD string sysctls return length that includes the trailing NUL.
+ * Do not treat (sz-1) as the last payload character.
+ */
+static void freebsd_sysctl_cstr_finish(char *buf, size_t bufsz, size_t sz)
+{
+	if (!buf || !bufsz) {
+		return;
+	}
+	if (sz == 0 || sz > bufsz) {
+		buf[0] = '\0';
+		return;
+	}
+	buf[sz - 1] = '\0';
+}
+
+static void get_cpu_cstates(void)
+{
+	int cpu;
+
+	for (cpu = 0; ; cpu++) {
+		char sysctl_name[64];
+		char supported[256];
+		char usage[512];
+		char cpu_label[16];
+		size_t sz;
+		char *sp, *saveptr;
+		int state_idx;
+
+		snprintf(sysctl_name, sizeof(sysctl_name), "dev.cpu.%d.cx_supported", cpu);
+		sz = sizeof(supported);
+		if (sysctlbyname(sysctl_name, supported, &sz, NULL, 0) != 0)
+			break;
+		freebsd_sysctl_cstr_finish(supported, sizeof(supported), sz);
+
+		snprintf(sysctl_name, sizeof(sysctl_name), "dev.cpu.%d.cx_usage", cpu);
+		sz = sizeof(usage);
+		if (sysctlbyname(sysctl_name, usage, &sz, NULL, 0) != 0)
+			continue;
+		freebsd_sysctl_cstr_finish(usage, sizeof(usage), sz);
+
+		snprintf(cpu_label, sizeof(cpu_label), "%d", cpu);
+
+		/* cx_supported: "C1/1/1 C2/2/64 ..."; cx_usage: "count[/us] ..." */
+		{
+			char *names[16];
+			int nnames = 0;
+			char supported_copy[256];
+			char usage_copy[512];
+
+			strlcpy(supported_copy, supported, sizeof(supported_copy));
+			for (sp = strtok_r(supported_copy, " \t", &saveptr);
+				sp && nnames < 16;
+				sp = strtok_r(NULL, " \t", &saveptr)) {
+				char *slash = strchr(sp, '/');
+				if (slash)
+					*slash = '\0';
+				/* Keep positional alignment with cx_usage tokens. */
+				names[nnames++] = sp;
+			}
+
+			strlcpy(usage_copy, usage, sizeof(usage_copy));
+			state_idx = 0;
+			for (sp = strtok_r(usage_copy, " \t", &saveptr);
+				sp && state_idx < nnames;
+				sp = strtok_r(NULL, " \t", &saveptr), state_idx++) {
+				char *slash;
+				char *end = NULL;
+				uint64_t count;
+				char *state_name = names[state_idx];
+
+				if (!sp[0] || !state_name || !state_name[0])
+					continue;
+
+				count = strtoull(sp, &end, 10);
+				if (end == sp)
+					continue;
+				metric_add_labels2("cpu_cstate_usage_total", &count, DATATYPE_UINT,
+					ac->system_carg, "cpu", cpu_label, "state", state_name);
+
+				slash = strchr(sp, '/');
+				if (slash && slash[1]) {
+					char *us_end = NULL;
+					uint64_t us = strtoull(slash + 1, &us_end, 10);
+					double sec;
+
+					if (us_end == slash + 1)
+						continue;
+					sec = (double)us / 1000000.0;
+					metric_add_labels2("cpu_cstate_seconds_total", &sec, DATATYPE_DOUBLE,
+						ac->system_carg, "cpu", cpu_label, "state", state_name);
+				}
+			}
+		}
+	}
+}
+
 static void get_cpu_frequency(void)
 {
-	char sysctl_name[32];
+	char sysctl_name[64];
 	int cpu;
 
 	for (cpu = 0; ; cpu++) {
 		int32_t mhz;
 		size_t sz = sizeof(mhz);
 		double hz;
+		char cpu_label[16];
+		char levels[512];
 
 		snprintf(sysctl_name, sizeof(sysctl_name), "dev.cpu.%d.freq", cpu);
 		if (sysctlbyname(sysctl_name, &mhz, &sz, NULL, 0) != 0)
 			break;
 
 		hz = (double)mhz * 1000000.0;
-		snprintf(sysctl_name, sizeof(sysctl_name), "%d", cpu);
-		metric_add_labels("cpu_current_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg, "core", sysctl_name);
+		snprintf(cpu_label, sizeof(cpu_label), "%d", cpu);
+		metric_add_labels("cpu_current_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg, "core", cpu_label);
+		metric_add_labels2("cpu_frequency_hertz", &hz, DATATYPE_DOUBLE, ac->system_carg,
+			"cpu", cpu_label, "type", "scaling_cur");
+
+		/* freq_levels: "2301/35000 2300/34000 ... 800/10000" (MHz/mW) */
+		snprintf(sysctl_name, sizeof(sysctl_name), "dev.cpu.%d.freq_levels", cpu);
+		sz = sizeof(levels);
+		if (sysctlbyname(sysctl_name, levels, &sz, NULL, 0) == 0) {
+			char *sp, *saveptr;
+			int32_t min_mhz = 0, max_mhz = 0;
+			int first = 1;
+
+			freebsd_sysctl_cstr_finish(levels, sizeof(levels), sz);
+
+			for (sp = strtok_r(levels, " \t", &saveptr); sp; sp = strtok_r(NULL, " \t", &saveptr)) {
+				char *end = NULL;
+				long level_mhz;
+
+				if (!sp[0])
+					continue;
+				level_mhz = strtol(sp, &end, 10);
+				/* Accept "N" or "N/mW"; reject non-numeric tokens. */
+				if (end == sp || (*end != '\0' && *end != '/'))
+					continue;
+				if (level_mhz <= 0 || level_mhz > INT32_MAX)
+					continue;
+				if (first) {
+					min_mhz = max_mhz = (int32_t)level_mhz;
+					first = 0;
+				} else {
+					if ((int32_t)level_mhz < min_mhz)
+						min_mhz = (int32_t)level_mhz;
+					if ((int32_t)level_mhz > max_mhz)
+						max_mhz = (int32_t)level_mhz;
+				}
+			}
+			if (!first) {
+				double min_hz = (double)min_mhz * 1000000.0;
+				double max_hz = (double)max_mhz * 1000000.0;
+				metric_add_labels2("cpu_frequency_hertz", &min_hz, DATATYPE_DOUBLE, ac->system_carg,
+					"cpu", cpu_label, "type", "scaling_min");
+				metric_add_labels2("cpu_frequency_hertz", &max_hz, DATATYPE_DOUBLE, ac->system_carg,
+					"cpu", cpu_label, "type", "scaling_max");
+				metric_add_labels2("cpu_frequency_hertz", &max_hz, DATATYPE_DOUBLE, ac->system_carg,
+					"cpu", cpu_label, "type", "cpuinfo_max");
+			}
+		}
 	}
+
+	get_cpu_cstates();
 }
 
 static long clock_stathz(void)
@@ -170,6 +318,12 @@ void get_disk()
 
 			int64_t one = 1;
 			metric_add_labels2("disk_filesystem", &one, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
+
+			{
+				int64_t readonly = (mounts[i].f_flags & MNT_RDONLY) ? 1 : 0;
+				metric_add_labels("disk_readonly", &readonly, DATATYPE_INT, ac->system_carg,
+					"mountpoint", mounts[i].f_mntonname);
+			}
 		}
 
 		//metric_add_labels2("disk_files", &stats.f_files, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "inodes");
@@ -334,6 +488,31 @@ void get_sysctl_stat_u64(char *ctlname, char *mapping)
 	metric_add_auto(mapping, &val, DATATYPE_UINT, ac->system_carg);
 }
 
+static void get_sysctl_vmstat_labeled(const char *ctlname, const char *stat)
+{
+	size_t sz = 0;
+	uint64_t val = 0;
+	int64_t ival;
+
+	/* vm.stats.* are typically u_long; accept 4- or 8-byte values. */
+	if (sysctlbyname(ctlname, NULL, &sz, NULL, 0) != 0 || !sz)
+		return;
+	if (sz == sizeof(uint64_t)) {
+		if (sysctlbyname(ctlname, &val, &sz, NULL, 0) != 0)
+			return;
+	} else if (sz == sizeof(uint32_t)) {
+		uint32_t v32 = 0;
+		sz = sizeof(v32);
+		if (sysctlbyname(ctlname, &v32, &sz, NULL, 0) != 0)
+			return;
+		val = v32;
+	} else {
+		return;
+	}
+	ival = (int64_t)val;
+	metric_add_labels("vmstat_stat_total", &ival, DATATYPE_INT, ac->system_carg, "stat", (char *)stat);
+}
+
 void get_vmstat()
 {
 	get_sysctl_stat_u64("vm.stats.sys.v_soft", "softirq_total");
@@ -349,6 +528,31 @@ void get_vmstat()
 	get_sysctl_stat_u64("kern.ipc.numopensockets", "open_sockets");
 	get_sysctl_stat_u64("kern.ipc.maxsockets", "max_sockets");
 	get_sysctl_stat_u64("kern.maxproc", "processes_max");
+
+	/* Additional vm.stats.* under Linux-compatible vmstat_stat_total{stat=...} */
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_vm_faults", "pgfault");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_io_faults", "pgmajfault");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_cow_faults", "cow_faults");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_swapin", "pswpin");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_swapout", "pswpout");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_swappgsin", "pswpin_pages");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_swappgsout", "pswpout_pages");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_vnodepgsin", "pgpgin");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_vnodepgsout", "pgpgout");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_intrans", "page_intransitions");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_reactivated", "pgactivate");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_pdwakeups", "pdwakeups");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_pdpages", "pdpages");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_tcached", "tcached");
+	get_sysctl_vmstat_labeled("vm.stats.sys.v_swtch", "context_switches");
+	get_sysctl_vmstat_labeled("vm.stats.sys.v_trap", "traps");
+	get_sysctl_vmstat_labeled("vm.stats.sys.v_syscall", "syscalls");
+	get_sysctl_vmstat_labeled("vm.stats.sys.v_intr", "intr");
+	get_sysctl_vmstat_labeled("vm.stats.sys.v_soft", "softirq");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_forks", "forks");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_vforks", "vforks");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_rforks", "rforks");
+	get_sysctl_vmstat_labeled("vm.stats.vm.v_kthreads", "kthreads");
 }
 
 static void cpu_core_interval_push(system_cpu_cores_stats *sccs, char *cpuname,
@@ -799,8 +1003,11 @@ void get_system_metrics()
 		get_memory_usage_cgroup();
 		get_utmp_info();
 		get_thermal();
+		/* Parity with Linux: interrupts_by_irq_total under base; extended_mode via system_interrupts */
+		get_proc_interrupts(ac->system_interrupts);
+		/* No FreeBSD watchdog sysfs/sysctl parity; do not emit stub metrics. */
 	}
-	if (ac->system_interrupts)
+	else if (ac->system_interrupts)
 		get_proc_interrupts(ac->system_interrupts);
 	if (ac->system_base && !ac->system_process)
 	{
@@ -810,6 +1017,8 @@ void get_system_metrics()
 	{
 		get_iface_statistics();
 		get_network_statistics();
+		get_arp_stats();
+		get_sockstat_stats();
 		check_sockets_freebsd();
 	}
 	if (ac->system_disk)

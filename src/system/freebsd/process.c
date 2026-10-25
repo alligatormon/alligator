@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/types.h>
@@ -256,6 +257,44 @@ static void freebsd_emit_fd_breakdown(char *name, char *pidstr, const freebsd_fd
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_other", "pid", pidstr);
 }
 
+static void freebsd_emit_page_faults(struct kinfo_proc *proc, char *name, char *pidstr)
+{
+	int64_t minflt = (int64_t)proc->ki_rusage.ru_minflt;
+	int64_t majflt = (int64_t)proc->ki_rusage.ru_majflt;
+
+	metric_add_labels3("process_page_faults_total", &minflt, DATATYPE_INT, ac->system_carg,
+		"name", name, "pid", pidstr, "type", "minor");
+	metric_add_labels3("process_page_faults_total", &majflt, DATATYPE_INT, ac->system_carg,
+		"name", name, "pid", pidstr, "type", "major");
+}
+
+static void freebsd_emit_vmap(pid_t pid, char *name, char *pidstr)
+{
+	int cnt = 0;
+	struct kinfo_vmentry *vm;
+	uint64_t vmap_count;
+	uint64_t max_maps = 0;
+	size_t sz;
+
+	vm = kinfo_getvmmap(pid, &cnt);
+	if (!vm)
+		return;
+
+	vmap_count = (uint64_t)cnt;
+	metric_add_labels2("process_vmap_count", &vmap_count, DATATYPE_UINT, ac->system_carg,
+		"name", name, "pid", pidstr);
+
+	sz = sizeof(max_maps);
+	/* Optional limit; FreeBSD has no Linux max_map_count on all versions */
+	if (sysctlbyname("vm.max_proc_mmap", &max_maps, &sz, NULL, 0) == 0 && max_maps > 0) {
+		double usage = vmap_count * 1.0 / (double)max_maps;
+		metric_add_labels2("process_vmap_usage", &usage, DATATYPE_DOUBLE, ac->system_carg,
+			"name", name, "pid", pidstr);
+	}
+
+	free(vm);
+}
+
 static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 {
 	char pidstr[16];
@@ -298,6 +337,90 @@ static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 	freebsd_count_fds(proc->ki_pid, &fds);
 	freebsd_emit_fd_breakdown(proc->ki_comm, pidstr, &fds);
 	freebsd_emit_process_rlimits(proc, proc->ki_comm, pidstr, &fds);
+	freebsd_emit_page_faults(proc, proc->ki_comm, pidstr);
+	freebsd_emit_vmap(proc->ki_pid, proc->ki_comm, pidstr);
+}
+
+/*
+ * Count scheduler states for all threads (Linux task_states parity).
+ * kinfo_getallproc() uses KERN_PROC_PROC (process leaders only); thread
+ * states require KERN_PROC_*|KERN_PROC_INC_THREAD — a separate sysctl.
+ */
+static void freebsd_count_task_states(uint64_t *running, uint64_t *sleeping,
+	uint64_t *stopped, uint64_t *zombie, uint64_t *uninterruptible, uint64_t *idle)
+{
+	int mib[3];
+	size_t len = 0;
+	struct kinfo_proc *tp = NULL;
+	int n, i, attempt;
+
+	*running = *sleeping = *stopped = *zombie = *uninterruptible = *idle = 0;
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROC;
+	mib[2] = KERN_PROC_ALL | KERN_PROC_INC_THREAD;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		len = 0;
+		if (sysctl(mib, 3, NULL, &len, NULL, 0) != 0 || !len) {
+			free(tp);
+			return;
+		}
+		/* Grow slightly to reduce ENOMEM races as the table grows. */
+		len += len / 8 + sizeof(*tp);
+		free(tp);
+		tp = malloc(len);
+		if (!tp)
+			return;
+		if (sysctl(mib, 3, tp, &len, NULL, 0) == 0)
+			break;
+		if (errno != ENOMEM) {
+			free(tp);
+			return;
+		}
+	}
+	if (attempt >= 3) {
+		free(tp);
+		return;
+	}
+
+	if (len % sizeof(*tp) != 0) {
+		free(tp);
+		return;
+	}
+
+	n = (int)(len / sizeof(*tp));
+	if (n > 0 && tp[0].ki_structsize != 0 &&
+		tp[0].ki_structsize != (int)sizeof(*tp)) {
+		free(tp);
+		return;
+	}
+	for (i = 0; i < n; i++) {
+		switch (tp[i].ki_stat) {
+		case SRUN:
+			(*running)++;
+			break;
+		case SSLEEP:
+			(*sleeping)++;
+			break;
+		case SIDL:
+			(*idle)++;
+			break;
+		case SSTOP:
+			(*stopped)++;
+			break;
+		case SZOMB:
+			(*zombie)++;
+			break;
+		case SWAIT:
+		case SLOCK:
+			(*uninterruptible)++;
+			break;
+		default:
+			break;
+		}
+	}
+	free(tp);
 }
 
 static int8_t freebsd_process_matches(struct kinfo_proc *proc, char *cmdline, size_t cmdline_size)
@@ -414,6 +537,18 @@ void get_proc_info(int8_t lightweight)
 	metric_add_labels("process_states", &stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_labels("process_states", &zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("process_states", &uninterruptible, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
+
+	{
+		uint64_t t_running = 0, t_sleeping = 0, t_stopped = 0, t_zombie = 0, t_unint = 0, t_idle = 0;
+
+		freebsd_count_task_states(&t_running, &t_sleeping, &t_stopped, &t_zombie, &t_unint, &t_idle);
+		metric_add_labels("task_states", &t_running, DATATYPE_UINT, ac->system_carg, "state", "running");
+		metric_add_labels("task_states", &t_sleeping, DATATYPE_UINT, ac->system_carg, "state", "sleeping");
+		metric_add_labels("task_states", &t_unint, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
+		metric_add_labels("task_states", &t_zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
+		metric_add_labels("task_states", &t_stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
+		metric_add_labels("task_states", &t_idle, DATATYPE_UINT, ac->system_carg, "state", "idle");
+	}
 
 	{
 		uint64_t proc_count = cntp;

@@ -21,6 +21,8 @@ int system_string_compare(const void *arg, const void *obj);
 int freebsd_scrape_pid(pid_t pid);
 
 void get_network_statistics(void);
+void get_arp_stats(void);
+void get_sockstat_stats(void);
 void check_sockets_freebsd(void);
 void disks_info(void);
 void bsd_firewall_collect(void);
