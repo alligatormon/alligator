@@ -299,6 +299,7 @@ set(STATIC_FILES
 	resolver/getaddrinfo.c
 	parsers/dummy.c
 	parsers/pushgateway.c
+	parsers/pushgateway_proto.c
 	parsers/multiparser.c
 	parsers/multicollector.c
 	parsers/clickhouse.c

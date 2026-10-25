@@ -3,6 +3,7 @@
 #include <string.h>
 #include "main.h"
 #include "parsers/pushgateway.h"
+#include "parsers/pushgateway_proto.h"
 #include "mapping/mapping.h"
 #include "parsers/http_proto.h"
 #include "events/context_arg.h"
@@ -195,17 +196,34 @@ int multicollector_get_quotes(uint64_t *cur, const char *str, const size_t size,
 		return 0;
 
 	++*cur;
-	uint64_t syms = strcspn(str+*cur, "\"");
-	if ((*cur + syms) >= size || str[*cur + syms] != '"')
-		return 0;
-	size_t copy_size = syms < (METRIC_NAME_SIZE - 1) ? syms : (METRIC_NAME_SIZE - 1);
-	strlcpy(s2, str+*cur, copy_size + 1);
-	*cur = *cur + syms + 1;
-
-	/* Empty "" is a valid Prometheus label value. Callers treat 0 as failure. */
-	if (!syms)
-		return 1;
-	return syms;
+	size_t copy = 0;
+	int closed = 0;
+	while (*cur < size && str[*cur] != 0)
+	{
+		char c = str[*cur];
+		if (c == '"')
+		{
+			++*cur;
+			closed = 1;
+			break;
+		}
+		if (c == '\\' && (*cur + 1) < size)
+		{
+			char next = str[*cur + 1];
+			if (next == 'n' || next == '\\' || next == '"')
+			{
+				if (copy < (METRIC_NAME_SIZE - 1))
+					s2[copy++] = next == 'n' ? '\n' : next;
+				*cur += 2;
+				continue;
+			}
+		}
+		if (copy < (METRIC_NAME_SIZE - 1))
+			s2[copy++] = c;
+		++*cur;
+	}
+	s2[copy] = 0;
+	return closed ? 1 : 0;
 }
 
 int multicollector_skip_spaces(uint64_t *cur, const char *str, const size_t size)
@@ -544,8 +562,15 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	}
 	else
 	{
-		labels_hash_free(lbl);
-		return 0;
+		char *endptr = NULL;
+		double parsed = strtod(str + i, &endptr);
+		if (endptr == str + i)
+		{
+			labels_hash_free(lbl);
+			return 0;
+		}
+		carg_or_glog(carg, L_TRACE, "> prometheus value: %lf (sym: %"u64"/%s)\n", parsed, i, str+i);
+		value = parsed;
 	}
 
 	// replacing dot symbols and other from metric
@@ -593,7 +618,7 @@ uint8_t multicollector_field_get(char *str, size_t size, alligator_ht *lbl, cont
 	return 1;
 }
 
-void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
+static void multicollector_text_parse(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
 {
 	char tmp[65535];
 	int64_t cnt = 0;
@@ -714,8 +739,23 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 				char help[2048];
 				if (help_size >= sizeof(help))
 					help_size = sizeof(help) - 1;
-				memcpy(help, tmp + cursor, help_size);
-				help[help_size] = 0;
+
+				size_t help_out = 0;
+				for (size_t hi = 0; hi < help_size; ++hi)
+				{
+					if (tmp[cursor + hi] == '\\' && (hi + 1) < help_size)
+					{
+						char next = tmp[cursor + hi + 1];
+						if (next == 'n' || next == '\\' || next == '"')
+						{
+							help[help_out++] = next == 'n' ? '\n' : next;
+							++hi;
+							continue;
+						}
+					}
+					help[help_out++] = tmp[cursor + hi];
+				}
+				help[help_out] = 0;
 
 				namespace_metric_family_set_prom_help(carg, metric_name, help);
 			}
@@ -777,6 +817,59 @@ void multicollector(http_reply_data* http_data, char *str, size_t size, context_
 		alligator_ht_done(counter_names);
 		free(counter_names);
 	}
+}
+
+void multicollector(http_reply_data* http_data, char *str, size_t size, context_arg *carg)
+{
+	if (!str && http_data)
+	{
+		str = http_data->body;
+		size = http_data->body_size;
+	}
+
+	if (carg)
+		carg->pg_http_status = 0;
+
+	if (http_data && carg && carg->parser_handler == NULL)
+	{
+		pg_body_format format = pushgateway_body_format(http_data->headers, http_data->headers_size);
+
+		if (format == PG_BODY_PROTO_UNSUPPORTED)
+		{
+			carglog(carg, L_WARN, "pushgateway: unsupported protobuf encoding in Content-Type\n");
+			carg->parser_status = 0;
+			carg->pg_http_status = 415;
+			return;
+		}
+
+		if (format == PG_BODY_PROTO_DELIM)
+		{
+			string *bridge = string_init(size / 2 + 512);
+			uint64_t families = 0;
+			uint64_t series = 0;
+			uint64_t rejected = 0;
+
+			int decoded = pushgateway_proto_delimited_to_text(str, size, bridge, &families, &series, &rejected);
+			if (!decoded || (size && !series))
+			{
+				carglog(carg, L_WARN, "pushgateway protobuf: rejected body (decoded=%d families=%"u64" series=%"u64" rejected=%"u64")\n",
+					decoded, families, series, rejected);
+				carg->parser_status = 0;
+				carg->pg_http_status = 400;
+				string_free(bridge);
+				return;
+			}
+
+			carglog(carg, L_DEBUG, "pushgateway protobuf: families=%"u64" series=%"u64" rejected=%"u64"\n",
+				families, series, rejected);
+			multicollector_text_parse(http_data, bridge->s, bridge->l, carg);
+			carg->pg_http_status = 202;
+			string_free(bridge);
+			return;
+		}
+	}
+
+	multicollector_text_parse(http_data, str, size, carg);
 }
 
 string* prometheus_metrics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

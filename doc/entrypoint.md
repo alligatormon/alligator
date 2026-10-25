@@ -447,6 +447,31 @@ Possible values:
 This option makes it possible to count counters and histogram metrics inside Alligator instead of replacing them when a metric is pushed with pushgateway protocol. It opens the prom-aggregation-gateway interface. Graphite and statsd cannot specify this as they already support counting metrics inside protocol.
 
 
+## pushgateway body formats
+Push requests to `/metrics/job/<job>/instance/<instance>` accept two bodies:
+
+- **Text** (default): Prometheus or OpenMetrics text, including a missing `Content-Type`, `text/plain`, and `application/openmetrics-text`.
+- **Delimited protobuf**: `Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited` (or the `application/x-protobuf` alias). `COUNTER`, `GAUGE`, `UNTYPED`, `SUMMARY`, and `HISTOGRAM` families are converted to text exposition before ingest; `GAUGE_HISTOGRAM` is skipped with a warning. Like the Prometheus text encoder, a histogram without an explicit `+Inf` bucket gets `le="+Inf"` added from `sample_count` (or from the last bucket when `sample_count` is absent).
+
+`encoding=text` and `encoding=compact-text` return `415 Unsupported Media Type`. Malformed delimited framing, or a non-empty protobuf body that yields no series, returns `400 Bad Request`. Successful and empty protobuf bodies return `202 Accepted`. URL grouping labels merge with body labels; when the same label name appears in both, the URL value wins.
+
+### pushgateway DELETE
+`DELETE /metrics/job/<job>[/<label>/<value>...]` removes pushed series and returns `202 Accepted`.
+
+Alligator does not keep Pushgateway grouping-key registries, so DELETE is a **label-selector delete**: every series in the entrypoint namespace whose label set contains **all** URL grouping labels is removed, whatever its metric name. Deleting a selector that matches nothing is a no-op and still returns `202`.
+
+This differs from upstream Pushgateway, which deletes only the exact grouping key. Here `DELETE /metrics/job/x` also removes series that were pushed under `/metrics/job/x/instance/y`, and it removes any series that carries `job="x"`, however it got there (not only pushes).
+
+| Request | Status |
+|---------|--------|
+| URL with `/metrics/` and a `job` label | `202 Accepted` (also when nothing matched) |
+| URL with `/metrics/` but no `job` label (`/metrics/`, `/metrics/instance/a`), or an odd number of path components (`/metrics/job/a/instance`) | `400 Bad Request` |
+| Path without `/metrics/` (outside `/api`) | `404 Not Found` |
+| Out of memory while collecting or deleting | `500 Internal Server Error` (series collected before the failure are still removed) |
+
+Not supported: `PUT` replace-group semantics and a wipe-all admin call.
+
+
 ## format
 Default: openmetrics\
 Plural: no\

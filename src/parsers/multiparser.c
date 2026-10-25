@@ -3,6 +3,7 @@
 #include "main.h"
 #include "common/auth.h"
 #include "parsers/multiparser.h"
+#include "parsers/pushgateway.h"
 #include "common/selector.h"
 #include "common/http.h"
 #include "common/http_entrypoint.h"
@@ -10,6 +11,10 @@
 #include "common/logs.h"
 #define READY_HANDLER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define HANDLER_202 "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
+#define HANDLER_400 "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HTTP_NOT_FOUND "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HTTP_INTERNAL_ERROR "HTTP/1.1 500 Internal Server Error\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+#define HANDLER_415 "HTTP/1.1 415 Unsupported Media Type\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
 #define OPTIONS_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nAllow: OPTIONS, GET, PUT, POST\r\n"
 #define METHOD_NOT_ALLOWED "HTTP/1.1 405 Method Not Allowed\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"
 #define COMMON_ANSWER "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"
@@ -99,7 +104,12 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 				(int)(body_len > 4096 ? 4096 : body_len),
 				body);
 		multicollector(http_data, NULL, 0, carg);
-		string_cat(response, HANDLER_202, strlen(HANDLER_202));
+		if (carg->pg_http_status == 400)
+			string_cat(response, HANDLER_400, strlen(HANDLER_400));
+		else if (carg->pg_http_status == 415)
+			string_cat(response, HANDLER_415, strlen(HANDLER_415));
+		else
+			string_cat(response, HANDLER_202, strlen(HANDLER_202));
 
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
@@ -126,11 +136,26 @@ void do_http_not_allowed(char *buf, size_t len, string *response, http_reply_dat
 void do_http_delete(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
 	if (!strncmp(http_data->uri, "/api", 4))
+	{
 		api_router(response, http_data, carg);
-	else {
-		string_cat(response, "HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n", strlen("HTTP/1.1 404 Not Found\r\nServer: alligator\r\nContent-Type: text/plain\r\nConnection: close\r\n"));
-		http_entrypoint_finish_empty_body(response);
+		return;
 	}
+
+	/* Pushgateway-compatible DELETE /metrics/job/<job>[/<label>/<value>...], selector semantics */
+	size_t uri_len = http_data->uri_size ? http_data->uri_size : (http_data->uri ? strlen(http_data->uri) : 0);
+	int st = pushgateway_delete(http_data->uri, uri_len, carg);
+	if (st == 202)
+		string_cat(response, HANDLER_202, strlen(HANDLER_202));
+	else if (st == 400)
+		string_cat(response, HANDLER_400, strlen(HANDLER_400));
+	else if (st == 500)
+		string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+	else
+		string_cat(response, HTTP_NOT_FOUND, strlen(HTTP_NOT_FOUND));
+
+	if (carg->env)
+		alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+	http_entrypoint_finish_empty_body(response);
 }
 
 void prometheus_response_cluster_namespaces(void *funcarg, void* arg)

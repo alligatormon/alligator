@@ -23,6 +23,9 @@
 #include "resolver/resolver.h"
 #include "metric/metric_types.h"
 #include "dstructures/ngram/ngram.h"
+#include "common/protobuf_wire.h"
+#include "parsers/pushgateway.h"
+#include "parsers/pushgateway_proto.h"
 void tftp_handler(char *metrics, size_t size, context_arg *carg);
 int8_t gearmand_validator(context_arg *carg, char *data, size_t size);
 void log_handler(char *metrics, size_t size, context_arg *carg);
@@ -3232,6 +3235,889 @@ void api_test_multicollector_mixed_formats()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "ut_gauge_metric") != NULL);
     string_free(out);
+}
+
+#define PG_UT_TYPE_COUNTER 0
+#define PG_UT_TYPE_GAUGE 1
+#define PG_UT_TYPE_SUMMARY 2
+#define PG_UT_TYPE_UNTYPED 3
+#define PG_UT_TYPE_HISTOGRAM 4
+#define PG_UT_TYPE_GAUGE_HISTOGRAM 5
+
+static void pg_ut_put_string(string *dst, uint32_t field, const char *value)
+{
+	pbwire_write_tag(dst, field, 2);
+	pbwire_write_len(dst, (char *)value, strlen(value));
+}
+
+static void pg_ut_put_double(string *dst, uint32_t field, double value)
+{
+	uint64_t raw = 0;
+	memcpy(&raw, &value, sizeof(raw));
+	pbwire_write_field_fixed64(dst, field, raw);
+}
+
+static void pg_ut_put_uint(string *dst, uint32_t field, uint64_t value)
+{
+	pbwire_write_tag(dst, field, 0);
+	pbwire_write_varint(dst, value);
+}
+
+static string *pg_ut_family(const char *name, const char *help, uint32_t type)
+{
+	string *family = string_init(256);
+	pg_ut_put_string(family, 1, name);
+	if (help)
+		pg_ut_put_string(family, 2, help);
+	pg_ut_put_uint(family, 3, type);
+	return family;
+}
+
+static string *pg_ut_metric(void)
+{
+	return string_init(256);
+}
+
+static void pg_ut_add_label(string *metric, const char *name, const char *value)
+{
+	string *pair = string_init(64);
+	pg_ut_put_string(pair, 1, name);
+	pg_ut_put_string(pair, 2, value);
+	pbwire_write_field_lenmsg(metric, 1, pair);
+	string_free(pair);
+}
+
+static void pg_ut_add_label_bytes(string *metric, const char *name, const char *value, size_t value_len)
+{
+	string *pair = string_init(64 + value_len);
+	pg_ut_put_string(pair, 1, name);
+	pbwire_write_tag(pair, 2, 2);
+	pbwire_write_len(pair, (char *)value, value_len);
+	pbwire_write_field_lenmsg(metric, 1, pair);
+	string_free(pair);
+}
+
+static void pg_ut_add_value(string *metric, uint32_t field, double value)
+{
+	string *msg = string_init(32);
+	pg_ut_put_double(msg, 1, value);
+	pbwire_write_field_lenmsg(metric, field, msg);
+	string_free(msg);
+}
+
+static void pg_ut_add_summary(string *metric, uint64_t count, double sum,
+	const double *quantiles, const double *values, size_t quantiles_count)
+{
+	string *summary = string_init(256);
+	pg_ut_put_uint(summary, 1, count);
+	pg_ut_put_double(summary, 2, sum);
+	for (size_t i = 0; i < quantiles_count; ++i)
+	{
+		string *quantile = string_init(32);
+		pg_ut_put_double(quantile, 1, quantiles[i]);
+		pg_ut_put_double(quantile, 2, values[i]);
+		pbwire_write_field_lenmsg(summary, 3, quantile);
+		string_free(quantile);
+	}
+	pbwire_write_field_lenmsg(metric, 4, summary);
+	string_free(summary);
+}
+
+static void pg_ut_add_histogram(string *metric, uint64_t count, double sum,
+	const uint64_t *counts, const double *bounds, size_t buckets_count)
+{
+	string *histogram = string_init(256);
+	pg_ut_put_uint(histogram, 1, count);
+	pg_ut_put_double(histogram, 2, sum);
+	for (size_t i = 0; i < buckets_count; ++i)
+	{
+		string *bucket = string_init(32);
+		pg_ut_put_uint(bucket, 1, counts[i]);
+		pg_ut_put_double(bucket, 2, bounds[i]);
+		pbwire_write_field_lenmsg(histogram, 3, bucket);
+		string_free(bucket);
+	}
+	pbwire_write_field_lenmsg(metric, 7, histogram);
+	string_free(histogram);
+}
+
+static void pg_ut_add_metric(string *family, string *metric)
+{
+	pbwire_write_field_lenmsg(family, 4, metric);
+}
+
+static void pg_ut_add_family(string *stream, string *family)
+{
+	pbwire_write_varint(stream, family->l);
+	string_cat(stream, family->s, family->l);
+}
+
+static void pg_ut_push(string *stream, const char *headers, const char *uri, context_arg *carg)
+{
+	http_reply_data hd = {0};
+	hd.method = HTTP_METHOD_POST;
+	hd.headers = (char *)headers;
+	hd.headers_size = headers ? strlen(headers) : 0;
+	hd.uri = (char *)uri;
+	hd.uri_size = uri ? strlen(uri) : 0;
+	hd.body = stream ? stream->s : NULL;
+	hd.body_size = stream ? stream->l : 0;
+	multicollector(&hd, NULL, 0, carg);
+}
+
+void api_test_pushgateway_proto_body_format()
+{
+	const char *full = "POST /metrics/job/x HTTP/1.1\r\nHost: example\r\n"
+		"Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n"
+		"Content-Length: 5\r\n\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_DELIM,
+		pushgateway_body_format(full, strlen(full)));
+
+	const char *reordered = "Content-Type: Application/X-Protobuf; encoding=\"delimited\"; proto=\"io.prometheus.client.MetricFamily\"\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_DELIM,
+		pushgateway_body_format(reordered, strlen(reordered)));
+
+	const char *no_encoding = "Content-Type: application/x-protobuf\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_DELIM,
+		pushgateway_body_format(no_encoding, strlen(no_encoding)));
+
+	const char *text_encoding = "Content-Type: application/vnd.google.protobuf; encoding=text\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_UNSUPPORTED,
+		pushgateway_body_format(text_encoding, strlen(text_encoding)));
+
+	const char *compact_encoding = "Content-Type: application/x-protobuf; encoding=compact-text\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_UNSUPPORTED,
+		pushgateway_body_format(compact_encoding, strlen(compact_encoding)));
+
+	const char *openmetrics = "Content-Type: application/openmetrics-text; version=2.0.0; charset=utf-8\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(openmetrics, strlen(openmetrics)));
+
+	const char *plain = "Content-Type: text/plain\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(plain, strlen(plain)));
+
+	const char *other_proto = "Content-Type: application/x-protobuf; proto=example.Other\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(other_proto, strlen(other_proto)));
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(NULL, 0));
+}
+
+void api_test_pushgateway_proto_gauge_url_labels()
+{
+	string *family = pg_ut_family("ut_pgpb_gauge", "gauge help", PG_UT_TYPE_GAUGE);
+	string *metric = pg_ut_metric();
+	pg_ut_add_label(metric, "env", "prod");
+	pg_ut_add_value(metric, 2, 1.5);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_url_job/instance/ut_pgpb_url_inst", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_gauge"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "job=\"ut_pgpb_url_job\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "instance=\"ut_pgpb_url_inst\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "env=\"prod\""));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_counter_untyped()
+{
+	string *counter = pg_ut_family("ut_pgpb_counter", "counter help", PG_UT_TYPE_COUNTER);
+	string *counter_metric = pg_ut_metric();
+	pg_ut_add_value(counter_metric, 3, 42);
+	pg_ut_add_metric(counter, counter_metric);
+
+	string *untyped = pg_ut_family("ut_pgpb_untyped", NULL, PG_UT_TYPE_UNTYPED);
+	string *untyped_metric = pg_ut_metric();
+	pg_ut_add_value(untyped_metric, 5, 7);
+	pg_ut_add_metric(untyped, untyped_metric);
+
+	string *stream = string_init(512);
+	pg_ut_add_family(stream, counter);
+	pg_ut_add_family(stream, untyped);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	carg->metric_aggregation = 1;
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_counter_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "# TYPE ut_pgpb_counter counter\n"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_counter"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_untyped"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(counter);
+	string_free(counter_metric);
+	string_free(untyped);
+	string_free(untyped_metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_counter_accumulates()
+{
+	string *family = pg_ut_family("ut_pgpb_acc_counter", NULL, PG_UT_TYPE_COUNTER);
+	string *metric = pg_ut_metric();
+	pg_ut_add_value(metric, 3, 42);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	for (int i = 0; i < 2; ++i)
+	{
+		context_arg *carg = calloc(1, sizeof(*carg));
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+		carg->metric_aggregation = 1;
+		pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+			"/metrics/job/ut_pgpb_acc_job", carg);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+		free(carg);
+	}
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_acc_counter{"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "} 84"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+}
+
+void api_test_pushgateway_proto_headers_bounds()
+{
+	const char *headers = "Host: x\r\nContent-Type: application/x-protobuf; encoding=delimited\r\n";
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(headers, strlen("Host: x\r\nContent-Type: application")));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_TEXT,
+		pushgateway_body_format(headers, strlen("Host: x\r\nContent-Type")));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, PG_BODY_PROTO_DELIM,
+		pushgateway_body_format(headers, strlen(headers)));
+}
+
+void api_test_pushgateway_proto_summary()
+{
+	const double quantiles[2] = {0.5, 0.9};
+	const double values[2] = {0.42, 0.9};
+
+	string *family = pg_ut_family("ut_pgpb_summary", "summary help", PG_UT_TYPE_SUMMARY);
+	string *metric = pg_ut_metric();
+	pg_ut_add_label(metric, "method", "get");
+	pg_ut_add_summary(metric, 3, 10.5, quantiles, values, 2);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_summary_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "# TYPE ut_pgpb_summary summary\n"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "quantile=\"0.5\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "quantile=\"0.9\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_summary_sum"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_summary_count"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_histogram()
+{
+	const uint64_t counts[3] = {2, 5, 7};
+	const double bounds[3] = {0.5, 1.0, INFINITY};
+
+	string *family = pg_ut_family("ut_pgpb_hist", "histogram help", PG_UT_TYPE_HISTOGRAM);
+	string *metric = pg_ut_metric();
+	pg_ut_add_label(metric, "path", "/");
+	pg_ut_add_histogram(metric, 7, 3.5, counts, bounds, 3);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_hist_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "# TYPE ut_pgpb_hist histogram\n"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_hist_bucket"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"0.5\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"1\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"+Inf\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_hist_sum"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_hist_count"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_histogram_implicit_inf()
+{
+	/* client_golang omits the +Inf bucket from the protobuf; it must come back from sample_count */
+	const uint64_t counts[2] = {2, 5};
+	const double bounds[2] = {0.5, 1.0};
+
+	string *family = pg_ut_family("ut_pgpb_hist_noinf", "histogram help", PG_UT_TYPE_HISTOGRAM);
+	string *metric = pg_ut_metric();
+	pg_ut_add_histogram(metric, 7, 3.5, counts, bounds, 2);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_hist_noinf_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	int inf_line = 0;
+	for (char *ln = strstr(out->s, "ut_pgpb_hist_noinf_bucket"); ln; ln = strstr(ln + 1, "ut_pgpb_hist_noinf_bucket"))
+	{
+		size_t n = strcspn(ln, "\n");
+		char saved = ln[n];
+		ln[n] = 0;
+		if (strstr(ln, "le=\"+Inf\"") && strstr(ln, "} 7.0"))
+			inf_line = 1;
+		ln[n] = saved;
+	}
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, inf_line);
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_histogram_inf_without_count()
+{
+	/* no sample_count: the synthesized +Inf must fall back to the last cumulative bucket, not 0 */
+	string *histogram = string_init(128);
+	pg_ut_put_double(histogram, 2, 3.5);
+	const uint64_t counts[2] = {2, 5};
+	const double bounds[2] = {0.5, 1.0};
+	for (size_t i = 0; i < 2; ++i)
+	{
+		string *bucket = string_init(32);
+		pg_ut_put_uint(bucket, 1, counts[i]);
+		pg_ut_put_double(bucket, 2, bounds[i]);
+		pbwire_write_field_lenmsg(histogram, 3, bucket);
+		string_free(bucket);
+	}
+
+	string *family = pg_ut_family("ut_pgpb_hist_nocount", "h", PG_UT_TYPE_HISTOGRAM);
+	string *metric = pg_ut_metric();
+	pbwire_write_field_lenmsg(metric, 7, histogram);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_hist_nocount_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	int inf_line = 0;
+	for (char *ln = strstr(out->s, "ut_pgpb_hist_nocount_bucket"); ln; ln = strstr(ln + 1, "ut_pgpb_hist_nocount_bucket"))
+	{
+		size_t n = strcspn(ln, "\n");
+		char saved = ln[n];
+		ln[n] = 0;
+		if (strstr(ln, "le=\"+Inf\"") && strstr(ln, "} 5.0"))
+			inf_line = 1;
+		ln[n] = saved;
+	}
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, inf_line);
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	string_free(histogram);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_histogram_go_float_format()
+{
+	/* le must match Go's FormatFloat(v,'g',-1,64), not C %g ("1e+01") */
+	const uint64_t counts[7] = {1, 2, 3, 4, 5, 6, 7};
+	const double bounds[7] = {10, 50, 100000, 1e6, 0.00001, 123456.5, INFINITY};
+
+	string *family = pg_ut_family("ut_pgpb_hist_fmt", "h", PG_UT_TYPE_HISTOGRAM);
+	string *metric = pg_ut_metric();
+	pg_ut_add_histogram(metric, 7, 1, counts, bounds, 7);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(512);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_hist_fmt_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"10\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"50\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"100000\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"1e+06\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"1e-05\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "le=\"123456.5\""));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_multiple_families()
+{
+	string *gauge = pg_ut_family("ut_pgpb_multi_a", "a", PG_UT_TYPE_GAUGE);
+	string *gauge_metric = pg_ut_metric();
+	pg_ut_add_value(gauge_metric, 2, 1.5);
+	pg_ut_add_metric(gauge, gauge_metric);
+
+	string *counter = pg_ut_family("ut_pgpb_multi_b", "b", PG_UT_TYPE_COUNTER);
+	string *counter_metric = pg_ut_metric();
+	pg_ut_add_value(counter_metric, 3, 2);
+	pg_ut_add_metric(counter, counter_metric);
+
+	string *negative = pg_ut_family("ut_pgpb_negative", "n", PG_UT_TYPE_GAUGE);
+	string *negative_metric = pg_ut_metric();
+	pg_ut_add_value(negative_metric, 2, -2.5);
+	pg_ut_add_metric(negative, negative_metric);
+
+	string *stream = string_init(768);
+	pg_ut_add_family(stream, gauge);
+	pg_ut_add_family(stream, counter);
+	pg_ut_add_family(stream, negative);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_multi_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_multi_a"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_multi_b"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_negative"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(gauge);
+	string_free(gauge_metric);
+	string_free(counter);
+	string_free(counter_metric);
+	string_free(negative);
+	string_free(negative_metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_empty_body()
+{
+	string *stream = string_init(8);
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_empty_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->push_accepted_lines);
+
+	string_free(stream);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_framing_errors()
+{
+	string *too_long = string_init(8);
+	pbwire_write_varint(too_long, 100);
+	string_cat(too_long, "abc", 3);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(too_long, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_bad_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->push_accepted_lines);
+	free(carg);
+
+	string *truncated = string_init(4);
+	string_cat(truncated, "\x80", 1);
+	carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(truncated, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_bad_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, carg->pg_http_status);
+	free(carg);
+
+	string *family = pg_ut_family("ut_pgpb_trailing", "t", PG_UT_TYPE_GAUGE);
+	string *metric = pg_ut_metric();
+	pg_ut_add_value(metric, 2, 1);
+	pg_ut_add_metric(family, metric);
+	string *trailing = string_init(256);
+	pg_ut_add_family(trailing, family);
+	string_cat(trailing, "\x01", 1);
+
+	carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(trailing, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_bad_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "ut_pgpb_trailing") != NULL);
+
+	string_free(out);
+	string_free(trailing);
+	string_free(family);
+	string_free(metric);
+	string_free(too_long);
+	string_free(truncated);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_label_escaping()
+{
+	const char *label_value = "a\"b\\c\nx";
+	const char *help_value = "h\"i\\j\nk";
+
+	string *family = pg_ut_family("ut_pgpb_escape", help_value, PG_UT_TYPE_GAUGE);
+	string *metric = pg_ut_metric();
+	pg_ut_add_label_bytes(metric, "reason", label_value, strlen(label_value));
+	pg_ut_add_value(metric, 2, 4);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	string *direct = string_init(512);
+	uint64_t families = 0;
+	uint64_t series = 0;
+	uint64_t rejected = 0;
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		pushgateway_proto_delimited_to_text(stream->s, stream->l, direct, &families, &series, &rejected));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, families);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, series);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, rejected);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(direct->s, "reason=\"a\\\"b\\\\c\\nx\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(direct->s, "h\\\"i\\\\j\\nk"));
+	string_free(direct);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_escape_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "reason=\"a_b_c x\""));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "# HELP ut_pgpb_escape h\\\"i\\\\j\\nk"));
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_url_label_collision()
+{
+	string *family = pg_ut_family("ut_pgpb_collision", NULL, PG_UT_TYPE_GAUGE);
+	string *metric = pg_ut_metric();
+	pg_ut_add_label(metric, "job", "ut_pgpb_body_job");
+	pg_ut_add_value(metric, 2, 3);
+	pg_ut_add_metric(family, metric);
+	string *stream = string_init(256);
+	pg_ut_add_family(stream, family);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_url_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_collision"));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "job=\"ut_pgpb_url_job\""));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "job=\"ut_pgpb_body_job\"") != NULL);
+
+	string_free(out);
+	string_free(stream);
+	string_free(family);
+	string_free(metric);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_unsupported_encoding()
+{
+	string *stream = string_init(16);
+	string_cat(stream, "name: \"x\"\n", 11);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=text\r\n",
+		"/metrics/job/ut_pgpb_unsupported_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 415, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->push_accepted_lines);
+
+	carg->pg_http_status = 0;
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=compact-text\r\n",
+		"/metrics/job/ut_pgpb_unsupported_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 415, carg->pg_http_status);
+
+	string_free(stream);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_text_content_types()
+{
+	char body[] = "# TYPE ut_pgpb_text gauge\nut_pgpb_text 1\n";
+	string *stream = string_init(64);
+	string_cat(stream, body, strlen(body));
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: text/plain\r\n", "/metrics/job/ut_pgpb_text_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+	free(carg);
+
+	string_free(stream);
+	stream = string_init(64);
+	string_cat(stream, body, strlen(body));
+	carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/openmetrics-text; version=2.0.0; charset=utf-8\r\n",
+		"/metrics/job/ut_pgpb_openmetrics_job", carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+
+	string_free(stream);
+	free(carg);
+}
+
+void api_test_pushgateway_proto_gauge_histogram_skipped()
+{
+	string *gauge_hist = pg_ut_family("ut_pgpb_gauge_hist_skipped", NULL, PG_UT_TYPE_GAUGE_HISTOGRAM);
+	string *gauge_hist_metric = pg_ut_metric();
+	pg_ut_add_value(gauge_hist_metric, 2, 1);
+	pg_ut_add_metric(gauge_hist, gauge_hist_metric);
+
+	string *gauge = pg_ut_family("ut_pgpb_after_gauge_hist", NULL, PG_UT_TYPE_GAUGE);
+	string *gauge_metric = pg_ut_metric();
+	pg_ut_add_value(gauge_metric, 2, 9);
+	pg_ut_add_metric(gauge, gauge_metric);
+
+	string *stream = string_init(512);
+	pg_ut_add_family(stream, gauge_hist);
+	pg_ut_add_family(stream, gauge);
+
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: application/x-protobuf; encoding=delimited\r\n",
+		"/metrics/job/ut_pgpb_gauge_hist_job", carg);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, carg->pg_http_status);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->push_accepted_lines);
+
+	string *out = string_init(4096);
+	metric_str_build(NULL, out, 1, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, strstr(out->s, "ut_pgpb_after_gauge_hist"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(out->s, "ut_pgpb_gauge_hist_skipped") != NULL);
+
+	string_free(out);
+	string_free(stream);
+	string_free(gauge_hist);
+	string_free(gauge_hist_metric);
+	string_free(gauge);
+	string_free(gauge_metric);
+	free(carg);
+}
+
+static void pg_ut_push_text(const char *body, const char *uri)
+{
+	string *stream = string_init(128);
+	string_cat(stream, (char *)body, strlen(body));
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	pg_ut_push(stream, "Content-Type: text/plain\r\n", uri, carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+	free(carg);
+	string_free(stream);
+}
+
+static int pg_ut_delete(const char *uri)
+{
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	int st = pushgateway_delete(uri, strlen(uri), carg);
+	free(carg);
+	return st;
+}
+
+static int pg_ut_scrape_has(const char *needle)
+{
+	string *out = string_init(65536);
+	metric_str_build(NULL, out, 1, NULL);
+	int found = strstr(out->s, needle) != NULL;
+	string_free(out);
+	return found;
+}
+
+void api_test_pushgateway_delete_single_group()
+{
+	pg_ut_push_text("# TYPE ut_del_gauge gauge\nut_del_gauge 7\n# TYPE ut_del_gauge2 gauge\nut_del_gauge2{env=\"x\"} 8\n",
+		"/metrics/job/ut_del_job/instance/ut_del_inst");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("ut_del_gauge{"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("ut_del_gauge2{"));
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202,
+		pg_ut_delete("/metrics/job/ut_del_job/instance/ut_del_inst"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("ut_del_gauge"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("ut_del_job"));
+
+	/* repeat is a no-op */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202,
+		pg_ut_delete("/metrics/job/ut_del_job/instance/ut_del_inst"));
+}
+
+void api_test_pushgateway_delete_other_group_remains()
+{
+	pg_ut_push_text("# TYPE ut_del2_gauge gauge\nut_del2_gauge 1\n", "/metrics/job/ut_del2_job/instance/ut_del2_a");
+	pg_ut_push_text("# TYPE ut_del2_gauge gauge\nut_del2_gauge 2\n", "/metrics/job/ut_del2_job/instance/ut_del2_b");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("instance=\"ut_del2_a\""));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("instance=\"ut_del2_b\""));
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202,
+		pg_ut_delete("/metrics/job/ut_del2_job/instance/ut_del2_a"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("instance=\"ut_del2_a\""));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("instance=\"ut_del2_b\""));
+
+	/* selector semantics: job-only URL removes every group under the job */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, pg_ut_delete("/metrics/job/ut_del2_job"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("ut_del2_gauge"));
+}
+
+void api_test_pushgateway_delete_missing_noop()
+{
+	pg_ut_push_text("# TYPE ut_del3_gauge gauge\nut_del3_gauge 1\n", "/metrics/job/ut_del3_job");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, pg_ut_delete("/metrics/job/ut_del3_missing"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, pg_ut_delete("/metrics/job/ut_del3_job/instance/nope"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("ut_del3_gauge{"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, pg_ut_delete("/metrics/job/ut_del3_job"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("ut_del3_gauge"));
+}
+
+void api_test_pushgateway_delete_odd_components_and_plan()
+{
+	pg_ut_push_text("# TYPE ut_del4_gauge gauge\nut_del4_gauge 1\n", "/metrics/job/ut_del4_job/instance/ut_del4_a");
+
+	/* dangling label name must not widen the delete to the whole job */
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, pg_ut_delete("/metrics/job/ut_del4_job/instance"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("ut_del4_gauge{"));
+
+	/* a selector label unknown to the sort plan matches nothing and must not extend the plan */
+	context_arg *carg = calloc(1, sizeof(*carg));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+	namespace_struct *ns = get_namespace_by_carg(carg);
+	size_t before = ns->metrictree->sort_plan->size;
+	int st = pushgateway_delete("/metrics/job/ut_del4_job/ut_del4_never_pushed_label/x", strlen("/metrics/job/ut_del4_job/ut_del4_never_pushed_label/x"), carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, st);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)before, (int)ns->metrictree->sort_plan->size);
+	free(carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pg_ut_scrape_has("ut_del4_gauge{"));
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 202, pg_ut_delete("/metrics/job/ut_del4_job/instance/ut_del4_a/"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, pg_ut_scrape_has("ut_del4_gauge"));
+}
+
+void api_test_pushgateway_delete_bad_requests()
+{
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, pg_ut_delete("/metrics/"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, pg_ut_delete("/metrics/instance/foo"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 400, pg_ut_delete("/metrics/job"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 404, pg_ut_delete("/not-metrics"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 404, pg_ut_delete("/"));
 }
 
 void api_test_multicollector_pushgateway()

@@ -262,6 +262,7 @@ struct context_arg
 	uint64_t push_metric_time;
 	uint64_t push_split_data;
 	uint64_t push_accepted_lines;
+	uint16_t pg_http_status;
 
 	void *data; // for parser-data
 	/* 1 when data is a strdup owned by this carg (resolve name). Borrowed parser pointers stay 0. */

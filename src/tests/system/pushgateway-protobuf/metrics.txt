@@ -1,0 +1,9 @@
+pgpb_sys_gauge
+job="pgpb_sys_job"
+instance="pgpb_sys_inst"
+env="sys"
+pgpb_sys_hist_bucket
+le="0.5"
+le="+Inf"
+pgpb_sys_hist_sum
+pgpb_sys_hist_count
