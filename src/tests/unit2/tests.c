@@ -3598,10 +3598,11 @@ static void test_otlp_grpc_frame_and_http2(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
         memcmp(req, "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n", sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1));
-    /* Request must include END_STREAM on the (last) DATA frame. */
+    /* First frame after preface is SETTINGS; payload must be N*6 (RFC 7540 §6.5.1). */
     {
         size_t off = sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1;
         int saw_data_end = 0;
+        int saw_settings = 0;
         while (off + 9 <= req_len) {
             uint32_t plen = ((uint32_t)(unsigned char)req[off] << 16)
                 | ((uint32_t)(unsigned char)req[off + 1] << 8)
@@ -3610,10 +3611,19 @@ static void test_otlp_grpc_frame_and_http2(void)
             uint8_t flags = (uint8_t)req[off + 4];
             if (off + 9 + plen > req_len)
                 break;
+            if (type == 0x4 && !saw_settings) {
+                saw_settings = 1;
+                assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)(plen % 6));
+                assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, plen >= 6);
+                /* First setting ID is 16-bit big-endian (not 32-bit). */
+                assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (unsigned char)req[off + 9]);
+                assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, (unsigned char)req[off + 10]);
+            }
             if (type == 0x0 && (flags & 0x1))
                 saw_data_end = 1;
             off += 9 + plen;
         }
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_settings);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_data_end);
     }
     free(req);
@@ -3656,6 +3666,39 @@ static void test_otlp_grpc_frame_and_http2(void)
                 &protobuf, &protobuf_len));
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)protobuf_len);
+        free(protobuf);
+        protobuf = NULL;
+        protobuf_len = 0;
+
+        /* otel-collector / grpc-go style: Huffman content-type + trailer names.
+         * Captured wire bytes; exercises fixed RFC 7541 Appendix B tables. */
+        {
+            const unsigned char wire[] = {
+                /* SETTINGS ACK */
+                0x00,0x00,0x00,0x04,0x01,0x00,0x00,0x00,0x00,
+                /* HEADERS END_HEADERS :status=200, content-type=application/grpc (Huffman) */
+                0x00,0x00,0x0e,0x01,0x04,0x00,0x00,0x00,0x01,
+                0x88,0x5f,0x8b,0x1d,0x75,0xd0,0x62,0x0d,0x26,0x3d,0x4c,0x4d,0x65,0x64,
+                /* DATA empty ExportMetricsServiceResponse framed */
+                0x00,0x00,0x07,0x00,0x00,0x00,0x00,0x00,0x01,
+                0x00,0x00,0x00,0x00,0x02,0x0a,0x00,
+                /* HEADERS END_STREAM|END_HEADERS trailers grpc-status=0 (Huffman names) */
+                0x00,0x00,0x18,0x01,0x05,0x00,0x00,0x00,0x01,
+                0x40,0x88,0x9a,0xca,0xc8,0xb2,0x12,0x34,0xda,0x8f,0x01,0x30,
+                0x40,0x89,0x9a,0xca,0xc8,0xb5,0x25,0x42,0x07,0x31,0x7f,0x00
+            };
+            grpc_status = -1;
+            status_msg[0] = '\0';
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+                otlp_grpc_http2_response_parse((const char *)wire, sizeof(wire),
+                    &grpc_status, status_msg, sizeof(status_msg), &protobuf, &protobuf_len));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, grpc_status);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)protobuf_len);
+            free(protobuf);
+            protobuf = NULL;
+            protobuf_len = 0;
+        }
+
         /* Success detail= always names grpc-status / :status / frames for field logs. */
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, "grpc-status=0") != NULL);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(status_msg, ":status=") != NULL);

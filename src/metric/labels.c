@@ -538,10 +538,12 @@ void labels_new_plan_node(void *funcarg, void* arg)
 	ctx->tail = cur;
 	ctx->plan_size++;
 	cur->sort_plan = sort_plan;
-	cur->name = strdup(labelscont->name);
+	/* Defensive: callers must not insert NULL name/key (see labels_hash_insert),
+	 * but treat empty string as a safe fallback if a corrupt HT entry slips in. */
+	cur->name = strdup(labelscont->name ? labelscont->name : "");
 	cur->name_len = strlen(cur->name);
 	cur->name_hash = ac->metrictree_hashfunc(cur->name, cur->name_len, 0);
-	cur->key = strdup(labelscont->key);
+	cur->key = strdup(labelscont->key ? labelscont->key : "");
 	cur->key_len = strlen(cur->key);
 	//cur->key_hash = ac->metrictree_hashfunc(cur->key, cur->key_len, 0);
 	cur->next = 0;
@@ -769,7 +771,9 @@ void labels_hash_free(alligator_ht *hash)
 
 void labels_hash_insert(alligator_ht *hash, char *name, char *key)
 {
-	if (!name)
+	/* Match labels_hash_insert_nocache: a NULL value must not enter the HT —
+	 * labels_new_plan_node() strdup's both name and key. */
+	if (!name || !key)
 		return;
 
 	uint32_t name_hash = ac->metrictree_hashfunc_get(name);
