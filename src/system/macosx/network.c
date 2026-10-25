@@ -4,20 +4,38 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <net/if.h>
+#include <net/if_dl.h>
 #include <net/if_media.h>
+#include <net/route.h>
 #include <netinet/in.h>
+#include <netinet/in_pcb.h>
 #include <netinet/ip_var.h>
 #include <netinet/tcp_var.h>
 #include <netinet/udp_var.h>
 #include <netinet/icmp_var.h>
 #include <netinet/ip_icmp.h>
-#include <sys/sysctl.h>
+#include <libproc.h>
+
+#ifndef SA_SIZE
+#define SA_SIZE(sa)						\
+	((!(sa) || ((const struct sockaddr *)(sa))->sa_len == 0) ?	\
+		sizeof(long) :						\
+		1 + ((((const struct sockaddr *)(sa))->sa_len - 1) | (sizeof(long) - 1)))
+#endif
 
 extern aconf *ac;
+
+/* Cap sysctl / libproc list buffers (fail soft / skip). */
+#define MACOSX_MAX_SYSCTL_BUF   (16U * 1024U * 1024U)
+#define MACOSX_MAX_FDINFO_BYTES (4U * 1024U * 1024U)
 
 static void emit_stat(const char *proto, const char *stat, int64_t val)
 {
@@ -117,5 +135,291 @@ void get_network_statistics(void)
 {
 	get_netstat_statistics();
 	get_interface_media();
+}
+
+void get_arp_stats(void)
+{
+	int mib[6];
+	size_t needed = 0;
+	char *buf = NULL, *next, *lim;
+	char devices[64][IFNAMSIZ];
+	uint64_t counts[64];
+	size_t ndev = 0;
+	size_t i;
+	int attempt;
+
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_INET;
+	mib[4] = NET_RT_FLAGS;
+	mib[5] = RTF_LLINFO;
+
+	for (attempt = 0; attempt < 3; attempt++) {
+		needed = 0;
+		if (sysctl(mib, 6, NULL, &needed, NULL, 0) != 0 || needed == 0) {
+			free(buf);
+			return;
+		}
+		needed += needed / 8 + 1024;
+		if (needed > MACOSX_MAX_SYSCTL_BUF) {
+			free(buf);
+			return;
+		}
+		free(buf);
+		buf = malloc(needed);
+		if (!buf)
+			return;
+		if (sysctl(mib, 6, buf, &needed, NULL, 0) == 0)
+			break;
+		if (errno != ENOMEM) {
+			free(buf);
+			return;
+		}
+	}
+	if (attempt >= 3) {
+		free(buf);
+		return;
+	}
+
+	lim = buf + needed;
+	for (next = buf; next < lim; ) {
+		struct rt_msghdr *rtm;
+		struct sockaddr *sa;
+		struct sockaddr_dl *sdl = NULL;
+		char ifname[IFNAMSIZ];
+		char *cp;
+		char *msg_end;
+		int addrs;
+
+		if ((size_t)(lim - next) < sizeof(*rtm))
+			break;
+		rtm = (struct rt_msghdr *)(void *)next;
+		if (rtm->rtm_msglen < sizeof(*rtm) || next + rtm->rtm_msglen > lim)
+			break;
+		msg_end = next + rtm->rtm_msglen;
+		next = msg_end;
+
+		cp = (char *)(rtm + 1);
+		addrs = rtm->rtm_addrs;
+		for (i = 0; i < RTAX_MAX; i++) {
+			size_t sa_sz;
+			size_t remain;
+
+			if (!(addrs & (1 << i)))
+				continue;
+			remain = (size_t)(msg_end - cp);
+			if (remain < 2)
+				break;
+			sa = (struct sockaddr *)(void *)cp;
+			sa_sz = SA_SIZE(sa);
+			if (sa_sz < 2 || sa_sz > remain)
+				break;
+			if (i == RTAX_GATEWAY && sa->sa_family == AF_LINK &&
+				sa->sa_len >= offsetof(struct sockaddr_dl, sdl_data))
+				sdl = (struct sockaddr_dl *)(void *)sa;
+			cp += sa_sz;
+		}
+		if (!sdl)
+			continue;
+
+		ifname[0] = '\0';
+		if (sdl->sdl_index)
+			if_indextoname(sdl->sdl_index, ifname);
+		if (!ifname[0] && sdl->sdl_nlen > 0 && sdl->sdl_nlen < (int)sizeof(ifname)) {
+			size_t name_off = offsetof(struct sockaddr_dl, sdl_data);
+			if ((size_t)sdl->sdl_len >= name_off + (size_t)sdl->sdl_nlen) {
+				memcpy(ifname, sdl->sdl_data, (size_t)sdl->sdl_nlen);
+				ifname[sdl->sdl_nlen] = '\0';
+			}
+		}
+		if (!ifname[0])
+			continue;
+
+		for (i = 0; i < ndev; i++) {
+			if (!strcmp(devices[i], ifname))
+				break;
+		}
+		if (i == ndev && ndev < 64) {
+			strlcpy(devices[ndev], ifname, sizeof(devices[ndev]));
+			counts[ndev] = 0;
+			++ndev;
+		}
+		if (i < ndev)
+			++counts[i];
+	}
+	free(buf);
+
+	for (i = 0; i < ndev; i++)
+		metric_add_labels("arp_entries", &counts[i], DATATYPE_UINT,
+			ac->system_carg, "device", devices[i]);
+}
+
+static void sockstat_emit_u64(const char *protocol, const char *stat, uint64_t val)
+{
+	metric_add_labels2("sockstat_stat_total", &val, DATATYPE_UINT,
+		ac->system_carg, "protocol", (char *)protocol, "stat", (char *)stat);
+}
+
+/* Returns 0 on success (count may be 0), -1 if sysctl unavailable. */
+static int sockstat_pcblist_count(const char *sysctl_name, uint64_t *count_out)
+{
+	size_t len = 0;
+	char *pbuf = NULL;
+	struct xinpgen *xig;
+	int attempt;
+
+	*count_out = 0;
+	for (attempt = 0; attempt < 3; attempt++) {
+		len = 0;
+		if (sysctlbyname(sysctl_name, NULL, &len, NULL, 0) != 0 || len < sizeof(*xig)) {
+			free(pbuf);
+			return -1;
+		}
+		len += len / 8 + sizeof(*xig);
+		if (len > MACOSX_MAX_SYSCTL_BUF) {
+			free(pbuf);
+			return -1;
+		}
+		free(pbuf);
+		pbuf = malloc(len);
+		if (!pbuf)
+			return -1;
+		if (sysctlbyname(sysctl_name, pbuf, &len, NULL, 0) == 0)
+			break;
+		if (errno != ENOMEM) {
+			free(pbuf);
+			return -1;
+		}
+	}
+	if (attempt >= 3) {
+		free(pbuf);
+		return -1;
+	}
+	if (len < sizeof(*xig)) {
+		free(pbuf);
+		return -1;
+	}
+	xig = (struct xinpgen *)(void *)pbuf;
+	*count_out = (uint64_t)xig->xig_count;
+	free(pbuf);
+	return 0;
+}
+
+static int sysctl_read_u64_flexible(const char *name, uint64_t *out)
+{
+	size_t sz = 0;
+
+	*out = 0;
+	if (sysctlbyname(name, NULL, &sz, NULL, 0) != 0 || !sz)
+		return -1;
+	if (sz == sizeof(uint64_t)) {
+		return sysctlbyname(name, out, &sz, NULL, 0);
+	}
+	if (sz == sizeof(uint32_t)) {
+		uint32_t v32 = 0;
+		sz = sizeof(v32);
+		if (sysctlbyname(name, &v32, &sz, NULL, 0) != 0)
+			return -1;
+		*out = v32;
+		return 0;
+	}
+	if (sz == sizeof(int)) {
+		int v = 0;
+		sz = sizeof(v);
+		if (sysctlbyname(name, &v, &sz, NULL, 0) != 0 || v < 0)
+			return -1;
+		*out = (uint64_t)v;
+		return 0;
+	}
+	return -1;
+}
+
+/* Fallback: count PROX_FDTYPE_SOCKET across visible processes via libproc. */
+static uint64_t sockstat_libproc_socket_count(void)
+{
+	int bufsize = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+	pid_t *pids;
+	int index;
+	uint64_t total = 0;
+
+	if (bufsize <= 0)
+		return 0;
+	bufsize *= 2;
+	pids = malloc((size_t)bufsize);
+	if (!pids)
+		return 0;
+	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, bufsize);
+	if (bufsize <= 0) {
+		free(pids);
+		return 0;
+	}
+
+	for (index = 0; index < bufsize / (int)sizeof(pid_t); index++) {
+		struct proc_fdinfo *fds;
+		int fdbytes;
+		int nfd;
+		int j;
+		pid_t pid = pids[index];
+
+		if (pid <= 0)
+			continue;
+		fdbytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, NULL, 0);
+		if (fdbytes <= 0)
+			continue;
+		if ((size_t)fdbytes > MACOSX_MAX_FDINFO_BYTES)
+			continue;
+		fds = malloc((size_t)fdbytes);
+		if (!fds)
+			continue;
+		nfd = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, fdbytes);
+		if (nfd <= 0) {
+			free(fds);
+			continue;
+		}
+		nfd /= (int)sizeof(*fds);
+		for (j = 0; j < nfd; j++) {
+			if (fds[j].proc_fdtype == PROX_FDTYPE_SOCKET)
+				++total;
+		}
+		free(fds);
+	}
+	free(pids);
+	return total;
+}
+
+void get_sockstat_stats(void)
+{
+	uint64_t used = 0;
+	uint64_t tcp_n = 0, udp_n = 0;
+	int have_tcp = 0, have_udp = 0;
+
+	if (sysctl_read_u64_flexible("kern.ipc.numopensockets", &used) == 0)
+		metric_add_auto("sockstat_sockets_used", &used, DATATYPE_UINT, ac->system_carg);
+
+	if (sockstat_pcblist_count("net.inet.tcp.pcblist", &tcp_n) == 0) {
+		sockstat_emit_u64("TCP", "inuse", tcp_n);
+		have_tcp = 1;
+	}
+	if (sockstat_pcblist_count("net.inet.udp.pcblist", &udp_n) == 0) {
+		sockstat_emit_u64("UDP", "inuse", udp_n);
+		have_udp = 1;
+	}
+
+	if (used == 0 && (have_tcp || have_udp)) {
+		used = tcp_n + udp_n;
+		metric_add_auto("sockstat_sockets_used", &used, DATATYPE_UINT, ac->system_carg);
+	} else if (used == 0 && !have_tcp && !have_udp) {
+		used = sockstat_libproc_socket_count();
+		if (used)
+			metric_add_auto("sockstat_sockets_used", &used, DATATYPE_UINT, ac->system_carg);
+	}
+
+	{
+		uint64_t maxsock = 0;
+
+		if (sysctl_read_u64_flexible("kern.ipc.maxsockets", &maxsock) == 0)
+			sockstat_emit_u64("sockets", "max", maxsock);
+	}
 }
 #endif

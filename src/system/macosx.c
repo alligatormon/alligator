@@ -281,7 +281,8 @@ static int skip_mount(const char *path)
 void get_disk(void)
 {
 	struct statfs *mounts;
-	int num_mounts = getmntinfo(&mounts, MNT_WAIT);
+	/* DATATYPE_INT reads *(int64_t*); a stack int leaves a garbage high half. */
+	int64_t num_mounts = getmntinfo(&mounts, MNT_WAIT);
 	int i;
 
 	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, ac->system_carg);
@@ -289,7 +290,7 @@ void get_disk(void)
 		struct statfs stats;
 		int64_t avail, total, used;
 		double pused, pfree;
-		uint64_t inodes_used;
+		int64_t inodes_used, inodes_free, inodes_total;
 		double iused, ifree;
 		int64_t one = 1;
 
@@ -313,17 +314,25 @@ void get_disk(void)
 		metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
 
 		if (stats.f_files > 0) {
-			inodes_used = stats.f_files - stats.f_ffree;
-			iused = inodes_used * 100.0 / stats.f_files;
+			inodes_total = (int64_t)stats.f_files;
+			inodes_free = (int64_t)stats.f_ffree;
+			inodes_used = inodes_total - inodes_free;
+			iused = inodes_used * 100.0 / (double)inodes_total;
 			ifree = 100.0 - iused;
-			metric_add_labels2("disk_inodes", &stats.f_ffree, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+			metric_add_labels2("disk_inodes", &inodes_free, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
 			metric_add_labels2("disk_inodes", &inodes_used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
-			metric_add_labels2("disk_inodes", &stats.f_files, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
+			metric_add_labels2("disk_inodes", &inodes_total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
 			metric_add_labels2("disk_inodes_percent", &iused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 			metric_add_labels2("disk_inodes_percent", &ifree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
 		}
 
 		metric_add_labels2("disk_filesystem", &one, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "fs", mounts[i].f_fstypename);
+
+		{
+			int64_t readonly = (mounts[i].f_flags & MNT_RDONLY) ? 1 : 0;
+			metric_add_labels("disk_readonly", &readonly, DATATYPE_INT, ac->system_carg,
+				"mountpoint", mounts[i].f_mntonname);
+		}
 	}
 }
 
@@ -341,13 +350,19 @@ void get_mem(void)
 	int64_t external_memory, internal_memory;
 	int64_t vm_faults;
 	int64_t num_cpu = 0;
-	size_t cpu_len = sizeof(num_cpu);
 	double load1, load5, load15;
 	struct loadavg load;
 	size_t load_len = sizeof(load);
 
 	sysctl(mib, 2, &physical_memory, &length, NULL, 0);
-	sysctlbyname("hw.ncpu", &num_cpu, &cpu_len, NULL, 0);
+	{
+		/* hw.ncpu is 4-byte; do not sysctl into an oversized int64_t. */
+		int ncpu = 0;
+		size_t cpu_len = sizeof(ncpu);
+
+		if (sysctlbyname("hw.ncpu", &ncpu, &cpu_len, NULL, 0) == 0)
+			num_cpu = ncpu;
+	}
 
 	mach_port = mach_host_self();
 	count = HOST_VM_INFO64_COUNT;
@@ -393,13 +408,52 @@ void get_mem(void)
 		int64_t pageouts = (int64_t)vm_stats.pageouts;
 		int64_t swapins = (int64_t)vm_stats.swapins;
 		int64_t swapouts = (int64_t)vm_stats.swapouts;
+		/*
+		 * Darwin has no vm.stats.vm.v_io_faults. Keep FreeBSD metric names:
+		 * pageouts → io_faults and vmstat_stat_total{stat=pgmajfault}.
+		 */
+		uint64_t io_faults = (uint64_t)vm_stats.pageouts;
 
 		metric_add_labels("memory_stat", &pageins, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
 		metric_add_labels("memory_stat", &pageouts, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
 		metric_add_labels("memory_stat", &swapins, DATATYPE_INT, ac->system_carg, "type", "pgswpin");
 		metric_add_labels("memory_stat", &swapouts, DATATYPE_INT, ac->system_carg, "type", "pgswpout");
+		metric_add_auto("io_faults", &io_faults, DATATYPE_UINT, ac->system_carg);
 	}
 	metric_add_auto("vm_faults", &vm_faults, DATATYPE_INT, ac->system_carg);
+
+	{
+		uint64_t u;
+
+		u = (uint64_t)vm_stats.faults;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgfault");
+		u = (uint64_t)vm_stats.pageouts;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgmajfault");
+		u = (uint64_t)vm_stats.cow_faults;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "cow_faults");
+		u = (uint64_t)vm_stats.zero_fill_count;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "zero_fills");
+		u = (uint64_t)vm_stats.reactivations;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "reactivations");
+		u = (uint64_t)vm_stats.purges;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "purges");
+		u = (uint64_t)vm_stats.compressions;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "compressions");
+		u = (uint64_t)vm_stats.decompressions;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "decompressions");
+		u = (uint64_t)vm_stats.lookups;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "lookups");
+		u = (uint64_t)vm_stats.hits;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "hits");
+		u = (uint64_t)vm_stats.pageins;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgin");
+		u = (uint64_t)vm_stats.pageouts;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgout");
+		u = (uint64_t)vm_stats.swapins;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpin");
+		u = (uint64_t)vm_stats.swapouts;
+		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpout");
+	}
 
 	if (sysctlbyname("vm.loadavg", &load, &load_len, NULL, 0) == 0) {
 		load1 = (double)load.ldavg[0] / (double)load.fscale;
@@ -413,12 +467,41 @@ void get_mem(void)
 	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
+/* Darwin sysctls are often 4-byte; never read into an oversized uint64_t. */
+static int sysctl_read_u64_flexible(const char *name, uint64_t *out)
+{
+	size_t sz = 0;
+
+	*out = 0;
+	if (sysctlbyname(name, NULL, &sz, NULL, 0) != 0 || !sz)
+		return -1;
+	if (sz == sizeof(uint64_t)) {
+		return sysctlbyname(name, out, &sz, NULL, 0);
+	}
+	if (sz == sizeof(uint32_t)) {
+		uint32_t v32 = 0;
+		sz = sizeof(v32);
+		if (sysctlbyname(name, &v32, &sz, NULL, 0) != 0)
+			return -1;
+		*out = v32;
+		return 0;
+	}
+	if (sz == sizeof(int)) {
+		int v = 0;
+		sz = sizeof(v);
+		if (sysctlbyname(name, &v, &sz, NULL, 0) != 0 || v < 0)
+			return -1;
+		*out = (uint64_t)v;
+		return 0;
+	}
+	return -1;
+}
+
 static void get_sysctl_stat_u64(const char *ctlname, const char *mapping)
 {
 	uint64_t val;
-	size_t size = sizeof(val);
 
-	if (sysctlbyname(ctlname, &val, &size, NULL, 0) != 0)
+	if (sysctl_read_u64_flexible(ctlname, &val) != 0)
 		return;
 	metric_add_auto((char *)mapping, &val, DATATYPE_UINT, ac->system_carg);
 }
@@ -427,7 +510,15 @@ static void get_vmstat(void)
 {
 	get_sysctl_stat_u64("kern.num_files", "open_files");
 	get_sysctl_stat_u64("kern.maxfiles", "max_files");
+	get_sysctl_stat_u64("kern.maxfilesperproc", "max_files_per_proc");
 	get_sysctl_stat_u64("kern.maxproc", "processes_max");
+	/* Host counters: emit only when a real monotonic sysctl exists (omit if absent). */
+	get_sysctl_stat_u64("vm.stats.sys.v_swtch", "context_switches_total");
+	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks_total");
+	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls");
+	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts_total");
+	get_sysctl_stat_u64("kern.ipc.numopensockets", "open_sockets");
+	get_sysctl_stat_u64("kern.ipc.maxsockets", "max_sockets");
 }
 
 void get_iface_statistics(void)
@@ -467,6 +558,7 @@ void get_iface_statistics(void)
 		ierrors = ifd->ifi_ierrors;
 		oerrors = ifd->ifi_oerrors;
 		iqdrops = ifd->ifi_iqdrops;
+		/* Darwin struct if_data has no ifi_oqdrops in SDK headers; keep 0 (do not proxy from oerrors). */
 		oqdrops = 0;
 		imcasts = ifd->ifi_imcasts;
 		omcasts = ifd->ifi_omcasts;
@@ -523,13 +615,17 @@ void get_system_metrics(void)
 		platform = get_platform(1);
 		get_kernel_version(platform);
 		get_distribution_name();
-		get_memory_usage_hw();
-	}
+		get_utmp_info();
+		get_proc_interrupts(ac->system_interrupts);
+	} else if (ac->system_interrupts)
+		get_proc_interrupts(ac->system_interrupts);
 	if (ac->system_base && !ac->system_process)
 		get_proc_info(1);
 	if (ac->system_network) {
 		get_iface_statistics();
 		get_network_statistics();
+		get_arp_stats();
+		get_sockstat_stats();
 		check_sockets_macos();
 	}
 	if (ac->system_disk) {
@@ -568,6 +664,8 @@ void system_slow_scrape(void)
 		get_smbios();
 	if (ac->system_disk)
 		disks_info();
+	if (ac->system_packages)
+		get_packages_info();
 }
 
 void system_free(void)

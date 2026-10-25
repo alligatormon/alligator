@@ -135,7 +135,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "max_sockets", METRIC_TYPE_GAUGE, "Maximum number of sockets allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "swap_usage", METRIC_TYPE_GAUGE, "Swap space in kilobytes by usage type.");
 	namespace_metric_family_set(NULL, carg, "vm_faults", METRIC_TYPE_COUNTER, "Total VM page faults since boot.");
-	namespace_metric_family_set(NULL, carg, "io_faults", METRIC_TYPE_COUNTER, "Total VM I/O faults since boot.");
+	namespace_metric_family_set(NULL, carg, "io_faults", METRIC_TYPE_COUNTER, "Total VM I/O faults since boot. FreeBSD: vm.stats.vm.v_io_faults. Darwin: host pageouts used as proxy (no v_io_faults OID); same value also labeled vmstat_stat_total{stat=pgmajfault}.");
 	namespace_metric_family_set(NULL, carg, "vforks", METRIC_TYPE_COUNTER, "Total vfork operations since boot.");
 	namespace_metric_family_set(NULL, carg, "rforks", METRIC_TYPE_COUNTER, "Total rfork operations since boot.");
 	namespace_metric_family_set(NULL, carg, "system_calls", METRIC_TYPE_COUNTER, "Total system calls since boot.");

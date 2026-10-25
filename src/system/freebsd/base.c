@@ -205,53 +205,8 @@ void get_utmp_info(void)
 
 void get_memory_usage_hw(void)
 {
-	u_int page_size;
-	struct vmtotal vmt;
-	size_t sz;
-	int64_t physmem;
-	u_int v_active_count = 0;
-	u_int v_inactive_count = 0;
-	u_int wire_count = 0;
-	int64_t free_memory, avail_memory, active_memory, inact_memory, wire_memory, usage_memory;
-	int64_t swap_total = 0, swap_used = 0, swap_free = 0;
-	kvm_t *kd;
-
-	sz = sizeof(vmt);
-	if (sysctlbyname("vm.vmtotal", &vmt, &sz, NULL, 0) != 0)
-		return;
-
-	sz = sizeof(page_size);
-	if (sysctlbyname("vm.stats.vm.v_page_size", &page_size, &sz, NULL, 0) != 0)
-		return;
-
-	sz = sizeof(physmem);
-	if (sysctlbyname("hw.physmem", &physmem, &sz, NULL, 0) != 0)
-		return;
-
-	sz = sizeof(v_active_count);
-	sysctlbyname("vm.stats.vm.v_active_count", &v_active_count, &sz, NULL, 0);
-	sz = sizeof(v_inactive_count);
-	sysctlbyname("vm.stats.vm.v_inactive_count", &v_inactive_count, &sz, NULL, 0);
-	sz = sizeof(wire_count);
-	sysctlbyname("vm.stats.vm.v_wire_count", &wire_count, &sz, NULL, 0);
-
-	free_memory = (int64_t)vmt.t_free * (int64_t)page_size;
-	active_memory = (int64_t)v_active_count * (int64_t)page_size;
-	inact_memory = (int64_t)v_inactive_count * (int64_t)page_size;
-	wire_memory = (int64_t)wire_count * (int64_t)page_size;
-	/* available ≈ free + inactive; t_avm is active virtual memory, not available RAM */
-	avail_memory = free_memory + inact_memory;
-	usage_memory = physmem - avail_memory;
-
-	metric_add_labels("memory_usage_hw", &physmem, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("memory_usage_hw", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
-	metric_add_labels("memory_usage_hw", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
-	metric_add_labels("memory_usage_hw", &inact_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
-	metric_add_labels("memory_usage_hw", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
-	metric_add_labels("memory_usage_hw", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
-	metric_add_labels("memory_usage_hw", &usage_memory, DATATYPE_INT, ac->system_carg, "type", "usage");
-
-	kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
+	/* memory_usage_hw omitted on FreeBSD (duplicates memory_usage); keep per-device swap. */
+	kvm_t *kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
 	if (kd) {
 		/*
 		 * kvm_getswapinfo(3): fills up to maxswap-1 per-device slots;
@@ -267,15 +222,6 @@ void get_memory_usage_hw(void)
 
 		nswap = kvm_getswapinfo(kd, swaps, maxswap, 0);
 		if (nswap >= 0) {
-			struct kvm_swap *tot = &swaps[nswap];
-
-			swap_total = tot->ksw_total * (int64_t)pagesize;
-			swap_used = tot->ksw_used * (int64_t)pagesize;
-			swap_free = swap_total >= swap_used ? swap_total - swap_used : 0;
-			metric_add_labels("memory_usage_hw", &swap_total, DATATYPE_INT, ac->system_carg, "type", "swap_total");
-			metric_add_labels("memory_usage_hw", &swap_free, DATATYPE_INT, ac->system_carg, "type", "swap_free");
-			metric_add_labels("memory_usage_hw", &swap_used, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
-
 			for (i = 0; i < nswap; i++) {
 				uint64_t size_bytes = (uint64_t)swaps[i].ksw_total * (uint64_t)pagesize;
 				uint64_t used_bytes = (uint64_t)swaps[i].ksw_used * (uint64_t)pagesize;

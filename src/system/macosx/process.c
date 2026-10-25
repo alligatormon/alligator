@@ -14,14 +14,51 @@
 #include <sys/sysctl.h>
 #include <sys/resource.h>
 #include <sys/proc.h>
+#include <sys/proc_info.h>
 #include <libproc.h>
 
 extern aconf *ac;
 
+/* Cap libproc FD / thread list allocations (fail soft). */
+#define MACOSX_MAX_FDINFO_BYTES  (4U * 1024U * 1024U)
+#define MACOSX_MAX_THRINFO_BYTES (4U * 1024U * 1024U)
+
 typedef struct macosx_fd_counts {
 	int64_t files;
+	int64_t sockets;
 	int64_t pipes;
+	int64_t vnodes;
+	int64_t other;
 } macosx_fd_counts;
+
+static int sysctl_read_u64_flexible(const char *name, uint64_t *out)
+{
+	size_t sz = 0;
+
+	*out = 0;
+	if (sysctlbyname(name, NULL, &sz, NULL, 0) != 0 || !sz)
+		return -1;
+	if (sz == sizeof(uint64_t)) {
+		return sysctlbyname(name, out, &sz, NULL, 0);
+	}
+	if (sz == sizeof(uint32_t)) {
+		uint32_t v32 = 0;
+		sz = sizeof(v32);
+		if (sysctlbyname(name, &v32, &sz, NULL, 0) != 0)
+			return -1;
+		*out = v32;
+		return 0;
+	}
+	if (sz == sizeof(int)) {
+		int v = 0;
+		sz = sizeof(v);
+		if (sysctlbyname(name, &v, &sz, NULL, 0) != 0 || v < 0)
+			return -1;
+		*out = (uint64_t)v;
+		return 0;
+	}
+	return -1;
+}
 
 int userprocess_compare(const void *arg, const void *obj)
 {
@@ -69,13 +106,214 @@ static int macosx_get_cmdline(pid_t pid, char *buf, size_t bufsz)
 
 static void macosx_count_fds(pid_t pid, macosx_fd_counts *cnt)
 {
-	int fcnt;
+	struct proc_fdinfo *fds;
+	int fdbytes;
+	int nfd;
+	int i;
 
 	memset(cnt, 0, sizeof(*cnt));
-	fcnt = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, NULL, 0);
-	if (fcnt <= 0)
+	fdbytes = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, NULL, 0);
+	if (fdbytes <= 0)
 		return;
-	cnt->files = fcnt;
+	if ((size_t)fdbytes > MACOSX_MAX_FDINFO_BYTES)
+		return;
+
+	fds = malloc((size_t)fdbytes);
+	if (!fds)
+		return;
+
+	nfd = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, fds, fdbytes);
+	if (nfd <= 0) {
+		free(fds);
+		return;
+	}
+	nfd /= (int)sizeof(*fds);
+	cnt->files = nfd;
+	for (i = 0; i < nfd; i++) {
+		switch (fds[i].proc_fdtype) {
+		case PROX_FDTYPE_SOCKET:
+			cnt->sockets++;
+			break;
+		case PROX_FDTYPE_PIPE:
+			cnt->pipes++;
+			break;
+		case PROX_FDTYPE_VNODE:
+			cnt->vnodes++;
+			break;
+		default:
+			cnt->other++;
+			break;
+		}
+	}
+	free(fds);
+}
+
+static void macosx_emit_fd_breakdown(const char *name, const char *pidstr, const macosx_fd_counts *fds)
+{
+	int64_t val;
+
+	val = fds->files;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_files", "pid", (char *)pidstr);
+	val = fds->sockets;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_sockets", "pid", (char *)pidstr);
+	val = fds->pipes;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_pipes", "pid", (char *)pidstr);
+	val = fds->vnodes;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_vnodes", "pid", (char *)pidstr);
+	val = fds->other;
+	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_other", "pid", (char *)pidstr);
+}
+
+static void macosx_emit_page_faults(const struct proc_taskinfo *task, const char *name, const char *pidstr)
+{
+	int64_t majflt = (int64_t)task->pti_pageins;
+	int64_t minflt = (int64_t)task->pti_faults - majflt;
+
+	if (minflt < 0)
+		minflt = 0;
+
+	metric_add_labels3("process_page_faults_total", &minflt, DATATYPE_INT, ac->system_carg,
+		"name", (char *)name, "pid", (char *)pidstr, "type", "minor");
+	metric_add_labels3("process_page_faults_total", &majflt, DATATYPE_INT, ac->system_carg,
+		"name", (char *)name, "pid", (char *)pidstr, "type", "major");
+}
+
+/* Darwin has no remote rlimit API without task_for_pid; emit only for self. */
+static void macosx_emit_process_rlimits(pid_t pid, const char *name, const char *pidstr,
+	const macosx_fd_counts *fds, const struct proc_taskinfo *task)
+{
+	struct rlimit rl;
+	uint64_t uval;
+	double usage;
+
+	if (pid != getpid())
+		return;
+
+	if (getrlimit(RLIMIT_NOFILE, &rl) == 0 && rl.rlim_cur > 0 && rl.rlim_cur != RLIM_INFINITY) {
+		uval = (uint64_t)rl.rlim_cur;
+		metric_add_labels3("process_rlimit", &uval, DATATYPE_UINT, ac->system_carg,
+			"type", "open_files", "name", (char *)name, "pid", (char *)pidstr);
+		usage = fds->files * 1.0 / (double)rl.rlim_cur;
+		metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg,
+			"type", "open_files", "name", (char *)name, "pid", (char *)pidstr);
+	}
+	if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur > 0 && rl.rlim_cur != RLIM_INFINITY) {
+		uval = (uint64_t)rl.rlim_cur;
+		metric_add_labels3("process_rlimit", &uval, DATATYPE_UINT, ac->system_carg,
+			"type", "stack_bytes", "name", (char *)name, "pid", (char *)pidstr);
+	}
+	if (getrlimit(RLIMIT_DATA, &rl) == 0 && rl.rlim_cur > 0 && rl.rlim_cur != RLIM_INFINITY) {
+		uval = (uint64_t)rl.rlim_cur;
+		metric_add_labels3("process_rlimit", &uval, DATATYPE_UINT, ac->system_carg,
+			"type", "data_bytes", "name", (char *)name, "pid", (char *)pidstr);
+	}
+	/*
+	 * On Darwin RLIMIT_RSS is an alias of RLIMIT_AS; emitting both would
+	 * duplicate the same limit with a misleading RSS usage ratio. Prefer AS/vsz.
+	 */
+#if defined(RLIMIT_RSS) && defined(RLIMIT_AS) && (RLIMIT_RSS != RLIMIT_AS)
+	if (getrlimit(RLIMIT_RSS, &rl) == 0 && rl.rlim_cur > 0 && rl.rlim_cur != RLIM_INFINITY) {
+		uval = (uint64_t)rl.rlim_cur;
+		metric_add_labels3("process_rlimit", &uval, DATATYPE_UINT, ac->system_carg,
+			"type", "rss", "name", (char *)name, "pid", (char *)pidstr);
+		usage = (double)task->pti_resident_size / (double)rl.rlim_cur;
+		metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg,
+			"type", "rss", "name", (char *)name, "pid", (char *)pidstr);
+	}
+#endif
+	if (getrlimit(RLIMIT_AS, &rl) == 0 && rl.rlim_cur > 0 && rl.rlim_cur != RLIM_INFINITY) {
+		uval = (uint64_t)rl.rlim_cur;
+		metric_add_labels3("process_rlimit", &uval, DATATYPE_UINT, ac->system_carg,
+			"type", "vsz", "name", (char *)name, "pid", (char *)pidstr);
+		usage = (double)task->pti_virtual_size / (double)rl.rlim_cur;
+		metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg,
+			"type", "vsz", "name", (char *)name, "pid", (char *)pidstr);
+	}
+}
+
+static void macosx_count_task_states(uint64_t *running, uint64_t *sleeping,
+	uint64_t *stopped, uint64_t *zombie, uint64_t *uninterruptible, uint64_t *idle)
+{
+	int bufsize = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+	pid_t *pids;
+	int index;
+
+	*running = *sleeping = *stopped = *zombie = *uninterruptible = *idle = 0;
+	if (bufsize <= 0)
+		return;
+	bufsize *= 2;
+	pids = malloc((size_t)bufsize);
+	if (!pids)
+		return;
+	bufsize = proc_listpids(PROC_ALL_PIDS, 0, pids, bufsize);
+	if (bufsize <= 0) {
+		free(pids);
+		return;
+	}
+
+	for (index = 0; index < bufsize / (int)sizeof(pid_t); index++) {
+		uint64_t *thrbuf = NULL;
+		int thrbytes;
+		int nthr;
+		int t;
+		struct proc_bsdinfo proc;
+		pid_t pid = pids[index];
+
+		if (pid <= 0)
+			continue;
+
+		if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &proc, PROC_PIDTBSDINFO_SIZE) > 0 &&
+			proc.pbi_status == SZOMB) {
+			(*zombie)++;
+			continue;
+		}
+
+		thrbytes = proc_pidinfo(pid, PROC_PIDLISTTHREADS, 0, NULL, 0);
+		if (thrbytes <= 0)
+			continue;
+		if ((size_t)thrbytes > MACOSX_MAX_THRINFO_BYTES)
+			continue;
+		thrbuf = malloc((size_t)thrbytes);
+		if (!thrbuf)
+			continue;
+		nthr = proc_pidinfo(pid, PROC_PIDLISTTHREADS, 0, thrbuf, thrbytes);
+		if (nthr <= 0) {
+			free(thrbuf);
+			continue;
+		}
+		nthr /= (int)sizeof(uint64_t);
+
+		for (t = 0; t < nthr; t++) {
+			struct proc_threadinfo pth;
+
+			if (proc_pidinfo(pid, PROC_PIDTHREADINFO, thrbuf[t], &pth, PROC_PIDTHREADINFO_SIZE) <= 0)
+				continue;
+
+			if (pth.pth_flags & TH_FLAGS_IDLE) {
+				(*idle)++;
+				continue;
+			}
+			switch (pth.pth_run_state) {
+			case TH_STATE_RUNNING:
+				(*running)++;
+				break;
+			case TH_STATE_WAITING:
+				(*sleeping)++;
+				break;
+			case TH_STATE_UNINTERRUPTIBLE:
+				(*uninterruptible)++;
+				break;
+			case TH_STATE_STOPPED:
+			case TH_STATE_HALTED:
+				(*stopped)++;
+				break;
+			default:
+				break;
+			}
+		}
+		free(thrbuf);
+	}
+	free(pids);
 }
 
 static void macosx_emit_process_state(uint8_t status, const char *name, const char *pidstr, int8_t emit)
@@ -172,8 +410,6 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "threads", "pid", pidstr);
 	val = proc->pbi_status;
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "status", "pid", pidstr);
-	val = proc->pbi_nfiles;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "open_files", "pid", pidstr);
 	val = task->pti_cow_faults;
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "COWfaults", "pid", pidstr);
 	val = (int64_t)(uint32_t)task->pti_csw;
@@ -187,7 +423,9 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 	macosx_emit_process_state(proc->pbi_status, (char *)proc->pbi_name, pidstr, 1);
 	macosx_emit_process_io(pid, (char *)proc->pbi_name, pidstr);
 	macosx_count_fds(pid, &fds);
-	macosx_emit_process_io(pid, (char *)proc->pbi_name, pidstr);
+	macosx_emit_fd_breakdown((char *)proc->pbi_name, pidstr, &fds);
+	macosx_emit_process_rlimits(pid, (char *)proc->pbi_name, pidstr, &fds, task);
+	macosx_emit_page_faults(task, (char *)proc->pbi_name, pidstr);
 }
 
 static int8_t macosx_process_matches(const char *comm, char *cmdline, size_t cmdline_size)
@@ -263,7 +501,6 @@ void get_proc_info(int8_t lightweight)
 	uint64_t open_pipes = 0;
 	int64_t threads_max = 0;
 	double threads_usage = 0;
-	size_t sz;
 	int8_t need_match = ac->system_process ? 1 : 0;
 	macosx_fd_counts fds;
 	uint64_t proc_count = 0;
@@ -326,6 +563,7 @@ void get_proc_info(int8_t lightweight)
 
 		macosx_count_fds(pid, &fds);
 		open_files_process += fds.files;
+		open_pipes += (uint64_t)fds.pipes;
 
 		if (need_match) {
 			cmdline[0] = 0;
@@ -353,29 +591,45 @@ void get_proc_info(int8_t lightweight)
 	metric_add_labels("process_states", &zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("process_states", &uninterruptible, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
 
+	{
+		uint64_t t_running = 0, t_sleeping = 0, t_stopped = 0, t_zombie = 0, t_unint = 0, t_idle = 0;
+
+		macosx_count_task_states(&t_running, &t_sleeping, &t_stopped, &t_zombie, &t_unint, &t_idle);
+		metric_add_labels("task_states", &t_running, DATATYPE_UINT, ac->system_carg, "state", "running");
+		metric_add_labels("task_states", &t_sleeping, DATATYPE_UINT, ac->system_carg, "state", "sleeping");
+		metric_add_labels("task_states", &t_unint, DATATYPE_UINT, ac->system_carg, "state", "uninterruptible");
+		metric_add_labels("task_states", &t_zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
+		metric_add_labels("task_states", &t_stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
+		metric_add_labels("task_states", &t_idle, DATATYPE_UINT, ac->system_carg, "state", "idle");
+	}
+
 	metric_add_labels("process_context_switches", &csw_sum, DATATYPE_UINT, ac->system_carg, "type", "sum");
 	metric_add_labels("process_context_switches", &csw_procs, DATATYPE_UINT, ac->system_carg, "type", "processes");
 
 	{
-		uint64_t proc_max;
-		size_t proc_max_sz = sizeof(proc_max);
+		uint64_t proc_max = 0;
 
 		metric_add_auto("processes_total", &proc_count, DATATYPE_UINT, ac->system_carg);
-		if (sysctlbyname("kern.maxproc", &proc_max, &proc_max_sz, NULL, 0) == 0 && proc_max > 0) {
+		if (sysctl_read_u64_flexible("kern.maxproc", &proc_max) == 0 && proc_max > 0) {
 			double proc_usage = proc_count * 100.0 / (double)proc_max;
 			metric_add_auto("processes_usage", &proc_usage, DATATYPE_DOUBLE, ac->system_carg);
 		}
 	}
 
 	metric_add_auto("open_files_process", &open_files_process, DATATYPE_INT, ac->system_carg);
+	/* Host open_sockets/max_sockets come from get_vmstat() via sysctl (FreeBSD parity). */
 	metric_add_auto("open_pipes", &open_pipes, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 
-	sz = sizeof(threads_max);
-	if (sysctlbyname("kern.maxthread", &threads_max, &sz, NULL, 0) == 0 && threads_max > 0) {
-		metric_add_auto("tasks_max", &threads_max, DATATYPE_INT, ac->system_carg);
-		threads_usage = tasks * 100.0 / (double)threads_max;
-		metric_add_auto("tasks_usage", &threads_usage, DATATYPE_DOUBLE, ac->system_carg);
+	{
+		uint64_t tmax = 0;
+
+		if (sysctl_read_u64_flexible("kern.maxthread", &tmax) == 0 && tmax > 0) {
+			threads_max = (int64_t)tmax;
+			metric_add_auto("tasks_max", &threads_max, DATATYPE_INT, ac->system_carg);
+			threads_usage = tasks * 100.0 / (double)threads_max;
+			metric_add_auto("tasks_usage", &threads_usage, DATATYPE_DOUBLE, ac->system_carg);
+		}
 	}
 
 	if (need_match && !lightweight)

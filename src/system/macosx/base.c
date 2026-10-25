@@ -1,6 +1,8 @@
 #ifdef __APPLE__
 #include "main.h"
 #include "system/common.h"
+#include "common/selector.h"
+#include "common/logs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,9 +11,7 @@
 #include <fcntl.h>
 #include <sys/sysctl.h>
 #include <sys/utsname.h>
-#include <mach/mach.h>
-#include <mach/vm_statistics.h>
-#include <mach/mach_host.h>
+#include <utmpx.h>
 
 extern aconf *ac;
 
@@ -112,51 +112,48 @@ void get_distribution_name(void)
 		"os", "darwin", "name", "macOS", "version", version, "pretty", pretty_name);
 }
 
-void get_memory_usage_hw(void)
+static void utmp_parse(struct utmpx *log)
 {
-	int64_t physical_memory = 0;
-	size_t length = sizeof(physical_memory);
-	int mib[2] = {CTL_HW, HW_MEMSIZE};
-	vm_size_t page_size;
-	mach_port_t mach_port;
-	mach_msg_type_number_t count;
-	vm_statistics64_data_t vm_stats;
-	int64_t free_memory, active_memory, inact_memory, wire_memory;
-	int64_t avail_memory, usage_memory;
-	struct xsw_usage swap = {0};
-	size_t swap_sz = sizeof(swap);
-
-	sysctl(mib, 2, &physical_memory, &length, NULL, 0);
-
-	mach_port = mach_host_self();
-	count = HOST_VM_INFO64_COUNT;
-	if (host_page_size(mach_port, &page_size) != KERN_SUCCESS
-	    || host_statistics64(mach_port, HOST_VM_INFO64, (host_info64_t)&vm_stats, &count) != KERN_SUCCESS)
+	if (!log || log->ut_type != USER_PROCESS)
 		return;
 
-	free_memory = (int64_t)vm_stats.free_count * (int64_t)page_size;
-	active_memory = (int64_t)vm_stats.active_count * (int64_t)page_size;
-	inact_memory = (int64_t)vm_stats.inactive_count * (int64_t)page_size;
-	wire_memory = (int64_t)vm_stats.wire_count * (int64_t)page_size;
-	avail_memory = free_memory + inact_memory + (int64_t)vm_stats.speculative_count * (int64_t)page_size;
-	usage_memory = physical_memory - avail_memory;
+	{
+		int64_t time = log->ut_tv.tv_sec;
+		/* Darwin: ttysNNN matches "tty" → terminal; also treat console as terminal. */
+		if (!strncmp(log->ut_line, "tty", 3) || !strcmp(log->ut_line, "console")) {
+			metric_add_labels4("utmp_logged_in_timestamp_seconds", &time, DATATYPE_INT, ac->system_carg,
+				"user", log->ut_user, "host", log->ut_host, "type", "terminal", "terminal", log->ut_line);
+		}
+		if (!strncmp(log->ut_line, "pts", 3) || !strncmp(log->ut_line, "p", 1)) {
+			metric_add_labels4("utmp_logged_in_timestamp_seconds", &time, DATATYPE_INT, ac->system_carg,
+				"user", log->ut_user, "host", log->ut_host, "type", "pseudo-terminal", "terminal", log->ut_line);
+		}
+	}
+}
 
-	metric_add_labels("memory_usage_hw", &physical_memory, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("memory_usage_hw", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
-	metric_add_labels("memory_usage_hw", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
-	metric_add_labels("memory_usage_hw", &inact_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
-	metric_add_labels("memory_usage_hw", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
-	metric_add_labels("memory_usage_hw", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
-	metric_add_labels("memory_usage_hw", &usage_memory, DATATYPE_INT, ac->system_carg, "type", "usage");
+void get_utmp_info(void)
+{
+	struct utmpx *log;
+	uint64_t btmp_size = get_file_size("/var/log/btmp");
 
-	if (sysctlbyname("vm.swapusage", &swap, &swap_sz, NULL, 0) == 0) {
-		int64_t swap_total = (int64_t)swap.xsu_total;
-		int64_t swap_used = (int64_t)swap.xsu_used;
-		int64_t swap_free = (int64_t)swap.xsu_avail;
+	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
 
-		metric_add_labels("memory_usage_hw", &swap_total, DATATYPE_INT, ac->system_carg, "type", "swap_total");
-		metric_add_labels("memory_usage_hw", &swap_free, DATATYPE_INT, ac->system_carg, "type", "swap_free");
-		metric_add_labels("memory_usage_hw", &swap_used, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
+	setutxent();
+	while ((log = getutxent()) != NULL)
+		utmp_parse(log);
+	endutxent();
+}
+
+void get_proc_interrupts(int extended_mode)
+{
+	static int logged;
+
+	(void)extended_mode;
+	/* Darwin has no hw.intrnames/hw.intrcnt or /proc/interrupts equivalent. */
+	if (!logged) {
+		carglog(ac->system_carg, L_INFO,
+			"get_proc_interrupts: IRQ breakdown unsupported on Darwin\n");
+		logged = 1;
 	}
 }
 #endif
