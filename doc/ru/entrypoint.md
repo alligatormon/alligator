@@ -28,6 +28,15 @@ entrypoint {
     return [empty|on]>;
     auth <basic|bearer|other> <user:password|token|secret>;
     auth_header <header_name>;
+    satisfy [any|all];
+    authorize {
+        secret <master>;
+        period <seconds>;
+        set [cookie|header|json];
+        validate [cookie|header];
+        cookie_name <name>;
+        header_name <name>;
+    }
     header <name> <value>;
     ttl <time to live>;
     read_metric_interval <seconds>;
@@ -162,6 +171,61 @@ $
 Множественное: нет
 
 Эта опция позволяет изменить имя authorization header на другое.
+
+## satisfy
+По умолчанию: any\
+Множественное: нет
+
+Возможные значения:
+- `any`
+- `all`
+
+`satisfy` соединяет группу статической аутентификации (`auth basic`, `auth bearer`, `auth other` — достаточно любого одного метода) с группой одноразового секрета `authorize`. На `allow` / `deny` это не влияет.
+
+- `any` — запрос проходит, если успешна хотя бы одна группа. Так и есть по умолчанию, когда заданы обе группы.
+- `all` — должны пройти обе группы.
+
+Если задана только одна группа, требуется именно она, а `satisfy` не используется. `OPTIONS` по-прежнему не проверяется. `GET /authorize` пропускает только проверку временного секрета; статическая аутентификация на этом пути остаётся, если она настроена.
+
+Нет учётных данных — HTTP 401. Данные есть, но не совпали — HTTP 403.
+
+## authorize
+По умолчанию: выключено\
+Множественное: нет
+
+Выдаёт временный секрет на `GET /authorize` и требует его на остальных запросах. Код — это HMAC-SHA256 от строки `master_secret || ":" || decimal_time_bucket` (ключ HMAC — сам master secret), в виде 64 шестнадцатеричных символов в нижнем регистре. `period` — длина бакета в секундах (`10`, `10s`, `1m` и другие суффиксы времени). Подходит код текущего бакета и соседних ±1, чтобы пережить небольшой рассинхрон часов.
+
+Мастер-секрет и выданный код в лог не пишутся.
+
+`GET /authorize` сам секрет не требует: иначе первый код было бы неоткуда взять. Статический `auth` на этом запросе действует. Если включён только `authorize`, для выпуска кода HTTP-аутентификация не нужна (IP `allow` / `deny` не меняются).
+
+`set` задаёт, как отдаётся код:
+- `cookie` (по умолчанию) — `200` и `Set-Cookie: <cookie_name>=<hex>; Path=/; Max-Age=<period>; HttpOnly`
+- `header` — `200` и заголовок ответа `<header_name>: <hex>`
+- `json` — `200`, `Content-Type: application/json`, тело `{"secret":"<hex>","period":<P>,"expires":<unix>}`. `expires` — unix-время конца текущего бакета
+
+`validate` задаёт, куда клиент кладёт код в следующих запросах: `cookie` (по умолчанию) или `header`. Сочетание `set json` и `validate header` нормально: `/authorize` отвечает JSON, а дальше код едет в заголовке. Заголовок authorize не занимает `Authorization`, поэтому basic и временный секрет можно требовать вместе (`satisfy all`).
+
+```
+entrypoint {
+    auth basic user:pass;
+    satisfy any;
+    authorize {
+        secret change-me;
+        period 10s;
+        set cookie;
+        validate cookie;
+        cookie_name alligator_auth;
+        header_name X-Alligator-Auth;
+    }
+    tcp 9091;
+}
+```
+
+```
+$ curl -sD- -u user:pass http://localhost:9091/authorize
+$ curl -s -u user:pass --cookie alligator_auth=<hex> http://localhost:9091/metrics
+```
 
 ## header
 По умолчанию: -\

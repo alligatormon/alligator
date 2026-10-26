@@ -22,6 +22,7 @@ These paths are served on any HTTP/TLS/unix entrypoint (the router does not requ
 | `/oplog` | GET | Cluster oplog |
 | `/sharedlock` | GET | Cluster shared-lock state |
 | `/api/v1/…` | GET, PUT, POST, DELETE | Runtime config API when `api on` on the entrypoint |
+| `/authorize` | GET | Mint the time-based authorize secret when `authorize` is configured. This path does not require the secret itself. See [entrypoint.md](entrypoint.md#authorize) |
 
 Example — export current config for Consul/Etcd templates:
 
@@ -56,6 +57,15 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
         }
       ],
       "auth_header": "<header_name>",
+      "satisfy": "[any|all]",
+      "authorize": {
+        "secret": "<master>",
+        "period": 10,
+        "set": "[cookie|header|json]",
+        "validate": "[cookie|header]",
+        "cookie_name": "alligator_auth",
+        "header_name": "X-Alligator-Auth"
+      },
       "env": {
         "<name>": "<value>"
       },

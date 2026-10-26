@@ -6087,3 +6087,66 @@ void test_config_tls_revocation_keys()
     revocation_policy_free(&pol);
     json_decref(polj);
 }
+
+void test_entrypoint_authorize_plain_parse(void)
+{
+    const char *conf =
+        "entrypoint {\n"
+        "  auth basic user:pass;\n"
+        "  satisfy all;\n"
+        "  authorize {\n"
+        "    secret master-secret;\n"
+        "    period 10s;\n"
+        "    set json;\n"
+        "    validate header;\n"
+        "    cookie_name alligator_auth;\n"
+        "    header_name X-Alligator-Auth;\n"
+        "  }\n"
+        "  tcp 9091;\n"
+        "}\n";
+    string *s = string_new();
+    char *json_s;
+    json_error_t error;
+    json_t *root;
+    json_t *entrypoint;
+    json_t *ep0;
+    json_t *auth;
+    json_t *authorize;
+    json_t *tcp;
+
+    string_cat(s, (char *)conf, strlen(conf));
+    json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    entrypoint = json_object_get(root, "entrypoint");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, entrypoint);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(entrypoint));
+    ep0 = json_array_get(entrypoint, 0);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "all", json_string_value(json_object_get(ep0, "satisfy")));
+
+    auth = json_object_get(ep0, "auth");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, auth);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(auth));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "basic", json_string_value(json_object_get(json_array_get(auth, 0), "type")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "user:pass", json_string_value(json_object_get(json_array_get(auth, 0), "data")));
+
+    authorize = json_object_get(ep0, "authorize");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, authorize);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "master-secret", json_string_value(json_object_get(authorize, "secret")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)json_integer_value(json_object_get(authorize, "period")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "json", json_string_value(json_object_get(authorize, "set")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "header", json_string_value(json_object_get(authorize, "validate")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alligator_auth", json_string_value(json_object_get(authorize, "cookie_name")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "X-Alligator-Auth", json_string_value(json_object_get(authorize, "header_name")));
+
+    tcp = json_object_get(ep0, "tcp");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9091", json_string_value(json_array_get(tcp, 0)));
+
+    json_decref(root);
+}

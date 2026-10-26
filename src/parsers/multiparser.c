@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
+#include <time.h>
+#include <openssl/crypto.h>
 #include "main.h"
 #include "common/auth.h"
+#include "common/authorize.h"
 #include "parsers/multiparser.h"
 #include "parsers/pushgateway.h"
 #include "common/selector.h"
@@ -183,9 +187,128 @@ void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
 	}
 }
 
+static int http_authorize_name_ok(const char *s, int cookie)
+{
+	if (!s || !s[0])
+		return 0;
+	if (strpbrk(s, "\r\n"))
+		return 0;
+	if (cookie && strpbrk(s, ";= \t"))
+		return 0;
+	if (!cookie && strpbrk(s, ": \t"))
+		return 0;
+	return 1;
+}
+
+static void http_authorize_mint(string *response, context_arg *carg)
+{
+	char hex[AUTHORIZE_HEX_LEN + 1];
+	uint64_t now;
+	uint64_t bucket;
+	const char *cookie_name;
+	const char *header_name;
+
+	now = (uint64_t)time(NULL);
+	bucket = now / carg->authorize_period;
+	if (!authorize_compute(carg->authorize_secret, bucket, hex))
+	{
+		string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		http_entrypoint_finish_empty_body(response);
+		return;
+	}
+
+	cookie_name = carg->authorize_cookie_name ? carg->authorize_cookie_name : "alligator_auth";
+	header_name = carg->authorize_header_name ? carg->authorize_header_name : "X-Alligator-Auth";
+
+	if (carg->authorize_set == AUTHORIZE_SET_JSON)
+	{
+		char body[192];
+		int n;
+		uint64_t expires = (bucket + 1) * carg->authorize_period;
+
+		string_cat(response, "HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n",
+			strlen("HTTP/1.1 200 OK\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n"));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		n = snprintf(body, sizeof(body),
+			"{\"secret\":\"%s\",\"period\":%" PRIu64 ",\"expires\":%" PRIu64 "}",
+			hex, carg->authorize_period, expires);
+		if (n < 0 || (size_t)n >= sizeof(body))
+			n = 0;
+		http_entrypoint_finish_body(response, body, (size_t)n);
+		OPENSSL_cleanse(body, sizeof(body));
+	}
+	else if (carg->authorize_set == AUTHORIZE_SET_HEADER)
+	{
+		if (!http_authorize_name_ok(header_name, 0))
+		{
+			carglog(carg, L_ERROR, "authorize: header name rejected\n");
+			string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+		}
+		else
+		{
+			size_t need = strlen(header_name) + AUTHORIZE_HEX_LEN + 8;
+			char *line = malloc(need);
+
+			string_cat(response, COMMON_ANSWER, strlen(COMMON_ANSWER));
+			if (line)
+			{
+				snprintf(line, need, "%s: %s\r\n", header_name, hex);
+				string_cat(response, line, strlen(line));
+				OPENSSL_cleanse(line, need);
+				free(line);
+			}
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+		}
+	}
+	else
+	{
+		if (!http_authorize_name_ok(cookie_name, 1))
+		{
+			carglog(carg, L_ERROR, "authorize: cookie name rejected\n");
+			string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+		}
+		else
+		{
+			size_t need = strlen(cookie_name) + AUTHORIZE_HEX_LEN + 64;
+			char *line = malloc(need);
+
+			string_cat(response, COMMON_ANSWER, strlen(COMMON_ANSWER));
+			if (line)
+			{
+				snprintf(line, need, "Set-Cookie: %s=%s; Path=/; Max-Age=%" PRIu64 "; HttpOnly\r\n",
+					cookie_name, hex, carg->authorize_period);
+				string_cat(response, line, strlen(line));
+				OPENSSL_cleanse(line, need);
+				free(line);
+			}
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+		}
+	}
+
+	OPENSSL_cleanse(hex, sizeof(hex));
+}
+
 void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_data, context_arg *carg)
 {
-	if (!strncmp(http_data->uri, "/api", 4))
+	if (http_data->uri && http_uri_is_authorize(http_data->uri) && carg &&
+	    carg->authorize_secret && carg->authorize_secret[0] && carg->authorize_period)
+	{
+		http_authorize_mint(response, carg);
+	}
+	else if (!strncmp(http_data->uri, "/api", 4))
 	{
 		api_router(response, http_data, carg);
 	}

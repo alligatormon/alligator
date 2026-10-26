@@ -22,6 +22,7 @@ JSON-конфигурация повторяет plain-text блоки. Опис
 | `/oplog` | GET | Cluster oplog |
 | `/sharedlock` | GET | Состояние shared-lock кластера |
 | `/api/v1/…` | GET, PUT, POST, DELETE | Runtime config API при `api on` |
+| `/authorize` | GET | Выдать временный секрет `authorize`, если он настроен. Сам секрет на этом пути не требуется. См. [entrypoint.md](entrypoint.md#authorize) |
 
 Пример — экспорт конфигурации для шаблонов Consul/Etcd:
 
@@ -56,6 +57,15 @@ curl -s http://127.0.0.1:1111/conf
         }
       ],
       "auth_header": "<header_name>",
+      "satisfy": "[any|all]",
+      "authorize": {
+        "secret": "<master>",
+        "period": 10,
+        "set": "[cookie|header|json]",
+        "validate": "[cookie|header]",
+        "cookie_name": "alligator_auth",
+        "header_name": "X-Alligator-Auth"
+      },
       "env": {
         "<name>": "<value>"
       },

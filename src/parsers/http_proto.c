@@ -34,6 +34,10 @@ void http_reply_data_free(http_reply_data* http)
 		string_free(http->clear_http);
 	if (http->auth_basic)
 		free(http->auth_basic);
+	if (http->authorize_cookie)
+		free(http->authorize_cookie);
+	if (http->authorize_header)
+		free(http->authorize_header);
 	if (http->location)
 		free(http->location);
 
@@ -287,6 +291,106 @@ void http_hrdata_metrics(context_arg *carg, http_reply_data *hrdata)
 			}
 			probe_metric_success(carg, val);
 		}
+	}
+}
+
+static char *http_header_value_dup(const char *line)
+{
+	const char *p;
+	size_t n;
+
+	if (!line)
+		return NULL;
+	p = strchr(line, ':');
+	if (!p)
+		return NULL;
+	p++;
+	while (*p == ' ' || *p == '\t')
+		p++;
+	n = strcspn(p, "\r\n");
+	while (n && (p[n - 1] == ' ' || p[n - 1] == '\t'))
+		n--;
+	if (!n)
+		return NULL;
+	return strndup(p, n);
+}
+
+static char *http_cookie_named(const char *cookie, const char *name)
+{
+	size_t nlen;
+	const char *p;
+
+	if (!cookie || !name || !name[0])
+		return NULL;
+	nlen = strlen(name);
+	p = cookie;
+	while (*p)
+	{
+		const char *v;
+		size_t vlen;
+
+		while (*p == ' ' || *p == '\t' || *p == ';')
+			p++;
+		if (!*p)
+			break;
+		if (!strncmp(p, name, nlen) && p[nlen] == '=')
+		{
+			v = p + nlen + 1;
+			vlen = strcspn(v, ";\r\n");
+			while (vlen && (v[vlen - 1] == ' ' || v[vlen - 1] == '\t'))
+				vlen--;
+			if (!vlen)
+				return NULL;
+			return strndup(v, vlen);
+		}
+		p += strcspn(p, ";");
+	}
+	return NULL;
+}
+
+void http_reply_authorize_extract(http_reply_data *hr, char *authorize_header, char *authorize_cookie)
+{
+	size_t i;
+	size_t hlen;
+	size_t clen;
+
+	if (!hr)
+		return;
+
+	free(hr->authorize_cookie);
+	hr->authorize_cookie = NULL;
+	free(hr->authorize_header);
+	hr->authorize_header = NULL;
+
+	if (!hr->headers)
+		return;
+
+	hlen = authorize_header ? strlen(authorize_header) : 0;
+	clen = authorize_cookie ? strlen(authorize_cookie) : 0;
+	if (!hlen && !clen)
+		return;
+
+	for (i = 0; i < hr->headers_size; i++)
+	{
+		if (hlen && i + hlen < hr->headers_size &&
+		    hr->headers[i + hlen] == ':' &&
+		    !strncasecmp(hr->headers + i, authorize_header, hlen))
+		{
+			if (!hr->authorize_header)
+				hr->authorize_header = http_header_value_dup(hr->headers + i);
+		}
+		if (clen && i + 7 <= hr->headers_size &&
+		    !strncasecmp(hr->headers + i, "Cookie:", 7))
+		{
+			char *raw = http_header_value_dup(hr->headers + i);
+			if (raw)
+			{
+				if (!hr->authorize_cookie)
+					hr->authorize_cookie = http_cookie_named(raw, authorize_cookie);
+				free(raw);
+			}
+		}
+		i += strcspn(hr->headers + i, "\n");
 	}
 }
 

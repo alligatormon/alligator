@@ -26,6 +26,15 @@ entrypoint {
     return [empty|on]>;
     auth <basic|bearer|other> <user:password|token|secret>;
     auth_header <header_name>;
+    satisfy [any|all];
+    authorize {
+        secret <master>;
+        period <seconds>;
+        set [cookie|header|json];
+        validate [cookie|header];
+        cookie_name <name>;
+        header_name <name>;
+    }
     header <name> <value>;
     ttl <time to live>;
     read_metric_interval <seconds>;
@@ -160,6 +169,61 @@ Default: Authorization\
 Plural: no
 
 This option allows for the change of the authorization header name to other.
+
+## satisfy
+Default: any\
+Plural: no
+
+Possible values:
+- `any`
+- `all`
+
+`satisfy` combines the static auth group (`auth basic`, `auth bearer`, `auth other` — any one of them is enough) with the time-based authorize secret. It does not change `allow` / `deny`.
+
+- `any` — the request is accepted when either group succeeds. This is the default when both groups are configured.
+- `all` — both groups must succeed.
+
+When only one group is configured, that group is required and `satisfy` is not consulted. `OPTIONS` still skips authentication. `GET /authorize` skips only the time-based secret and still requires static auth when static auth is configured.
+
+Missing credentials are HTTP 401. Credentials that are present but do not match are HTTP 403.
+
+## authorize
+Default: off\
+Plural: no
+
+Issues a time-based secret from `GET /authorize` and requires that secret on other requests. The code is HMAC-SHA256 of `master_secret || ":" || decimal_time_bucket` (the HMAC key is the master secret), written as 64 lowercase hex characters. `period` is the bucket size in seconds (`10`, `10s`, `1m`, …). A request is accepted when the presented code matches the current bucket or one bucket on either side.
+
+The master secret and the issued code are not written to the log.
+
+`GET /authorize` does not itself require a valid code, so a client can obtain the first one. Static `auth` still applies to that request. With only `authorize` configured, minting does not need HTTP authentication (IP `allow` / `deny` are unchanged).
+
+`set` chooses the mint response:
+- `cookie` (default) — `200` and `Set-Cookie: <cookie_name>=<hex>; Path=/; Max-Age=<period>; HttpOnly`
+- `header` — `200` and a response header `<header_name>: <hex>`
+- `json` — `200`, `Content-Type: application/json`, body `{"secret":"<hex>","period":<P>,"expires":<unix>}` where `expires` is the unix time at the end of the current bucket
+
+`validate` chooses where clients send the code back: `cookie` (default) or `header`. `set json` with `validate header` is valid: the mint response is JSON, and later requests carry the code in the header. The authorize header is separate from `Authorization`, so basic auth and the time-based secret can be required together (`satisfy all`).
+
+```
+entrypoint {
+    auth basic user:pass;
+    satisfy any;
+    authorize {
+        secret change-me;
+        period 10s;
+        set cookie;
+        validate cookie;
+        cookie_name alligator_auth;
+        header_name X-Alligator-Auth;
+    }
+    tcp 9091;
+}
+```
+
+```
+$ curl -sD- -u user:pass http://localhost:9091/authorize
+$ curl -s -u user:pass --cookie alligator_auth=<hex> http://localhost:9091/metrics
+```
 
 ## header
 Default: -\

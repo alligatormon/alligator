@@ -1638,6 +1638,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *namespace_entrypoint = NULL;
 			json_t *auth_entrypoint = NULL;
 			json_t *auth_header_entrypoint = NULL;
+			json_t *satisfy_entrypoint = NULL;
 			json_t *env_entrypoint = NULL;
 			json_t *add_label_entrypoint = NULL;
 			json_t *tls_certificate_entrypoint = NULL;
@@ -2280,6 +2281,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							++i;
 							auth_header_entrypoint = json_string(wstokens[i].token->s);
 							json_array_object_insert(operator_json, "auth_header", auth_header_entrypoint);
+						}
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "satisfy"))
+					{
+						++i;
+						if (!satisfy_entrypoint && i < token_count && wstokens[i].token && wstokens[i].token->s)
+						{
+							satisfy_entrypoint = json_string(wstokens[i].token->s);
+							json_array_object_insert(operator_json, "satisfy", satisfy_entrypoint);
 						}
 					}
 					else if (!strcmp(context_name, "x509") || !strcmp(context_name, "mtail") || !strcmp(context_name, "vrl") || !strcmp(context_name, "query") || !strcmp(context_name, "action") || !strcmp(context_name, "probe") || !strcmp(context_name, "lang") || !strcmp(context_name, "cluster") || !strcmp(context_name, "scheduler") || !strcmp(context_name, "threaded_loop") || !strcmp(context_name, "namespace") || !strcmp(context_name, "log_channel") || !strcmp(context_name, "enrichment_table"))
@@ -3011,7 +3021,46 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				}
 				else if (wstokens[i].context)
 				{
-					if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "mapping"))
+					if (!strcmp(context_name, "entrypoint") && wstokens[i].token && wstokens[i].token->s &&
+					    !strcmp(wstokens[i].token->s, "authorize"))
+					{
+						json_t *authorize_object = json_object();
+						char *authorize_name = NULL;
+
+						if (operator_json)
+							json_array_object_insert(operator_json, "authorize", authorize_object);
+						for (; i < token_count; i++)
+						{
+							if (wstokens[i].token && wstokens[i].token->l)
+							{
+								if (wstokens[i].operator)
+									authorize_name = wstokens[i].token->s;
+								else if (wstokens[i].argument && authorize_name)
+								{
+									json_t *arg_json = NULL;
+
+									if (!strcmp(authorize_name, "period"))
+									{
+										int64_t sec = get_sec_from_human_range(wstokens[i].token->s, wstokens[i].token->l);
+										if (sec < 0)
+											sec = 0;
+										arg_json = json_integer(sec);
+									}
+									else
+										arg_json = json_string(wstokens[i].token->s);
+									json_array_object_insert(authorize_object, authorize_name, arg_json);
+								}
+							}
+							if (wstokens[i].end)
+							{
+								wstokens[i].end = 0;
+								break;
+							}
+						}
+						if (!operator_json)
+							json_decref(authorize_object);
+					}
+					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "mapping"))
 					{
 						if (!mapping_entrypoint)
 						{

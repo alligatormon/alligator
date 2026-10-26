@@ -443,6 +443,7 @@ set(STATIC_FILES
 	common/log_json.c
 	common/patricia.c
 	common/auth.c
+	common/authorize.c
 	smart/smart.c
 	smart/drivedb.c
 	x509/pem_check.c

@@ -30,7 +30,9 @@
 #include "events/context_arg.h"
 #include "common/base64.h"
 #include "common/auth.h"
+#include "common/authorize.h"
 #include "parsers/http_proto.h"
+#include <time.h>
 #include "parsers/multiparser.h"
 #include "common/http_entrypoint.h"
 #include "dstructures/ht.h"
@@ -494,4 +496,245 @@ void test_multiparser_parser_push_paths()
     alligator_ht_done(ac->aggregate_ctx);
     free(ac->aggregate_ctx);
     ac->aggregate_ctx = saved;
+}
+
+static int8_t authorize_check_req(context_arg *carg, const char *req)
+{
+    http_reply_data *http = http_proto_get_request_data((char *)req, strlen(req), "Authorization");
+    int8_t rc;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http);
+    if (!http)
+        return -2;
+    rc = http_check_auth(carg, http);
+    http_reply_data_free(http);
+    return rc;
+}
+
+static int authorize_body_has_code(const char *body, const char *secret, uint64_t period, uint64_t t0, uint64_t t1)
+{
+    char hex[AUTHORIZE_HEX_LEN + 1];
+    uint64_t b;
+
+    if (!body || !period)
+        return 0;
+    if (t1 < t0)
+        t1 = t0;
+    for (b = t0 / period; b <= t1 / period; b++)
+    {
+        if (!authorize_compute(secret, b, hex))
+            return 0;
+        if (strstr(body, hex))
+            return 1;
+    }
+    return 0;
+}
+
+void test_authorize_secret_and_satisfy(void)
+{
+    char cur[AUTHORIZE_HEX_LEN + 1];
+    char prev[AUTHORIZE_HEX_LEN + 1];
+    char next[AUTHORIZE_HEX_LEN + 1];
+    char far[AUTHORIZE_HEX_LEN + 1];
+    char again[AUTHORIZE_HEX_LEN + 1];
+    char other[AUTHORIZE_HEX_LEN + 1];
+    char req[640];
+    int64_t now = 100000;
+    uint64_t period = 10;
+    uint64_t bucket = (uint64_t)now / period;
+    context_arg *carg;
+    size_t b64sz = 0;
+    char *b64;
+    string *response;
+    uint64_t t0;
+    uint64_t t1;
+    const char *bad64 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket, cur));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket, again));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, cur, again);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AUTHORIZE_HEX_LEN, (int)strlen(cur));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket - 1, prev));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket + 1, next));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket + 2, far));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("other", bucket, other));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(cur, far) != 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(cur, other) != 0);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_validate("master", period, cur, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_validate("master", period, prev, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_validate("master", period, next, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, far, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, other, now));
+    {
+        char back[AUTHORIZE_HEX_LEN + 1];
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket - 2, back));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, back, now));
+    }
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_validate("master", period, NULL, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_validate("master", 0, cur, now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, "short", now));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, bad64, now));
+
+    snprintf(req, sizeof(req),
+        "GET / HTTP/1.1\r\nCookie: foo=1; alligator_auth=%s; bar=2\r\nX-Alligator-Auth: %s\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\n\r\n",
+        cur, next);
+    {
+        http_reply_data *http = http_proto_get_request_data(req, strlen(req), "Authorization");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http);
+        http_reply_authorize_extract(http, "X-Alligator-Auth", "alligator_auth");
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, cur, http->authorize_cookie);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, next, http->authorize_header);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http->auth_basic);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cm9vdDpxd2VydHk=", http->auth_basic);
+        http_reply_data_free(http);
+    }
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->auth_header = "Authorization";
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET / HTTP/1.1\r\n\r\n"));
+
+    carg->authorize_secret = strdup("master");
+    carg->authorize_period = 0;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET / HTTP/1.1\r\n\r\n"));
+    carg->authorize_period = 100000000;
+
+    now = time(NULL);
+    bucket = (uint64_t)now / carg->authorize_period;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket, cur));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket + 1, next));
+    if (bucket)
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket - 1, prev));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute("master", bucket + 2, far));
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET / HTTP/1.1\r\n\r\n"));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", bad64);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    if (bucket)
+    {
+        snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", prev);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    }
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", next);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", far);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET /authorize?x=1 HTTP/1.1\r\n\r\n"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_uri_is_authorize("/authorize"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_uri_is_authorize("/authorize?x=1"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, http_uri_is_authorize("/authorized"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, http_uri_is_authorize("/authorize/"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET /authorized HTTP/1.1\r\n\r\n"));
+    snprintf(req, sizeof(req), "POST /authorize HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "POST /authorize HTTP/1.1\r\n\r\n"));
+
+    carg->authorize_validate = AUTHORIZE_VALIDATE_HEADER;
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nX-Alligator-Auth: %s\r\nCookie: alligator_auth=%s\r\n\r\n", far, cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nX-Alligator-Auth: %s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    carg->authorize_validate = AUTHORIZE_VALIDATE_COOKIE;
+
+    carg->auth_basic = alligator_ht_init(NULL);
+    b64 = base64_encode("root:qwerty", strlen("root:qwerty"), &b64sz);
+    http_auth_push(carg->auth_basic, b64);
+    free(b64);
+
+    carg->satisfy = SATISFY_ANY;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET / HTTP/1.1\r\n\r\n"));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, TEST_AUTH_BASIC_QUERY_1_1));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, TEST_AUTH_BASIC_QUERY_1_4));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", far);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nAuthorization: basic ZXJyOmVycg==\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET /authorize HTTP/1.1\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\n\r\n"));
+
+    carg->satisfy = SATISFY_ALL;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, TEST_AUTH_BASIC_QUERY_1_1));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\nCookie: alligator_auth=%s\r\n\r\n", far);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nAuthorization: basic ZXJyOmVycg==\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, "GET /authorize HTTP/1.1\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\n\r\n"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n"));
+    snprintf(req, sizeof(req), "GET /authorize HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, req));
+
+    carg->authorize_validate = AUTHORIZE_VALIDATE_HEADER;
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\nX-Alligator-Auth: %s\r\n\r\n", cur);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req));
+
+    alligator_ht_foreach_arg(carg->auth_basic, http_auth_foreach_free, NULL);
+    alligator_ht_done(carg->auth_basic);
+    free(carg->auth_basic);
+    carg->auth_basic = NULL;
+    free(carg->authorize_secret);
+    carg->authorize_secret = NULL;
+
+    carg->authorize_secret = strdup("master");
+    carg->authorize_period = 10;
+    carg->authorize_set = AUTHORIZE_SET_JSON;
+    carg->authorize_validate = AUTHORIZE_VALIDATE_COOKIE;
+    carg->satisfy = SATISFY_ANY;
+    carg->env = alligator_ht_init(NULL);
+    env_struct_push_alloc(carg->env, "X-Test-Hdr", "yes");
+    response = string_init(4096);
+    t0 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    t1 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "200 OK") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Content-Type: application/json\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "\"period\":10") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "X-Test-Hdr: yes\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_code(response->s, "master", 10, t0, t1));
+
+    string_null(response);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET / HTTP/1.1\r\n\r\n", strlen("GET / HTTP/1.1\r\n\r\n"), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "401 Unauthorized") != NULL);
+
+    string_null(response);
+    snprintf(req, sizeof(req), "GET / HTTP/1.1\r\nCookie: alligator_auth=%s\r\n\r\n", bad64);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser(req, strlen(req), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "403 Access Forbidden") != NULL);
+
+    carg->authorize_set = AUTHORIZE_SET_COOKIE;
+    string_null(response);
+    t0 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize?fresh=1 HTTP/1.1\r\n\r\n", strlen("GET /authorize?fresh=1 HTTP/1.1\r\n\r\n"), response, carg));
+    t1 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Set-Cookie: alligator_auth=") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "; Path=/; Max-Age=10; HttpOnly\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "X-Test-Hdr: yes\r\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_code(response->s, "master", 10, t0, t1));
+
+    carg->authorize_set = AUTHORIZE_SET_HEADER;
+    carg->authorize_header_name = strdup("X-Alligator-Auth");
+    string_null(response);
+    t0 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    t1 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "X-Alligator-Auth: ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_code(response->s, "master", 10, t0, t1));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(response->s, "401") != NULL);
+
+    string_free(response);
+    alligator_ht_foreach_arg(carg->env, env_struct_free, NULL);
+    alligator_ht_done(carg->env);
+    free(carg->env);
+    free(carg->authorize_secret);
+    free(carg->authorize_header_name);
+    free(carg);
 }

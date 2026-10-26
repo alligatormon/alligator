@@ -37,6 +37,7 @@
 #include "chromecdp/chromecdp.h"
 #include "common/units.h"
 #include "common/auth.h"
+#include "common/authorize.h"
 #include "common/crc32.h"
 #include "common/murmurhash.h"
 #include "common/xxh.h"
@@ -1080,6 +1081,75 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								http_auth_push(carg->auth_other, auth_data);
 							}
 
+						}
+					}
+
+					json_t *json_satisfy = json_object_get(entrypoint, "satisfy");
+					if (json_satisfy && json_is_string(json_satisfy))
+					{
+						const char *satisfy = json_string_value(json_satisfy);
+						if (satisfy && !strcmp(satisfy, "all"))
+							carg->satisfy = SATISFY_ALL;
+						else if (satisfy && !strcmp(satisfy, "any"))
+							carg->satisfy = SATISFY_ANY;
+						else
+							glog(L_ERROR, "entrypoint: unknown satisfy '%s', using any\n", satisfy ? satisfy : "");
+					}
+
+					json_t *json_authorize = json_object_get(entrypoint, "authorize");
+					if (json_authorize && json_is_object(json_authorize))
+					{
+						json_t *jsecret = json_object_get(json_authorize, "secret");
+						json_t *jperiod = json_object_get(json_authorize, "period");
+						const char *secret = (jsecret && json_is_string(jsecret)) ? json_string_value(jsecret) : NULL;
+						int64_t period = 0;
+
+						if (jperiod)
+						{
+							if (json_is_string(jperiod))
+								period = get_sec_from_human_range(json_string_value(jperiod), json_string_length(jperiod));
+							else if (json_is_integer(jperiod))
+								period = json_integer_value(jperiod);
+							else if (json_is_real(jperiod))
+								period = (int64_t)json_real_value(jperiod);
+						}
+
+						if (secret && secret[0])
+						{
+							if (period <= 0)
+								glog(L_ERROR, "entrypoint: authorize secret is set but period is missing or zero; authorize disabled\n");
+							else
+							{
+								json_t *jset = json_object_get(json_authorize, "set");
+								json_t *jvalidate = json_object_get(json_authorize, "validate");
+								json_t *jcookie = json_object_get(json_authorize, "cookie_name");
+								json_t *jheader = json_object_get(json_authorize, "header_name");
+								const char *set = (jset && json_is_string(jset)) ? json_string_value(jset) : NULL;
+								const char *validate = (jvalidate && json_is_string(jvalidate)) ? json_string_value(jvalidate) : NULL;
+								const char *cookie_name = (jcookie && json_is_string(jcookie)) ? json_string_value(jcookie) : NULL;
+								const char *header_name = (jheader && json_is_string(jheader)) ? json_string_value(jheader) : NULL;
+
+								carg->authorize_secret = strdup(secret);
+								carg->authorize_period = (uint64_t)period;
+								carg->authorize_set = AUTHORIZE_SET_COOKIE;
+								carg->authorize_validate = AUTHORIZE_VALIDATE_COOKIE;
+								if (set && !strcmp(set, "header"))
+									carg->authorize_set = AUTHORIZE_SET_HEADER;
+								else if (set && !strcmp(set, "json"))
+									carg->authorize_set = AUTHORIZE_SET_JSON;
+								else if (set && strcmp(set, "cookie"))
+									glog(L_ERROR, "entrypoint: unknown authorize set '%s', using cookie\n", set);
+								if (validate && !strcmp(validate, "header"))
+									carg->authorize_validate = AUTHORIZE_VALIDATE_HEADER;
+								else if (validate && strcmp(validate, "cookie"))
+									glog(L_ERROR, "entrypoint: unknown authorize validate '%s', using cookie\n", validate);
+								if (!cookie_name || !cookie_name[0])
+									cookie_name = "alligator_auth";
+								if (!header_name || !header_name[0])
+									header_name = "X-Alligator-Auth";
+								carg->authorize_cookie_name = strdup(cookie_name);
+								carg->authorize_header_name = strdup(header_name);
+							}
 						}
 					}
 

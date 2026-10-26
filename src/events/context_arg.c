@@ -185,6 +185,13 @@ context_arg *carg_copy(context_arg *src)
 	carg->auth_basic = http_auth_copy(src->auth_basic);
 	carg->auth_other = http_auth_copy(src->auth_other);
 
+	if (src->authorize_secret)
+		carg->authorize_secret = strdup(src->authorize_secret);
+	if (src->authorize_cookie_name)
+		carg->authorize_cookie_name = strdup(src->authorize_cookie_name);
+	if (src->authorize_header_name)
+		carg->authorize_header_name = strdup(src->authorize_header_name);
+
 	if (src->env)
 		carg->env = env_struct_duplicate(src->env);
 
@@ -538,6 +545,13 @@ void carg_free(context_arg *carg)
 
 	if (carg->auth_header)
 		free(carg->auth_header);
+
+	free(carg->authorize_secret);
+	free(carg->authorize_cookie_name);
+	free(carg->authorize_header_name);
+	carg->authorize_secret = NULL;
+	carg->authorize_cookie_name = NULL;
+	carg->authorize_header_name = NULL;
 
 	if (carg->threaded_loop_name)
 		free(carg->threaded_loop_name);

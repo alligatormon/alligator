@@ -166,6 +166,16 @@ struct context_arg
 	alligator_ht *auth_basic;
 	alligator_ht *auth_bearer;
 	alligator_ht *auth_other;
+	/* Time-based authorize secret. period 0 or empty secret means disabled.
+	   authorize_set: cookie=0 header=1 json=2. authorize_validate: cookie=0 header=1.
+	   satisfy: any=0 all=1. */
+	char *authorize_secret;
+	uint64_t authorize_period;
+	uint8_t authorize_set;
+	uint8_t authorize_validate;
+	char *authorize_cookie_name;
+	char *authorize_header_name;
+	uint8_t satisfy;
 	char *body;
 	uint8_t body_read;
 	patricia_t *net_tree_acl;
