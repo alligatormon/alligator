@@ -1105,6 +1105,9 @@ void probe_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "prober", prober_str);
 	}
 
+	if (pn->service)
+		json_array_object_insert(ctx, "service", json_string(pn->service));
+
 	if (pn->http_proxy_url)
 	{
 		json_t *http_proxy_url = json_string(pn->http_proxy_url);

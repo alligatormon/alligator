@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "probe/probe.h"
+#include "probe/grpc.h"
 #include "metric/labels.h"
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
@@ -476,6 +477,7 @@ static void probe_node_free(probe_node *pn)
 	free(pn->cert_file);
 	free(pn->key_file);
 	free(pn->server_name);
+	free(pn->service);
 	free(pn->http_proxy_url);
 	if (pn->labels)
 		labels_hash_free(pn->labels);
@@ -573,19 +575,30 @@ static void probe_emit_native_aux(context_arg *carg, probe_node *pn)
 void probe_metric_success(context_arg *carg, uint64_t val)
 {
 	probe_node *pn = probe_from_carg(carg);
+	char authority[512];
 	char *host;
 	char *key;
 	char *prober;
+	char *module;
 
-	if (!pn)
+	if (!pn && !probe_grpc_is(carg))
 		return;
 
 	probe_apply_negative(carg, &val);
 
-	host = carg->host;
-	key = carg->key ? carg->key : carg->host;
-	prober = pn->prober_str ? pn->prober_str : "blackbox";
-	metric_add_labels6("probe_success", &val, DATATYPE_UINT, carg, "proto", prober, "type", "blackbox", "host", host, "key", key, "prober", prober, "module", pn->name);
+	if (probe_grpc_is(carg)) {
+		probe_grpc_authority(carg->host, carg->port, authority, sizeof(authority));
+		host = authority;
+		key = (carg->key && carg->key[0]) ? carg->key : host;
+		prober = (pn && pn->prober_str) ? pn->prober_str : "grpc";
+		module = (pn && pn->name) ? pn->name : "blackbox";
+	} else {
+		host = carg->host;
+		key = carg->key ? carg->key : carg->host;
+		prober = pn->prober_str ? pn->prober_str : "blackbox";
+		module = pn->name;
+	}
+	metric_add_labels6("probe_success", &val, DATATYPE_UINT, carg, "proto", prober, "type", "blackbox", "host", host, "key", key, "prober", prober, "module", module);
 
 	if (carg->probe_regex_fail) {
 		uint64_t one = 1;
@@ -1425,6 +1438,15 @@ void probe_push_json(json_t *probe)
 			pn->server_name = strdup(server_name);
 	}
 
+	{
+		json_t *jservice = json_object_get(probe, "service");
+		if (jservice && json_is_string(jservice)) {
+			const char *service = json_string_value(jservice);
+			if (service && service[0])
+				pn->service = strdup(service);
+		}
+	}
+
 	jproxy = json_object_get(probe, "http_proxy_url");
 	if (!jproxy)
 		jproxy = json_object_get(probe, "proxy");
@@ -1481,7 +1503,13 @@ void probe_push_json(json_t *probe)
 		pn->tls_verify = 1;
 	}
 
-	if (!strcmp(prober, "icmp"))
+	if (!strcmp(prober, "grpc"))
+	{
+		pn->prober = APROTO_GRPC;
+		pn->prober_str = "grpc";
+		pn->tls = tls ? 1 : 0;
+	}
+	else if (!strcmp(prober, "icmp"))
 	{
 		pn->prober = APROTO_ICMP;
 		pn->prober_str = "icmp";

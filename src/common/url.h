@@ -22,6 +22,7 @@
 #define APROTO_WSS      23
 #define APROTO_KAFKA    24
 #define APROTO_KMSG     25
+#define APROTO_GRPC     26
 #include <stdio.h>
 typedef struct host_aggregator_info
 {

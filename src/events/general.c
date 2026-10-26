@@ -16,6 +16,9 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_http_response_header_bytes", METRIC_TYPE_GAUGE, "Last HTTP response headers size in bytes.");
 	namespace_metric_family_set(NULL, NULL, "alligator_http_requests_total", METRIC_TYPE_COUNTER, "Total HTTP requests observed by response code.");
 	namespace_metric_family_set(NULL, NULL, "probe_success", METRIC_TYPE_GAUGE, "Blackbox probe success where 1 means the probe passed configured checks.");
+	namespace_metric_family_set(NULL, NULL, "probe_grpc_status_code", METRIC_TYPE_GAUGE, "gRPC status code from the health check. 14 means the probe ended before a grpc-status.");
+	namespace_metric_family_set(NULL, NULL, "probe_grpc_healthcheck_response", METRIC_TYPE_GAUGE, "HealthCheckResponse serving status. The matching series is 1 and the other three are 0.");
+	namespace_metric_family_set(NULL, NULL, "probe_grpc_ssl", METRIC_TYPE_GAUGE, "1 when the TLS handshake completed.");
 	namespace_metric_family_set(NULL, NULL, "probe_failed_due_to_regex", METRIC_TYPE_GAUGE, "Set when a TCP/HTTP regex expect or body matcher failed.");
 	namespace_metric_family_set(NULL, NULL, "probe_expect_info", METRIC_TYPE_GAUGE, "TCP query_response expect step matched.");
 	namespace_metric_family_set(NULL, NULL, "alligator_probe_timeout_seconds", METRIC_TYPE_GAUGE, "Configured probe timeout in seconds.");

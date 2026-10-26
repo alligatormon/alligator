@@ -53,6 +53,7 @@ typedef struct probe_node
 	char *query_name;
 	uint8_t prober;
 	char *prober_str;
+	char *service;
 	uint64_t loop;
 	double percent_success;
 	uint8_t tls;

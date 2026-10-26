@@ -151,6 +151,10 @@ void url_set_default_port(host_aggregator_info *hi)
 		strlcpy(hi->port, "443", 4);
 	if (hi->proto == APROTO_KAFKA)
 		strlcpy(hi->port, "9092", 5);
+	if (hi->proto == APROTO_GRPC && hi->tls)
+		strlcpy(hi->port, "443", 4);
+	if (hi->proto == APROTO_GRPC && !hi->tls)
+		strlcpy(hi->port, "80", 3);
 }
 
 void url_get_port(host_aggregator_info *hi, char **tmp)
@@ -217,6 +221,8 @@ void url_dump(host_aggregator_info *hi)
 		glog(L_DEBUG, "proto: open file\n");
 	if (hi->proto == APROTO_KMSG)
 		glog(L_DEBUG, "proto: kmsg\n");
+	if (hi->proto == APROTO_GRPC)
+		glog(L_DEBUG, "proto: grpc\n");
 	if (hi->proto == APROTO_ICMP)
 		glog(L_DEBUG, "proto: icmp\n");
 	if (hi->proto == APROTO_FCGI)
@@ -261,6 +267,8 @@ host_aggregator_info *parse_url(char *str, size_t len)
 	url_set_proto(hi, &tmp, "unixgram://", 11, APROTO_UDP, APROTO_UNIXGRAM, "unixgram", 0);
 	url_set_proto(hi, &tmp, "http://", 7, APROTO_HTTP, APROTO_TCP, "tcp", 0);
 	url_set_proto(hi, &tmp, "https://", 8, APROTO_HTTPS, APROTO_TLS, "tcp", 1);
+	url_set_proto(hi, &tmp, "grpcs://", 8, APROTO_GRPC, APROTO_TCP, "tcp", 1);
+	url_set_proto(hi, &tmp, "grpc://", 7, APROTO_GRPC, APROTO_TCP, "tcp", 0);
 	url_set_proto(hi, &tmp, "fastcgi://", 10, APROTO_FCGI, APROTO_TCP, "tcp", 0);
 	url_set_proto(hi, &tmp, "tcp://", 6, APROTO_TCP, APROTO_TCP, "tcp", 0);
 	url_set_proto(hi, &tmp, "tls://", 6, APROTO_TLS, APROTO_TCP, "tcp", 1);

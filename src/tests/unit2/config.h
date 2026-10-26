@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "config/get.h"
+#include "probe/grpc.h"
 #include "config/plain.h"
 #include "common/url.h"
 #include "common/selector.h"
@@ -1904,6 +1905,421 @@ void test_probe_blackbox_modules()
     }
     probe_del_json(jlbl);
     json_decref(jlbl);
+
+    {
+        json_t *jgrpc = json_loads(
+            "{\"name\":\"ut-probe-grpc\",\"prober\":\"grpc\",\"tls\":\"on\",\"service\":\"foo\"}",
+            0, &error);
+        json_t *dump;
+        json_t *parr;
+        json_t *p0;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jgrpc);
+        probe_push_json(jgrpc);
+        pn = probe_get("ut-probe-grpc");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, pn->prober);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpc", pn->prober_str);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pn->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo", pn->service);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, pn->scheme);
+        dump = json_object();
+        probe_generate_conf(dump, pn);
+        parr = json_object_get(dump, "probe");
+        p0 = parr ? json_array_get(parr, 0) : NULL;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo", json_string_value(json_object_get(p0, "service")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpc", json_string_value(json_object_get(p0, "prober")));
+        json_decref(dump);
+        probe_del_json(jgrpc);
+        json_decref(jgrpc);
+    }
+}
+
+static size_t ut_grpc_h2_append(unsigned char *dst, size_t cap, size_t off, uint8_t type, uint8_t flags, const unsigned char *payload, size_t plen)
+{
+    if (off + 9 + plen > cap || plen > 255)
+        return 0;
+    dst[off] = 0;
+    dst[off + 1] = 0;
+    dst[off + 2] = (unsigned char)plen;
+    dst[off + 3] = type;
+    dst[off + 4] = flags;
+    dst[off + 5] = 0;
+    dst[off + 6] = 0;
+    dst[off + 7] = 0;
+    dst[off + 8] = (type == 0x4) ? 0 : 1;
+    if (plen && payload)
+        memcpy(dst + off + 9, payload, plen);
+    return off + 9 + plen;
+}
+
+static size_t ut_grpc_status_block(unsigned char *b, size_t cap, const char *code, int with_http_status)
+{
+    size_t n = 0;
+    size_t clen = strlen(code);
+
+    if (with_http_status) {
+        if (cap < 1)
+            return 0;
+        b[n++] = 0x88;
+    }
+    if (n + 2 + 11 + 1 + clen > cap)
+        return 0;
+    b[n++] = 0x00;
+    b[n++] = 11;
+    memcpy(b + n, "grpc-status", 11);
+    n += 11;
+    b[n++] = (unsigned char)clen;
+    memcpy(b + n, code, clen);
+    n += clen;
+    return n;
+}
+
+static int ut_grpc_metric_value(const char *ns, const char *name, const char *lk, const char *lv, int64_t *out)
+{
+    metric_query_context *mqc;
+    string *body;
+    json_error_t error;
+    json_t *metrics;
+    size_t i;
+    int found = 0;
+
+    mqc = promql_parser(NULL, (char *)name, strlen(name));
+    if (!mqc)
+        return 0;
+    body = metric_query_deserialize(16384, mqc, METRIC_SERIALIZER_JSON, 0, (char *)ns, NULL, NULL, NULL, NULL);
+    query_context_free(mqc);
+    if (!body || !body->s)
+        return 0;
+    metrics = json_loads(body->s, 0, &error);
+    string_free(body);
+    if (!metrics || !json_is_array(metrics)) {
+        if (metrics)
+            json_decref(metrics);
+        return 0;
+    }
+    for (i = 0; i < json_array_size(metrics); i++) {
+        json_t *row = json_array_get(metrics, i);
+        json_t *labels = json_object_get(row, "labels");
+        json_t *samples = json_object_get(row, "samples");
+        json_t *sample;
+        json_t *val;
+        if (lk && lv) {
+            const char *got = labels ? json_string_value(json_object_get(labels, lk)) : NULL;
+            if (!got || strcmp(got, lv))
+                continue;
+        }
+        if (!samples || !json_array_size(samples))
+            continue;
+        sample = json_array_get(samples, 0);
+        val = sample ? json_object_get(sample, "value") : NULL;
+        if (!val)
+            continue;
+        if (json_is_integer(val))
+            *out = json_integer_value(val);
+        else if (json_is_real(val))
+            *out = (int64_t)json_real_value(val);
+        else
+            continue;
+        found = 1;
+        break;
+    }
+    json_decref(metrics);
+    return found;
+}
+
+static void ut_grpc_assert_health(const char *ns, int64_t unknown, int64_t serving, int64_t not_serving, int64_t service_unknown)
+{
+    int64_t v = -99;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_healthcheck_response", "serving_status", "UNKNOWN", &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)unknown, (int)v);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_healthcheck_response", "serving_status", "SERVING", &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)serving, (int)v);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_healthcheck_response", "serving_status", "NOT_SERVING", &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)not_serving, (int)v);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_healthcheck_response", "serving_status", "SERVICE_UNKNOWN", &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)service_unknown, (int)v);
+}
+
+void test_probe_grpc()
+{
+    json_error_t error;
+    char url[1024];
+    char authority[256];
+    char *req;
+    size_t req_len = 0;
+    const char *path = "/grpc.health.v1.Health/Check";
+    context_arg carg;
+    json_t *jmod;
+    const char *ns = "ut_grpc_probe_ns";
+    int64_t v = -99;
+    int gst = 0;
+    int health = 0;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(0, "api.example.com", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp://api.example.com:80", url);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "api.example.com:80", authority);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(0, "api.example.com:50051", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp://api.example.com:50051", url);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "api.example.com:50051", authority);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(0, "[::1]:50051", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp://[::1]:50051", url);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "[::1]:50051", authority);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(1, "http://host:9", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tls://host:9", url);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "host:9", authority);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(0, "https://api.example.com", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp://api.example.com:80", url);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_format_target(1, "api.example.com", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tls://api.example.com:443", url);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "api.example.com:443", authority);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, probe_grpc_format_target(0, "http://", url, sizeof(url), authority, sizeof(authority)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, probe_grpc_format_target(0, "", url, sizeof(url), authority, sizeof(authority)));
+
+    req = probe_grpc_build_request("127.0.0.1:50051", "foo.Bar", 0, NULL, &req_len);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > strlen(req));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, path, strlen(path)));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, "application/grpc", strlen("application/grpc")));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, "foo.Bar", 7));
+    free(req);
+    req_len = 0;
+    req = probe_grpc_build_request("127.0.0.1:80", NULL, 0, NULL, &req_len);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > strlen(req));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, path, strlen(path)));
+    free(req);
+
+    {
+        char u1[] = "grpc://127.0.0.1:50051";
+        char u2[] = "grpc://127.0.0.1";
+        char u3[] = "grpcs://api.example.com";
+        char u4[] = "grpcs://api.example.com:443";
+        host_aggregator_info *hi = parse_url(u1, strlen(u1));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_TCP, hi->transport);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, hi->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp", hi->transport_string);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "50051", hi->port);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hi->proto != APROTO_FILE);
+        url_free(hi);
+
+        hi = parse_url(u2, strlen(u2));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, hi->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "80", hi->port);
+        url_free(hi);
+
+        hi = parse_url(u3, strlen(u3));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_TCP, hi->transport);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hi->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp", hi->transport_string);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "443", hi->port);
+        url_free(hi);
+
+        hi = parse_url(u4, strlen(u4));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hi->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "443", hi->port);
+        url_free(hi);
+    }
+
+    {
+        const char *conf =
+            "aggregate {\n"
+            "  blackbox grpc://127.0.0.1:50051 service=foo;\n"
+            "  blackbox grpcs://api.example.com service=bar;\n"
+            "}\n";
+        string *s = string_new();
+        char *json_s;
+        json_t *root;
+        json_t *agg;
+        json_t *a0;
+        json_t *a1;
+        char ubuf[128];
+        host_aggregator_info *hi;
+
+        string_cat(s, (char *)conf, strlen(conf));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        root = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        agg = json_object_get(root, "aggregate");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, agg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(agg));
+        a0 = json_array_get(agg, 0);
+        a1 = json_array_get(agg, 1);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "blackbox", json_string_value(json_object_get(a0, "handler")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpc://127.0.0.1:50051", json_string_value(json_object_get(a0, "url")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo", json_string_value(json_object_get(a0, "service")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpcs://api.example.com", json_string_value(json_object_get(a1, "url")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bar", json_string_value(json_object_get(a1, "service")));
+        snprintf(ubuf, sizeof(ubuf), "%s", json_string_value(json_object_get(a0, "url")));
+        hi = parse_url(ubuf, strlen(ubuf));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_TCP, hi->transport);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, hi->tls);
+        url_free(hi);
+        snprintf(ubuf, sizeof(ubuf), "%s", json_string_value(json_object_get(a1, "url")));
+        hi = parse_url(ubuf, strlen(ubuf));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_GRPC, hi->proto);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, hi->tls);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "443", hi->port);
+        url_free(hi);
+        json_decref(root);
+    }
+
+    if (!ac->probe)
+        ac->probe = alligator_ht_init(NULL);
+    jmod = json_loads("{\"name\":\"ut-grpc-catch\",\"prober\":\"grpc\",\"service\":\"foo.Bar\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jmod);
+    probe_push_json(jmod);
+    memset(&carg, 0, sizeof(carg));
+    strlcpy(carg.host, "10.0.0.8", sizeof(carg.host));
+    carg.key = (char *)"probe:ut-grpc-catch:10.0.0.8";
+    carg.name = (char *)"ut-grpc-catch";
+    carg.namespace = (char *)ns;
+    carg.parser_name = (char *)"grpc_health_probe";
+    insert_namespace(carg.namespace, 0);
+
+    {
+        unsigned char resp[256];
+        unsigned char http_status = 0x88;
+        unsigned char frame[7] = { 0, 0, 0, 0, 2, 0x08, 1 };
+        unsigned char trail[40];
+        size_t tlen = ut_grpc_status_block(trail, sizeof(trail), "0", 0);
+        size_t r = 0;
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x4, 0, NULL, 0);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x4, &http_status, 1);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x0, 0, frame, sizeof(frame));
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x5, trail, tlen);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, r > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_grpc_interpret((char *)resp, r, &gst, &health));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, gst);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, health);
+        carg.tls = 1;
+        carg.tls_handshake_done = 1;
+        grpc_health_probe_catch((char *)resp, r, &carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_ssl", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)v);
+        ut_grpc_assert_health(ns, 0, 1, 0, 0);
+    }
+    {
+        unsigned char resp[256];
+        unsigned char http_status = 0x88;
+        unsigned char frame[7] = { 0, 0, 0, 0, 2, 0x08, 2 };
+        unsigned char trail[40];
+        size_t tlen = ut_grpc_status_block(trail, sizeof(trail), "0", 0);
+        size_t r = 0;
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x4, 0, NULL, 0);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x4, &http_status, 1);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x0, 0, frame, sizeof(frame));
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x5, trail, tlen);
+        carg.tls = 0;
+        carg.tls_handshake_done = 0;
+        grpc_health_probe_catch((char *)resp, r, &carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_ssl", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        ut_grpc_assert_health(ns, 0, 0, 1, 0);
+    }
+    {
+        unsigned char resp[128];
+        unsigned char block[40];
+        size_t blen = ut_grpc_status_block(block, sizeof(block), "12", 1);
+        size_t r = 0;
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x4, 0, NULL, 0);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x5, block, blen);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, probe_grpc_interpret((char *)resp, r, &gst, &health));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, gst);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, health);
+        grpc_health_probe_catch((char *)resp, r, &carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 12, (int)v);
+        ut_grpc_assert_health(ns, 0, 0, 0, 0);
+    }
+    {
+        unsigned char resp[16] = { 0, 0, 0, 4 };
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, probe_grpc_interpret((char *)resp, 4, &gst, &health));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, gst);
+        grpc_health_probe_catch((char *)resp, 4, &carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, (int)v);
+        ut_grpc_assert_health(ns, 0, 0, 0, 0);
+    }
+    probe_grpc_fail_unavailable(&carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 14, (int)v);
+    ut_grpc_assert_health(ns, 0, 0, 0, 0);
+    grpc_health_probe_catch(NULL, 0, &carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", NULL, NULL, &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 14, (int)v);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", NULL, NULL, &v));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+
+    {
+        context_arg agg;
+        unsigned char resp[256];
+        unsigned char http_status = 0x88;
+        unsigned char serving[7] = { 0, 0, 0, 0, 2, 0x08, 1 };
+        unsigned char not_serving[7] = { 0, 0, 0, 0, 2, 0x08, 2 };
+        unsigned char trail[40];
+        size_t tlen = ut_grpc_status_block(trail, sizeof(trail), "0", 0);
+        size_t r = 0;
+
+        memset(&agg, 0, sizeof(agg));
+        strlcpy(agg.host, "127.0.0.1", sizeof(agg.host));
+        strlcpy(agg.port, "50051", sizeof(agg.port));
+        agg.name = NULL;
+        agg.namespace = (char *)ns;
+        agg.parser_name = (char *)"grpc_health_probe";
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x4, 0, NULL, 0);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x4, &http_status, 1);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x0, 0, serving, sizeof(serving));
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x5, trail, tlen);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, r > 0);
+        grpc_health_probe_catch((char *)resp, r, &agg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", "host", "127.0.0.1:50051", &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)v);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_grpc_status_code", "host", "127.0.0.1:50051", &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+
+        r = 0;
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x4, 0, NULL, 0);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x4, &http_status, 1);
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x0, 0, not_serving, sizeof(not_serving));
+        r = ut_grpc_h2_append(resp, sizeof(resp), r, 0x1, 0x5, trail, tlen);
+        grpc_health_probe_catch((char *)resp, r, &agg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ut_grpc_metric_value(ns, "probe_success", "host", "127.0.0.1:50051", &v));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)v);
+    }
+
+    probe_del_json(jmod);
+    json_decref(jmod);
 }
 
 void test_match_rules_hash_paths()
@@ -4825,13 +5241,14 @@ void test_config_plain_probe_scheduler_variants()
     const char *fragments[] = {
         "probe { name ut_probe_http prober http valid_status_codes 2xx tls on timeout 5s; }\n",
         "probe { name ut_probe_tcp prober tcp valid_status_codes 200,404; }\n",
+        "probe { name ut_probe_grpc; prober grpc; service foo; }\n",
         "scheduler { name ut_sched_probe action ut_action expr count(up) period 15s datasource internal; }\n",
         "query { make ut_q_match expr process_match datasource internal action ut_action; }\n"
     };
-    const char *keys[] = { "probe", "probe", "scheduler", "query" };
+    const char *keys[] = { "probe", "probe", "probe", "scheduler", "query" };
 
     json_error_t error;
-    for (int f = 0; f < 4; f++) {
+    for (int f = 0; f < 5; f++) {
         string *s = string_new();
         string_cat(s, (char *)fragments[f], strlen(fragments[f]));
         char *json_s = config_plain_to_json(s);
@@ -4844,6 +5261,12 @@ void test_config_plain_probe_scheduler_variants()
         json_t *child = json_object_get(part, keys[f]);
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(child) > 0);
+        if (f == 2) {
+            json_t *p0 = json_array_get(child, 0);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_grpc", json_string_value(json_object_get(p0, "name")));
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpc", json_string_value(json_object_get(p0, "prober")));
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo", json_string_value(json_object_get(p0, "service")));
+        }
         json_decref(part);
     }
 }

@@ -14,6 +14,7 @@
 #include "vrl/type.h"
 #include "common/netlib.h"
 #include "probe/probe.h"
+#include "probe/grpc.h"
 #include "scheduler/type.h"
 #include "common/mkdirp.h"
 #include "metric/metric_dump.h"
@@ -1863,6 +1864,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects, NULL, 0);
 							carg->no_exit_status = actx->handler[j].no_exit_status;
 							carg->no_metric = actx->handler[j].no_metric;
+							if (hi->proto == APROTO_GRPC) {
+								json_t *jsvc = json_object_get(aggregate, "service");
+								const char *service = jsvc ? json_string_value(jsvc) : NULL;
+								probe_grpc_arm_carg(carg, hi, service, env);
+							}
 							if (actx->handler[j].smart_aggregator_replace) {
 								if (!actx->handler[j].smart_aggregator_replace(carg)) {
 									carg_free(carg);

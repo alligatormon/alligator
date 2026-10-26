@@ -469,6 +469,7 @@ set(STATIC_FILES
 	action/del.c
 	action/get.c
 	probe/probe.c
+	probe/grpc.c
 	cluster/type.c
 	cluster/del.c
 	cluster/get.c

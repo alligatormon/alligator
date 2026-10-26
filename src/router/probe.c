@@ -10,6 +10,8 @@
 #include "metric/labels.h"
 #include "query/promql.h"
 #include "probe/probe.h"
+#include "probe/grpc.h"
+#include "common/http2_grpc.h"
 #include "action/type.h"
 #include "common/logs.h"
 #include "common/http_entrypoint.h"
@@ -130,6 +132,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	char url[1024];
 	uint64_t url_size;
+	char grpc_authority[512];
 	probe_node* pn = probe_get(module);
 	if (!pn)
 	{
@@ -149,6 +152,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	if (harg)
 		hostname = harg->value;
 
+	grpc_authority[0] = 0;
 	if (pn->prober == APROTO_RESOLVER) {
 		if (pn->query_name) {
 			if (strstr(target, "://"))
@@ -162,6 +166,19 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		} else {
 			url_size = snprintf(url, sizeof(url), "%s", pn->url ? pn->url : (pn->scheme ? pn->scheme : "resolver://"));
 		}
+	} else if (pn->prober == APROTO_GRPC) {
+		if (probe_grpc_format_target(pn->tls, target, url, sizeof(url), grpc_authority, sizeof(grpc_authority)) < 0) {
+			carglog(carg, L_WARN, "probe grpc: bad target '%s'\n", target);
+			n = snprintf(errbuf, sizeof(errbuf), "bad grpc target '%s'", target);
+			if (n < 0)
+				n = 0;
+			if ((size_t)n >= sizeof(errbuf))
+				n = (int)sizeof(errbuf) - 1;
+			probe_reply_error(response, carg, errbuf, (size_t)n);
+			http_args_free(args);
+			return;
+		}
+		url_size = strlen(url);
 	} else
 		url_size = snprintf(url, sizeof(url), "%s%s", pn->scheme ? pn->scheme : "", target);
 	if (url_size >= sizeof(url))
@@ -179,6 +196,14 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 			json_object_set_new(dns_root, "name", json_string(pn->name));
 		new_carg = context_arg_json_fill(dns_root, hi, dns_handler, "dns_handler", NULL, 0, NULL, NULL, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
 		json_decref(dns_root);
+	}
+	else if (pn->prober == APROTO_GRPC)
+	{
+		size_t req_len = 0;
+		char *req = probe_grpc_build_request(grpc_authority, pn->service, pn->tls, pn->env, &req_len);
+		new_carg = context_arg_json_fill(NULL, hi, grpc_health_probe_catch, "grpc_health_probe", req, req_len, NULL, otlp_grpc_expect_complete, 0, carg->loop, pn->env, pn->follow_redirects, NULL, 0);
+		if (pn->tls)
+			new_carg->tls_alpn_h2 = 1;
 	}
 	else if ((hi->proto == APROTO_HTTP) || (hi->proto == APROTO_HTTPS))
 	{
@@ -275,7 +300,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		carg_free(new_carg);
 
 	metric_query_context *mqc = query_context_new(NULL);
-	query_context_set_label(mqc, "host", target);
+	query_context_set_label(mqc, "host", (pn->prober == APROTO_GRPC && grpc_authority[0]) ? grpc_authority : target);
 	action_node an_stack;
 	action_node *an = NULL;
 	alligator_ht *export_labels = NULL;

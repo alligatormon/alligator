@@ -21,8 +21,11 @@ cmake -version
 
 #conan install . --build=missing -s build_type=Debug
 CONAN_CMAKE_POLICY='-c tools.cmake.cmaketoolchain:extra_variables={"CMAKE_POLICY_VERSION_MINIMUM":"3.5"}'
-conan install . --build=missing $CONAN_CMAKE_POLICY
+if uname -s | grep -q FreeBSD; then
+	conan install . --build=missing -pr:a default -pr:a ../misc/freebsd/conan-platform.profile $CONAN_CMAKE_POLICY
+else
+	conan install . --build=missing $CONAN_CMAKE_POLICY
+fi
 #CONAN_DISABLE_CHECK_COMPILER=True conan install . --build=missing -s compiler.version=5
 lsb_release -c | awk -F: '{print $2}' | awk '{print $1}' | grep stretch && conan install ../misc/debian9/ --build=missing $CONAN_CMAKE_POLICY && apt -y install libpcre3-dev
-uname -s | grep FreeBSD && conan install ../misc/freebsd/ --build=missing $CONAN_CMAKE_POLICY
 conan build external/

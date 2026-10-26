@@ -4861,6 +4861,7 @@ static void run_helpers_and_events_suites(void)
     test_selector_binary_converters_and_config_string();
     test_url_parse_more_edges();
     test_probe_blackbox_modules();
+    test_probe_grpc();
     test_match_rules_hash_paths();
     test_http_common_helpers();
     test_match_rules_regex_paths();

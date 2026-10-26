@@ -19,6 +19,7 @@
 #include "common/revocation.h"
 #include "common/stop.h"
 #include "probe/probe.h"
+#include "probe/grpc.h"
 #include "common/url.h"
 extern aconf* ac;
 
@@ -39,7 +40,11 @@ static void tcp_client_begin_shutdown(context_arg *carg, uv_stream_t *stream);
 
 static int probe_emit_tcp_success(context_arg *carg)
 {
-	if (!carg || carg->parser_handler != blackbox_null)
+	if (!carg)
+		return 0;
+	if (probe_grpc_is(carg))
+		return 0;
+	if (carg->parser_handler != blackbox_null)
 		return 0;
 	if (carg->proto == APROTO_HTTP || carg->proto == APROTO_HTTPS)
 		return 0;
@@ -296,9 +301,10 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 		{
 			if (!carg->full_body->l)
 			{
-				/* otlp_grpc is prior-knowledge HTTP/2 — skip HTTP/1.x probe (avoids noisy TRACE). */
+				/* Prior-knowledge HTTP/2 — skip HTTP/1.x probe (avoids noisy TRACE). */
 				int skip_http1 = carg->parser_name
-					&& !strcmp(carg->parser_name, "otlp_grpc_response_catch");
+					&& (!strcmp(carg->parser_name, "otlp_grpc_response_catch")
+						|| !strcmp(carg->parser_name, "grpc_health_probe"));
 				http_reply_data* hr_data = skip_http1 ? NULL : http_reply_parser(base, nread);
 				if (hr_data)
 				{
@@ -379,17 +385,23 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 			return;
 		}
 
-		if (carg->full_body->l && !carg->parsed)
+		if (carg->full_body && carg->full_body->l && !carg->parsed)
 			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+		else if (probe_grpc_is(carg) && !carg->parsed)
+			probe_grpc_fail_unavailable(carg);
 
 		tcp_client_begin_shutdown(carg, (uv_stream_t *)&carg->client);
 	}
 	else if (nread == UV_ECONNRESET || nread == UV_ECONNABORTED)
 	{
+		if (probe_grpc_is(carg) && !carg->parsed)
+			probe_grpc_fail_unavailable(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 	else if (nread == UV_ENOBUFS)
 	{
+		if (probe_grpc_is(carg) && !carg->parsed)
+			probe_grpc_fail_unavailable(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
 	}
 }
@@ -493,6 +505,8 @@ int do_client_tls_handshake(context_arg *carg) {
 				free(err);
 				if (probe_emit_tcp_success(carg))
 					probe_metric_success(carg, 0);
+				if (probe_grpc_is(carg))
+					probe_grpc_fail_unavailable(carg);
 
 				return -1;
 			}
@@ -588,6 +602,8 @@ void tcp_client_start_app(context_arg *carg)
 			if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
 				if (probe_emit_tcp_success(carg) || probe_qr_active(carg))
 					probe_metric_success(carg, 0);
+				if (probe_grpc_is(carg))
+					probe_grpc_fail_unavailable(carg);
 				tcp_client_fail_session(carg);
 				return;
 			}
@@ -631,6 +647,8 @@ void tls_connected(uv_connect_t* req, int status)
 			carg->key ? carg->key : "?", carg->host, uv_strerror(status));
 		if (probe_emit_tcp_success(carg))
 			probe_metric_success(carg, 0);
+		if (probe_grpc_is(carg))
+			probe_grpc_fail_unavailable(carg);
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
 		return;
@@ -659,6 +677,8 @@ void tcp_connected(uv_connect_t* req, int status)
 			carg->key ? carg->key : "?", carg->host, carg->port, uv_strerror(status));
 		if (probe_emit_tcp_success(carg))
 			probe_metric_success(carg, 0);
+		if (probe_grpc_is(carg))
+			probe_grpc_fail_unavailable(carg);
 		tcp_client_notify_handler_empty(carg);
 		tcp_client_close((uv_handle_t *)&carg->client);
 		return;
@@ -709,8 +729,11 @@ void tcp_timeout_timer(uv_timer_t *timer)
 			probe_metric_success(carg, 0);
 		} else if (carg->full_body && carg->full_body->l)
 			alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
-		else
+		else {
+			if (probe_grpc_is(carg))
+				probe_grpc_fail_unavailable(carg);
 			tcp_client_notify_handler_empty(carg);
+		}
 	}
 	tcp_client_close((uv_handle_t *)&carg->client);
 
@@ -737,6 +760,13 @@ void tcp_client_connect(void *arg)
 	/* Oneshot already kicked getaddrinfo; wait for success/fail callback. */
 	if (carg->context_ttl && carg->dns_awaiting)
 		return;
+
+	/* A reused carg (periodic aggregate, OTLP export) must not append the next
+	 * HTTP/2 response onto the previous body or skip SETTINGS ACK. */
+	carg->http2_settings_ack_sent = 0;
+	carg->http2_feed_offset = 0;
+	if (carg->full_body)
+		string_null(carg->full_body);
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 
@@ -792,6 +822,8 @@ void tcp_client_connect(void *arg)
 			const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
 			if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
 				carg->lock = 0;
+				if (probe_grpc_is(carg))
+					probe_grpc_fail_unavailable(carg);
 				return;
 			}
 		}
@@ -894,6 +926,8 @@ void unix_client_connect(void *arg)
 		const char *sni = carg->tls_server_name ? carg->tls_server_name : carg->host;
 		if (!tls_context_init(carg, SSLMODE_CLIENT, carg->tls_verify, carg->tls_ca_file, carg->tls_cert_file, carg->tls_key_file, sni, carg->rev.crl_file)) {
 			carg->lock = 0;
+			if (probe_grpc_is(carg))
+				probe_grpc_fail_unavailable(carg);
 			return;
 		}
 	}
