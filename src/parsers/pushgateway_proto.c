@@ -454,8 +454,8 @@ static int pg_decode_summary(const uint8_t *p, const uint8_t *end, pg_metric *me
 			if (!pbwire_read_len(&p, end, &start, &len))
 				return 0;
 
-			double quantile;
-			double value;
+			double quantile = 0;
+			double value = 0;
 			int present;
 			if (!pg_decode_quantile(start, start + len, &quantile, &value, &present))
 				return 0;
@@ -507,8 +507,8 @@ static int pg_decode_histogram(const uint8_t *p, const uint8_t *end, pg_metric *
 			if (!pbwire_read_len(&p, end, &start, &len))
 				return 0;
 
-			uint64_t count;
-			double upper_bound;
+			uint64_t count = 0;
+			double upper_bound = 0;
 			int present;
 			if (!pg_decode_bucket(start, start + len, &count, &upper_bound, &present))
 				return 0;
