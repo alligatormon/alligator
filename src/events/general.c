@@ -60,7 +60,7 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_session_tls_read_bytes_total", METRIC_TYPE_COUNTER, "Total bytes read over TLS by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_tls_writes_total", METRIC_TYPE_COUNTER, "Total TLS write operations by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_tls_written_bytes_total", METRIC_TYPE_COUNTER, "Total bytes written over TLS by key/proto/type/host.");
-	namespace_metric_family_set(NULL, NULL, "alligator_gc_duration_microseconds", METRIC_TYPE_GAUGE, "Garbage-collection/expiration loop duration in microseconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_gc_duration_seconds", METRIC_TYPE_GAUGE, "Garbage-collection/expiration loop duration in seconds.");
 	namespace_metric_family_set(NULL, NULL, "alligator_memory_usage_bytes", METRIC_TYPE_GAUGE, "Alligator process memory usage in bytes by memory type.");
 	namespace_metric_family_set(NULL, NULL, "alligator_metric_allocates_total", METRIC_TYPE_COUNTER, "Total metric allocation operations.");
 	namespace_metric_family_set(NULL, NULL, "alligator_metric_cache_hits_total", METRIC_TYPE_COUNTER, "Total metric cache hits.");
@@ -74,10 +74,10 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_session_written_bytes_total", METRIC_TYPE_COUNTER, "Total bytes written by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_writes_total", METRIC_TYPE_COUNTER, "Total write operations by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_push_accepted_lines_count", METRIC_TYPE_GAUGE, "Number of accepted lines in the most recent push payload.");
-	namespace_metric_family_set(NULL, NULL, "alligator_push_metrictree_duration_nanoseconds", METRIC_TYPE_GAUGE, "Time spent updating metric tree during push parsing in nanoseconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_push_metrictree_duration_seconds", METRIC_TYPE_GAUGE, "Time spent updating metric tree during push parsing in seconds.");
 	namespace_metric_family_set(NULL, NULL, "alligator_push_parsed_lines_count", METRIC_TYPE_GAUGE, "Number of parsed lines in the most recent push payload.");
-	namespace_metric_family_set(NULL, NULL, "alligator_push_parsing_duration_nanoseconds", METRIC_TYPE_GAUGE, "Time spent parsing push payload in nanoseconds.");
-	namespace_metric_family_set(NULL, NULL, "alligator_push_split_duration_nanoseconds", METRIC_TYPE_GAUGE, "Time spent splitting push payload into lines in nanoseconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_push_parsing_duration_seconds", METRIC_TYPE_GAUGE, "Time spent parsing push payload in seconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_push_split_duration_seconds", METRIC_TYPE_GAUGE, "Time spent splitting push payload into lines in seconds.");
 	namespace_metric_family_set(NULL, NULL, "alligator_expire_backptr_violations", METRIC_TYPE_GAUGE, "Expire entries whose metric does not point back at them.");
 	namespace_metric_family_set(NULL, NULL, "alligator_sortplan_entries", METRIC_TYPE_GAUGE, "Number of label names in the namespace sort plan.");
 }

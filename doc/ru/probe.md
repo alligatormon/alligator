@@ -44,15 +44,18 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 - `hostname` — опционально Host и TLS SNI (для IP-литерала в `target`)
 - `X-Prometheus-Scrape-Timeout-Seconds` — опциональный заголовок; применяется только как таймаут **запущенной** проверки (минус 500 мс, не больше `timeout` модуля). `/probe` по-прежнему не ждёт.
 
-Обработчик собирает полный URL (`http://`, `https://`, `tcp://`, `icmp://`, `ws://`, `unix://`, …) из `prober`, опционального `tls on` и `target`, запускает соответствующий агрегатор **асинхронно** (`smart_aggregator` + `aggregator_oneshot_start`) и сразу возвращает last-known метрики Prometheus для `host=<target>`. HTTP-ответ не ждёт окончания пробы (`aggregator_oneshot_await` здесь не используется). Первый scrape может быть пустым; следующий видит результат kick. Ключи kick — `probe:<module>:<base>`, чтобы не затирать scheduled `aggregate { blackbox }` того же хоста.
+Обработчик собирает полный URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) из `prober`, опционального `tls on` и `target`, запускает соответствующий агрегатор **асинхронно** (`smart_aggregator` + `aggregator_oneshot_start`) и сразу возвращает last-known метрики Prometheus для `host=<target>`. HTTP-ответ не ждёт окончания пробы (`aggregator_oneshot_await` здесь не используется). Первый scrape может быть пустым; следующий видит результат kick. Ключи kick — `probe:<module>:<base>`, чтобы не затирать scheduled `aggregate { blackbox }` того же хоста.
+
+`prober grpc` не подставляет `grpc://` в target. Kick-URL — `tcp://host:port` или, при `tls on`, `tls://host:port`. Порт по умолчанию 80, при TLS — 443. Префикс `http://` или `https://` в `target` отбрасывается и не включает TLS.
 
 ## Поля
 
 | Поле | Описание |
 |------|----------|
 | `name` | Имя модуля для параметра `module=` (обязательно) |
-| `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`) или `unix` (обязательно) |
-| `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` → `tls://`), WSS (`prober websocket` → `wss://`) или `tls://unix:` (`prober unix`) |
+| `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`), `unix` или `grpc` (обязательно) |
+| `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` или `prober grpc` → `tls://`), WSS (`prober websocket` → `wss://`) или `tls://unix:` (`prober unix`) |
+| `service` | Имя gRPC-сервиса для `prober grpc` (поле 1 `grpc.health.v1.Health/Check`). Без него — проверка всего сервера |
 | `timeout` | Таймаут проверки, применяется к async-работе (по умолчанию `5s`) |
 | `method` | HTTP-метод: `GET` (по умолчанию), `POST`, `HEAD`, `PUT`, `DELETE`, `PATCH` |
 | `body` | Тело HTTP-запроса (inline). Взаимоисключающе с `body_file` |
@@ -218,13 +221,48 @@ curl 'http://127.0.0.1:1111/probe?module=http_target&target=example.com:443'
 
 даёт labels `instance="example.com:443"` и `site="example.com"`.
 
+Унарный gRPC health (`grpc.health.v1.Health/Check`). `probe_success` равен 1 только при grpc-status 0 и статусе здоровья `SERVING`:
+
+```
+probe {
+    name grpc_plain;
+    prober grpc;
+    timeout 5s;
+}
+probe {
+    name grpc_svc;
+    prober grpc;
+    service my.service;
+    timeout 3s;
+}
+probe {
+    name grpc_tls;
+    prober grpc;
+    tls on;
+    tls_verify on;
+    server_name api.example.com;
+    ca_file /etc/alligator/ca.pem;
+    service foo.Bar;
+}
+```
+
+```
+curl 'http://127.0.0.1:1111/probe?module=grpc_tls&target=api.example.com'
+curl 'http://127.0.0.1:1111/probe?module=grpc_tls&target=https://api.example.com:443'
+```
+
+Оба запроса используют `tls on` модуля. Префикс `https://` во втором target игнорируется. Заголовки из `env` / `header` уходят в HTTP/2-запрос.
+
 ## Метрики probe
 
 Имена Alligator (`alligator_*`, `aggregator_*`, `x509_*`). Слоя алиасов blackbox_exporter нет. Уникальные `probe_*` остаются там, где нет native-двойника (на **следующем** scrape async `GET /probe`):
 
 | Метрика | Смысл |
 |---------|--------|
-| `probe_success` | 1, если проверки модуля прошли (инверсия через `negative_test`) |
+| `probe_success` | 1, если проверки модуля прошли (инверсия через `negative_test`). Для `prober grpc` это grpc-status 0 и статус здоровья `SERVING` |
+| `probe_grpc_status_code` | Разобранный gRPC status. `14` (`UNAVAILABLE`), если connect, TLS или timeout случились до grpc-status. `-1`, если HTTP/2-ответ не разобран |
+| `probe_grpc_healthcheck_response` | Серия на каждый `serving_status` (`UNKNOWN`, `SERVING`, `NOT_SERVING`, `SERVICE_UNKNOWN`). Совпавший статус — 1, остальные — 0. Все четыре — 0, если тела health нет |
+| `probe_grpc_ssl` | 1, если TLS handshake завершился |
 | `probe_failed_due_to_regex` | Выставляется при провале TCP/HTTP regex expect или body matcher |
 | `probe_expect_info` | Совпал шаг `query_response` expect |
 | `alligator_http_response_status_code` | HTTP status code |
@@ -238,7 +276,7 @@ curl 'http://127.0.0.1:1111/probe?module=http_target&target=example.com:443'
 | `alligator_icmp_reply_hop_limit` | TTL/hop-limit последнего ответа (`type=icmp`, `host`). IPv4 — TTL из IP-заголовка; IPv6 — ancillary data `recvmsg` (`IPV6_HOPLIMIT`) |
 | `alligator_icmp_reply_ratio` / `alligator_icmp_loss_ratio` | Доля ответов/потерь последнего залпа **0–1** (не проценты) |
 
-Непрерывный ICMP (`interval`) пишет гистограмму `alligator_icmp_response_duration_seconds_*`. HTTP — `alligator_http_request_duration_seconds_*`. Вне скоупа: gRPC, HTTP/2, HTTP/3, CEL, libjq, OAuth2.
+Непрерывный ICMP (`interval`) пишет гистограмму `alligator_icmp_response_duration_seconds_*`. HTTP — `alligator_http_request_duration_seconds_*`. HTTP/2 не является отдельным prober. Вне скоупа: HTTP/3, CEL, libjq, OAuth2.
 
 ## JSON-конфигурация
 

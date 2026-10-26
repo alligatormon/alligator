@@ -319,9 +319,10 @@ static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 		"name", proc->ki_comm, "pid", pidstr, "mode", "total");
 
 	val = proc->ki_size;
-	metric_add_labels3("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "vsz", "pid", pidstr);
-	val = proc->ki_rssize;
-	metric_add_labels3("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "rss", "pid", pidstr);
+	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "vsz", "pid", pidstr);
+	/* ki_rssize is resident pages; vsz (ki_size) is already bytes. */
+	val = (int64_t)proc->ki_rssize * (int64_t)getpagesize();
+	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "rss", "pid", pidstr);
 	val = proc->ki_cow;
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "COWfaults", "pid", pidstr);
 	val = proc->ki_numthreads;
@@ -331,7 +332,7 @@ static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 		return;
 
 	uptime = (uint64_t)(now - proc->ki_start.tv_sec);
-	metric_add_labels2("process_uptime", &uptime, DATATYPE_UINT, ac->system_carg, "name", proc->ki_comm, "pid", pidstr);
+	metric_add_labels2("process_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg, "name", proc->ki_comm, "pid", pidstr);
 	freebsd_emit_process_state(proc, proc->ki_comm, pidstr, 1);
 	freebsd_emit_process_io(proc, proc->ki_comm, pidstr);
 	freebsd_count_fds(proc->ki_pid, &fds);

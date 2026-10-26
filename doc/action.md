@@ -444,7 +444,7 @@ Each rule selects metrics using `include` (or legacy `metric`), or `metric_regex
 1. **Serialized name first** — the metric name after this action’s [`metric_name_transform_pattern`](#metric_name_transform_pattern) / `metric_name_transform_replacement`, if those are set; otherwise the name is unchanged from storage.
 2. **Stored name if different** — if the name kept inside Alligator is not the same as that serialized name, the same pattern is also tried against the stored (in-tree) metric key.
 
-If either test succeeds, the rule applies (**OR** semantics). That way a single `include` can target either the short name on the wire (for example `memory_usage`) or the long key still stored internally (for example `ci12312312.memory_usage`) when both refer to the same series. A regexp can cover both forms in one pattern if needed.
+If either test succeeds, the rule applies (**OR** semantics). That way a single `include` can target either the short name on the wire (for example `memory_usage_bytes`) or the long key still stored internally (for example `ci12312312.memory_usage_bytes`) when both refer to the same series. A regexp can cover both forms in one pattern if needed.
 
 ### Serializers
 

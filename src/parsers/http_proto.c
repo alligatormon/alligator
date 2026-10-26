@@ -348,6 +348,125 @@ static char *http_cookie_named(const char *cookie, const char *name)
 	return NULL;
 }
 
+static int http_line_is_header(const char *line, size_t line_len, const char *name)
+{
+	size_t nlen;
+
+	if (!line || !name || !name[0])
+		return 0;
+	nlen = strlen(name);
+	if (line_len <= nlen || line[nlen] != ':')
+		return 0;
+	return !strncasecmp(line, name, nlen);
+}
+
+char *http_header_get(http_reply_data *hr, const char *name)
+{
+	size_t i;
+	char *found = NULL;
+
+	if (!hr || !hr->headers || !name || !name[0])
+		return NULL;
+
+	i = 0;
+	while (i < hr->headers_size)
+	{
+		size_t line = strcspn(hr->headers + i, "\n");
+
+		if (http_line_is_header(hr->headers + i, line, name))
+		{
+			if (found)
+			{
+				free(found);
+				return NULL;
+			}
+			found = http_header_value_dup(hr->headers + i);
+			if (!found)
+				return NULL;
+		}
+		if (i + line >= hr->headers_size)
+			break;
+		i += line + 1;
+	}
+	return found;
+}
+
+/* 0 missing, 1 one value stored in *found, 2 a second value. */
+static int http_cookie_take(const char *cookie, const char *name, char **found)
+{
+	size_t nlen;
+	const char *p;
+
+	if (!cookie || !name || !name[0] || !found)
+		return 0;
+	nlen = strlen(name);
+	p = cookie;
+	while (*p)
+	{
+		const char *v;
+		size_t vlen;
+
+		while (*p == ' ' || *p == '\t' || *p == ';')
+			p++;
+		if (!*p)
+			break;
+		if (!strncmp(p, name, nlen) && p[nlen] == '=')
+		{
+			if (*found)
+				return 2;
+			v = p + nlen + 1;
+			vlen = strcspn(v, ";\r\n");
+			while (vlen && (v[vlen - 1] == ' ' || v[vlen - 1] == '\t'))
+				vlen--;
+			if (!vlen)
+				return 3;
+			*found = strndup(v, vlen);
+			if (!*found)
+				return 3;
+		}
+		p += strcspn(p, ";");
+	}
+	return *found ? 1 : 0;
+}
+
+char *http_cookie_get(http_reply_data *hr, const char *name)
+{
+	size_t i;
+	char *found = NULL;
+
+	if (!hr || !hr->headers || !name || !name[0])
+		return NULL;
+
+	i = 0;
+	while (i < hr->headers_size)
+	{
+		size_t line = strcspn(hr->headers + i, "\n");
+
+		if (http_line_is_header(hr->headers + i, line, "Cookie"))
+		{
+			char *raw = http_header_value_dup(hr->headers + i);
+			int rc = 0;
+
+			if (!raw)
+			{
+				free(found);
+				return NULL;
+			}
+			rc = http_cookie_take(raw, name, &found);
+			free(raw);
+			if (rc == 2 || rc == 3)
+			{
+				free(found);
+				return NULL;
+			}
+		}
+		if (i + line >= hr->headers_size)
+			break;
+		i += line + 1;
+	}
+	return found;
+}
+
 void http_reply_authorize_extract(http_reply_data *hr, char *authorize_header, char *authorize_cookie)
 {
 	size_t i;

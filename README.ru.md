@@ -80,7 +80,7 @@ alligator /etc/alligator.d/
 
 
 ## Контекст entrypoint
-См. [entrypoint](doc/ru/entrypoint.md).
+См. [entrypoint](doc/ru/entrypoint.md). Сценарий приёма StatsD, Graphite и blackbox-проверок, вместе с кластером, авторизацией и фильтром на приёме: [приём метрик](doc/ru/metric-receive.md).
 
 Пример handler для Prometheus:
 ```

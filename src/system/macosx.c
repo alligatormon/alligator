@@ -178,10 +178,10 @@ static void emit_cpu_counters(const mac_cpu_ticks *ticks, const char *cpuname, i
 	double idle = ticks_to_seconds(ticks->idle);
 
 	if (per_core) {
-		metric_add_labels2("cpu_usage_core_time", &user, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "user");
-		metric_add_labels2("cpu_usage_core_time", &nice, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "nice");
-		metric_add_labels2("cpu_usage_core_time", &system, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "system");
-		metric_add_labels2("cpu_usage_core_time", &idle, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "idle");
+		metric_add_labels2("cpu_usage_core_seconds_total", &user, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "user");
+		metric_add_labels2("cpu_usage_core_seconds_total", &nice, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "nice");
+		metric_add_labels2("cpu_usage_core_seconds_total", &system, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "system");
+		metric_add_labels2("cpu_usage_core_seconds_total", &idle, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "idle");
 	} else {
 		metric_add_labels("cpu_usage_time", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 		metric_add_labels("cpu_usage_time", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
@@ -307,9 +307,9 @@ void get_disk(void)
 		pused = (double)used * 100.0 / (double)total;
 		pfree = 100.0 - pused;
 
-		metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
-		metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
-		metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+		metric_add_labels2("disk_usage_bytes", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+		metric_add_labels2("disk_usage_bytes", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
+		metric_add_labels2("disk_usage_bytes", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 		metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 		metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
 
@@ -383,18 +383,18 @@ void get_mem(void)
 	used_memory = active_memory + wire_memory + compressed_memory;
 	vm_faults = (int64_t)vm_stats.faults;
 
-	metric_add_labels("memory_usage", &physical_memory, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
-	metric_add_labels("memory_usage", &used_memory, DATATYPE_INT, ac->system_carg, "type", "used");
-	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
-	metric_add_labels("memory_usage", &inactive_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
-	metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
-	metric_add_labels("memory_usage", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
-	metric_add_labels("memory_usage", &compressed_memory, DATATYPE_INT, ac->system_carg, "type", "compressed");
-	metric_add_labels("memory_usage", &purgeable_memory, DATATYPE_INT, ac->system_carg, "type", "purgeable");
-	metric_add_labels("memory_usage", &speculative_memory, DATATYPE_INT, ac->system_carg, "type", "speculative");
-	metric_add_labels("memory_usage", &external_memory, DATATYPE_INT, ac->system_carg, "type", "external");
-	metric_add_labels("memory_usage", &internal_memory, DATATYPE_INT, ac->system_carg, "type", "internal");
+	metric_add_labels("memory_usage_bytes", &physical_memory, DATATYPE_INT, ac->system_carg, "type", "total");
+	metric_add_labels("memory_usage_bytes", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
+	metric_add_labels("memory_usage_bytes", &used_memory, DATATYPE_INT, ac->system_carg, "type", "used");
+	metric_add_labels("memory_usage_bytes", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
+	metric_add_labels("memory_usage_bytes", &inactive_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
+	metric_add_labels("memory_usage_bytes", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
+	metric_add_labels("memory_usage_bytes", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
+	metric_add_labels("memory_usage_bytes", &compressed_memory, DATATYPE_INT, ac->system_carg, "type", "compressed");
+	metric_add_labels("memory_usage_bytes", &purgeable_memory, DATATYPE_INT, ac->system_carg, "type", "purgeable");
+	metric_add_labels("memory_usage_bytes", &speculative_memory, DATATYPE_INT, ac->system_carg, "type", "speculative");
+	metric_add_labels("memory_usage_bytes", &external_memory, DATATYPE_INT, ac->system_carg, "type", "external");
+	metric_add_labels("memory_usage_bytes", &internal_memory, DATATYPE_INT, ac->system_carg, "type", "internal");
 
 	if (physical_memory > 0) {
 		double percentused = (double)used_memory * 100.0 / (double)physical_memory;
@@ -410,7 +410,7 @@ void get_mem(void)
 		int64_t swapouts = (int64_t)vm_stats.swapouts;
 		/*
 		 * Darwin has no vm.stats.vm.v_io_faults. Keep FreeBSD metric names:
-		 * pageouts → io_faults and vmstat_stat_total{stat=pgmajfault}.
+		 * pageouts → io_faults_total and vmstat_stat_total{stat=pgmajfault}.
 		 */
 		uint64_t io_faults = (uint64_t)vm_stats.pageouts;
 
@@ -418,9 +418,9 @@ void get_mem(void)
 		metric_add_labels("memory_stat", &pageouts, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
 		metric_add_labels("memory_stat", &swapins, DATATYPE_INT, ac->system_carg, "type", "pgswpin");
 		metric_add_labels("memory_stat", &swapouts, DATATYPE_INT, ac->system_carg, "type", "pgswpout");
-		metric_add_auto("io_faults", &io_faults, DATATYPE_UINT, ac->system_carg);
+		metric_add_auto("io_faults_total", &io_faults, DATATYPE_UINT, ac->system_carg);
 	}
-	metric_add_auto("vm_faults", &vm_faults, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("vm_faults_total", &vm_faults, DATATYPE_INT, ac->system_carg);
 
 	{
 		uint64_t u;
@@ -515,7 +515,7 @@ static void get_vmstat(void)
 	/* Host counters: emit only when a real monotonic sysctl exists (omit if absent). */
 	get_sysctl_stat_u64("vm.stats.sys.v_swtch", "context_switches_total");
 	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks_total");
-	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls");
+	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts_total");
 	get_sysctl_stat_u64("kern.ipc.numopensockets", "open_sockets");
 	get_sysctl_stat_u64("kern.ipc.maxsockets", "max_sockets");

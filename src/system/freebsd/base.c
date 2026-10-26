@@ -195,7 +195,7 @@ void get_utmp_info(void)
 	struct utmpx *log;
 	uint64_t btmp_size = get_file_size("/var/log/btmp");
 
-	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("btmp_file_size_bytes", &btmp_size, DATATYPE_UINT, ac->system_carg);
 
 	setutxent();
 	while ((log = getutxent()) != NULL)
@@ -205,7 +205,7 @@ void get_utmp_info(void)
 
 void get_memory_usage_hw(void)
 {
-	/* memory_usage_hw omitted on FreeBSD (duplicates memory_usage); keep per-device swap. */
+	/* memory_usage_hw_bytes omitted on FreeBSD (duplicates memory_usage_bytes); keep per-device swap. */
 	kvm_t *kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "kvm_open");
 	if (kd) {
 		/*
@@ -261,13 +261,13 @@ void get_memory_usage_cgroup(void)
 		return;
 	tmp += strlen("memoryuse=");
 	val = strtoll(tmp, NULL, 10);
-	metric_add_labels("memory_usage_cgroup", &val, DATATYPE_INT, ac->system_carg, "type", "usage");
+	metric_add_labels("memory_usage_cgroup_bytes", &val, DATATYPE_INT, ac->system_carg, "type", "usage");
 
 	tmp = strstr(buf, "vmemoryuse=");
 	if (tmp) {
 		tmp += strlen("vmemoryuse=");
 		val = strtoll(tmp, NULL, 10);
-		metric_add_labels("memory_usage_cgroup", &val, DATATYPE_INT, ac->system_carg, "type", "total");
+		metric_add_labels("memory_usage_cgroup_bytes", &val, DATATYPE_INT, ac->system_carg, "type", "total");
 	}
 }
 

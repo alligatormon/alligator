@@ -200,18 +200,57 @@ static int http_authorize_name_ok(const char *s, int cookie)
 	return 1;
 }
 
-static void http_authorize_mint(string *response, context_arg *carg)
+static void http_authorize_mint(string *response, context_arg *carg, http_reply_data *http_data)
 {
 	char hex[AUTHORIZE_HEX_LEN + 1];
 	uint64_t now;
 	uint64_t bucket;
 	const char *cookie_name;
 	const char *header_name;
+	char *values[AUTHORIZE_BIND_MAX];
+	const char *const *bound = NULL;
+	int filled = AUTHORIZE_FACTORS_OK;
+	uint8_t fail_index = 0;
+
+	memset(values, 0, sizeof(values));
+	if (carg->authorize_config_error)
+	{
+		carglog(carg, L_ERROR, "authorize: bind config rejected\n");
+		string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		http_entrypoint_finish_empty_body(response);
+		return;
+	}
+	if (carg->authorize_bind_count)
+	{
+		char label[160];
+
+		filled = authorize_factors_fill(carg, http_data, values, &fail_index);
+		if (filled != AUTHORIZE_FACTORS_OK)
+		{
+			if (carg->authorize_binds && fail_index < carg->authorize_bind_count &&
+			    authorize_bind_label(&carg->authorize_binds[fail_index], label, sizeof(label)) > 0)
+				carglog(carg, L_ERROR, "authorize: bind %s missing\n", label);
+			else
+				carglog(carg, L_ERROR, "authorize: bind missing\n");
+			if (filled == AUTHORIZE_FACTORS_PEER)
+				string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+			else
+				string_cat(response, HANDLER_400, strlen(HANDLER_400));
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+			return;
+		}
+		bound = (const char *const *)values;
+	}
 
 	now = (uint64_t)time(NULL);
 	bucket = now / carg->authorize_period;
-	if (!authorize_compute(carg->authorize_secret, bucket, hex))
+	if (!authorize_compute_bound(carg->authorize_secret, bucket, carg->authorize_binds, carg->authorize_bind_count, bound, hex))
 	{
+		authorize_factors_free(values, carg->authorize_bind_count);
 		string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
@@ -298,6 +337,7 @@ static void http_authorize_mint(string *response, context_arg *carg)
 		}
 	}
 
+	authorize_factors_free(values, carg->authorize_bind_count);
 	OPENSSL_cleanse(hex, sizeof(hex));
 }
 
@@ -306,7 +346,7 @@ void do_http_get(char *buf, size_t len, string *response, http_reply_data* http_
 	if (http_data->uri && http_uri_is_authorize(http_data->uri) && carg &&
 	    carg->authorize_secret && carg->authorize_secret[0] && carg->authorize_period)
 	{
-		http_authorize_mint(response, carg);
+		http_authorize_mint(response, carg, http_data);
 	}
 	else if (!strncmp(http_data->uri, "/api", 4))
 	{
@@ -456,6 +496,12 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		char *resp_code = HTTP_FORBIDDEN;
 		if (auth == -1)
 			resp_code = HTTP_UNAUTHORIZED;
+		carglog(carg, L_ERROR, "http auth: %s %s %s%s%s\n",
+			auth == -1 ? "401" : "403",
+			http_method_str(http_data->method),
+			http_data->uri ? http_data->uri : "-",
+			http_data->auth_deny[0] ? " " : "",
+			http_data->auth_deny);
 		string_cat(response, resp_code, strlen(resp_code));
 		if (carg->env)
 			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);

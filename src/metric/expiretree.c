@@ -523,9 +523,9 @@ void expire_purge(uint64_t key, char *namespace, namespace_struct *ns)
 
 	end = setrtime();
 	{
-		uint64_t expire_time = getrtime_mcs(start, end, 0);
+		double expire_seconds = (double)getrtime_mcs(start, end, 0) / 1000000.0;
 		if (ac->nsdefault && ac->nsdefault->metrictree && ac->nsdefault->metrictree->count)
-			metric_update("alligator_gc_duration_microseconds", NULL, &expire_time, DATATYPE_UINT, NULL);
+			metric_update("alligator_gc_duration_seconds", NULL, &expire_seconds, DATATYPE_DOUBLE, NULL);
 	}
 
 	/* Only on corruption: expire_purge also runs from namespace_free, where

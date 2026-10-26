@@ -3025,6 +3025,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					    !strcmp(wstokens[i].token->s, "authorize"))
 					{
 						json_t *authorize_object = json_object();
+						json_t *bind_array = NULL;
 						char *authorize_name = NULL;
 
 						if (operator_json)
@@ -3035,6 +3036,51 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 							{
 								if (wstokens[i].operator)
 									authorize_name = wstokens[i].token->s;
+								else if (wstokens[i].argument && authorize_name && !strcmp(authorize_name, "bind"))
+								{
+									const char *kind = wstokens[i].token->s;
+									const char *bname = NULL;
+									int extra_name = 0;
+									json_t *one;
+
+									if (!(wstokens[i].semicolon || wstokens[i].end))
+									{
+										uint64_t j;
+
+										for (j = i + 1; j < token_count; j++)
+										{
+											if (wstokens[j].argument && wstokens[j].token && wstokens[j].token->s)
+											{
+												if (!bname)
+													bname = wstokens[j].token->s;
+												else
+													extra_name = 1;
+											}
+											if (wstokens[j].semicolon || wstokens[j].end)
+											{
+												i = j;
+												break;
+											}
+										}
+									}
+									if (extra_name || !kind || !kind[0])
+									{
+										glog(L_ERROR, "entrypoint: authorize bind line rejected\n");
+										kind = "";
+										bname = NULL;
+									}
+									one = json_object();
+									json_object_set_new(one, "type", json_string(kind));
+									if (bname && bname[0])
+										json_object_set_new(one, "name", json_string(bname));
+									if (!bind_array)
+									{
+										bind_array = json_array();
+										json_object_set_new(authorize_object, "bind", bind_array);
+									}
+									json_array_append_new(bind_array, one);
+									authorize_name = NULL;
+								}
 								else if (wstokens[i].argument && authorize_name)
 								{
 									json_t *arg_json = NULL;

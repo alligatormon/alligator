@@ -794,19 +794,23 @@ static void multicollector_text_parse(http_reply_data* http_data, char *str, siz
 
 	if (carg && !carg->no_metric)
 	{
+		double push_parsing_seconds = (double)carg->push_parsing_time / 1000000000.0;
+		double push_metrictree_seconds = (double)carg->push_metric_time / 1000000000.0;
+		double push_split_seconds = (double)carg->push_split_data / 1000000000.0;
+
 		if (carg->key)
 		{
-			metric_add_labels("alligator_push_parsing_duration_nanoseconds", &carg->push_parsing_time, DATATYPE_UINT, carg, "key", carg->key);
-			metric_add_labels("alligator_push_metrictree_duration_nanoseconds", &carg->push_metric_time, DATATYPE_UINT, carg, "key", carg->key);
-			metric_add_labels("alligator_push_split_duration_nanoseconds", &carg->push_split_data, DATATYPE_UINT, carg, "key", carg->key);
+			metric_add_labels("alligator_push_parsing_duration_seconds", &push_parsing_seconds, DATATYPE_DOUBLE, carg, "key", carg->key);
+			metric_add_labels("alligator_push_metrictree_duration_seconds", &push_metrictree_seconds, DATATYPE_DOUBLE, carg, "key", carg->key);
+			metric_add_labels("alligator_push_split_duration_seconds", &push_split_seconds, DATATYPE_DOUBLE, carg, "key", carg->key);
 			metric_add_labels("alligator_push_parsed_lines_count", &fgets_counter, DATATYPE_UINT, carg, "key", carg->key);
 			metric_add_labels("alligator_push_accepted_lines_count", &carg->push_accepted_lines, DATATYPE_UINT, carg, "key", carg->key);
 		}
 		else
 		{
-			metric_add_auto("alligator_push_parsing_duration_nanoseconds", &carg->push_parsing_time, DATATYPE_UINT, carg);
-			metric_add_auto("alligator_push_metrictree_duration_nanoseconds", &carg->push_metric_time, DATATYPE_UINT, carg);
-			metric_add_auto("alligator_push_split_duration_nanoseconds", &carg->push_split_data, DATATYPE_UINT, carg);
+			metric_add_auto("alligator_push_parsing_duration_seconds", &push_parsing_seconds, DATATYPE_DOUBLE, carg);
+			metric_add_auto("alligator_push_metrictree_duration_seconds", &push_metrictree_seconds, DATATYPE_DOUBLE, carg);
+			metric_add_auto("alligator_push_split_duration_seconds", &push_split_seconds, DATATYPE_DOUBLE, carg);
 			metric_add_auto("alligator_push_parsed_lines_count", &fgets_counter, DATATYPE_UINT, carg);
 			metric_add_auto("alligator_push_accepted_lines_count", &carg->push_accepted_lines, DATATYPE_UINT, carg);
 		}

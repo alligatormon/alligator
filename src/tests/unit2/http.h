@@ -25,6 +25,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "main.h"
 #include "common/selector.h"
 #include "events/context_arg.h"
@@ -511,6 +513,18 @@ static int8_t authorize_check_req(context_arg *carg, const char *req)
     return rc;
 }
 
+static void authorize_check_deny(context_arg *carg, const char *req, int8_t expect, const char *reason)
+{
+    http_reply_data *http = http_proto_get_request_data((char *)req, strlen(req), "Authorization");
+    int8_t rc;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, http);
+    rc = http_check_auth(carg, http);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, expect, rc);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)reason, http->auth_deny);
+    http_reply_data_free(http);
+}
+
 static int authorize_body_has_code(const char *body, const char *secret, uint64_t period, uint64_t t0, uint64_t t1)
 {
     char hex[AUTHORIZE_HEX_LEN + 1];
@@ -523,6 +537,25 @@ static int authorize_body_has_code(const char *body, const char *secret, uint64_
     for (b = t0 / period; b <= t1 / period; b++)
     {
         if (!authorize_compute(secret, b, hex))
+            return 0;
+        if (strstr(body, hex))
+            return 1;
+    }
+    return 0;
+}
+
+static int authorize_body_has_bound(const char *body, const char *secret, uint64_t period, const authorize_bind *binds, uint8_t nbinds, const char *const *values, uint64_t t0, uint64_t t1)
+{
+    char hex[AUTHORIZE_HEX_LEN + 1];
+    uint64_t b;
+
+    if (!body || !period)
+        return 0;
+    if (t1 < t0)
+        t1 = t0;
+    for (b = t0 / period; b <= t1 / period; b++)
+    {
+        if (!authorize_compute_bound(secret, b, binds, nbinds, values, hex))
             return 0;
         if (strstr(body, hex))
             return 1;
@@ -575,6 +608,64 @@ void test_authorize_secret_and_satisfy(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_validate("master", 0, cur, now));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, "short", now));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate("master", period, bad64, now));
+    {
+        authorize_bind binds[3];
+        const char *vals[3];
+        const char *other_peer[3];
+        char bound_hex[AUTHORIZE_HEX_LEN + 1];
+        char again_hex[AUTHORIZE_HEX_LEN + 1];
+        char peer[AUTHORIZE_PEER_SIZE];
+        struct sockaddr_in in4;
+        struct sockaddr_in6 in6;
+
+        memset(&in4, 0, sizeof(in4));
+        in4.sin_family = AF_INET;
+        in4.sin_port = htons(443);
+        inet_pton(AF_INET, "203.0.113.9", &in4.sin_addr);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_format_peer((struct sockaddr *)&in4, peer, sizeof(peer)));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "203.0.113.9", peer);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(peer, "443") != NULL);
+
+        memset(&in6, 0, sizeof(in6));
+        in6.sin6_family = AF_INET6;
+        in6.sin6_addr.s6_addr[10] = 0xff;
+        in6.sin6_addr.s6_addr[11] = 0xff;
+        memcpy(in6.sin6_addr.s6_addr + 12, &in4.sin_addr, 4);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_format_peer((struct sockaddr *)&in6, peer, sizeof(peer)));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "203.0.113.9", peer);
+
+        memset(&in6, 0, sizeof(in6));
+        in6.sin6_family = AF_INET6;
+        in6.sin6_addr.s6_addr[15] = 1;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_format_peer((struct sockaddr *)&in6, peer, sizeof(peer)));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "::1", peer);
+
+        memset(binds, 0, sizeof(binds));
+        binds[0].kind = AUTHORIZE_BIND_REMOTE_ADDR;
+        binds[1].kind = AUTHORIZE_BIND_HEADER;
+        binds[1].name = "X-Client";
+        binds[2].kind = AUTHORIZE_BIND_COOKIE;
+        binds[2].name = "sid";
+        vals[0] = "203.0.113.9";
+        vals[1] = "scraper-a";
+        vals[2] = "sess-1";
+        other_peer[0] = "203.0.113.10";
+        other_peer[1] = vals[1];
+        other_peer[2] = vals[2];
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute_bound("master", bucket, binds, 3, vals, bound_hex));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute_bound("master", bucket, binds, 3, vals, again_hex));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, bound_hex, again_hex);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(bound_hex, cur) != 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute_bound("master", bucket, binds, 3, other_peer, again_hex));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strcmp(bound_hex, again_hex) != 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_compute_bound("master", bucket, binds, 3, NULL, again_hex));
+        vals[1] = NULL;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_compute_bound("master", bucket, binds, 3, vals, again_hex));
+        vals[1] = "scraper-a";
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_validate_bound("master", period, bound_hex, now, binds, 3, vals));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate_bound("master", period, bound_hex, now, binds, 3, other_peer));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_validate_bound("master", period, cur, now, binds, 3, vals));
+    }
 
     snprintf(req, sizeof(req),
         "GET / HTTP/1.1\r\nCookie: foo=1; alligator_auth=%s; bar=2\r\nX-Alligator-Auth: %s\r\nAuthorization: basic cm9vdDpxd2VydHk=\r\n\r\n",
@@ -730,11 +821,133 @@ void test_authorize_secret_and_satisfy(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_code(response->s, "master", 10, t0, t1));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(response->s, "401") != NULL);
 
+    {
+        json_error_t jerr;
+        json_t *jbind;
+        context_arg *jc;
+        const char *vals[3];
+        char bound_hex[AUTHORIZE_HEX_LEN + 1];
+        char req_bind[768];
+        uint64_t live_bucket;
+
+        jc = calloc(1, sizeof(*jc));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jc);
+        jc->authorize_secret = strdup("master");
+        jc->authorize_period = 10;
+        jc->authorize_header_name = "X-Alligator-Auth";
+        jc->authorize_cookie_name = "alligator_auth";
+        jbind = json_loads("[{\"type\":\"remote_addr\"},{\"type\":\"header\",\"name\":\"X-Client\"},{\"type\":\"cookie\",\"name\":\"sid\"}]", 0, &jerr);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jbind);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, authorize_binds_apply_json(jc, jbind));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, jc->authorize_config_error);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AUTHORIZE_BIND_REMOTE_ADDR, jc->authorize_binds[0].kind);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AUTHORIZE_BIND_HEADER, jc->authorize_binds[1].kind);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "X-Client", jc->authorize_binds[1].name);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, AUTHORIZE_BIND_COOKIE, jc->authorize_binds[2].kind);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "sid", jc->authorize_binds[2].name);
+        json_decref(jbind);
+        authorize_binds_free(jc->authorize_binds, jc->authorize_bind_count);
+        jc->authorize_binds = NULL;
+        jc->authorize_bind_count = 0;
+        jbind = json_loads("[{\"type\":\"remote_addr\"},{\"type\":\"cookie\",\"name\":\"alligator_auth\"},{\"type\":\"nope\"}]", 0, &jerr);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jbind);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_binds_apply_json(jc, jbind));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, jc->authorize_config_error);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, jc->authorize_bind_count);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(jc, "GET /authorize HTTP/1.1\r\n\r\n"));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(jc, "GET / HTTP/1.1\r\nCookie: alligator_auth=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n\r\n"));
+        json_decref(jbind);
+        free(jc->authorize_secret);
+        free(jc);
+
+        carg->authorize_cookie_name = strdup("alligator_auth");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_bind_add(carg, AUTHORIZE_BIND_HEADER, "x-alligator-auth"));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_bind_add(carg, AUTHORIZE_BIND_COOKIE, "alligator_auth"));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->authorize_bind_count);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_bind_add(carg, AUTHORIZE_BIND_REMOTE_ADDR, NULL));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_bind_add(carg, AUTHORIZE_BIND_HEADER, "X-Client"));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_bind_add(carg, AUTHORIZE_BIND_COOKIE, "sid"));
+
+        string_null(response);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n"), response, carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "500 Internal Server Error") != NULL);
+
+        strlcpy(carg->authorize_peer, "203.0.113.9", sizeof(carg->authorize_peer));
+        string_null(response);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\nCookie: sid=sess-1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\nCookie: sid=sess-1\r\n\r\n"), response, carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "400 Bad Request") != NULL);
+
+        string_null(response);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\nX-Client: a\r\nX-Client: b\r\nCookie: sid=sess-1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\nX-Client: a\r\nX-Client: b\r\nCookie: sid=sess-1\r\n\r\n"), response, carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "400 Bad Request") != NULL);
+
+        vals[0] = "203.0.113.9";
+        vals[1] = "scraper-a";
+        vals[2] = "sess-1";
+        string_null(response);
+        t0 = (uint64_t)time(NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n"), response, carg));
+        t1 = (uint64_t)time(NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "200 OK") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_bound(response->s, "master", 10, carg->authorize_binds, carg->authorize_bind_count, vals, t0, t1));
+
+        carg->authorize_period = 100000000;
+        live_bucket = (uint64_t)time(NULL) / carg->authorize_period;
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute_bound("master", live_bucket, carg->authorize_binds, carg->authorize_bind_count, vals, bound_hex));
+        snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1; alligator_auth=%s\r\n\r\n", bound_hex);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req_bind));
+        strlcpy(carg->authorize_peer, "198.51.100.4", sizeof(carg->authorize_peer));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_check_req(carg, req_bind));
+        strlcpy(carg->authorize_peer, "203.0.113.9", sizeof(carg->authorize_peer));
+        snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: other\r\nCookie: sid=sess-1; alligator_auth=%s\r\n\r\n", bound_hex);
+        authorize_check_deny(carg, req_bind, 0, "authorize code rejected");
+        snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: alligator_auth=%s\r\n\r\n", bound_hex);
+        authorize_check_deny(carg, req_bind, 0, "authorize bind cookie:sid rejected");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, authorize_check_req(carg, "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n"));
+        snprintf(req_bind, sizeof(req_bind), "GET /authorize HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: sid=sess-1\r\n\r\n");
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(carg, req_bind));
+
+        {
+            context_arg *hc = calloc(1, sizeof(*hc));
+            authorize_bind *two;
+            const char *hvals[2];
+            char two_hex[AUTHORIZE_HEX_LEN + 1];
+            uint64_t two_bucket;
+
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hc);
+            hc->authorize_secret = strdup("master");
+            hc->authorize_period = 100000000;
+            hc->authorize_validate = AUTHORIZE_VALIDATE_COOKIE;
+            hc->authorize_header_name = strdup("X-Alligator-Auth");
+            hc->authorize_cookie_name = strdup("alligator_auth");
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_bind_add(hc, AUTHORIZE_BIND_HEADER, "X-Client"));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_bind_add(hc, AUTHORIZE_BIND_HEADER, "X-User"));
+            two = hc->authorize_binds;
+            hvals[0] = "scraper-a";
+            hvals[1] = "alice";
+            two_bucket = (uint64_t)time(NULL) / hc->authorize_period;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_compute_bound("master", two_bucket, two, 2, hvals, two_hex));
+            snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nX-User: alice\r\nCookie: alligator_auth=%s\r\n\r\n", two_hex);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_check_req(hc, req_bind));
+            snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nCookie: alligator_auth=%s\r\n\r\n", two_hex);
+            authorize_check_deny(hc, req_bind, 0, "authorize bind header:X-User rejected");
+            snprintf(req_bind, sizeof(req_bind), "GET / HTTP/1.1\r\nX-Client: scraper-a\r\nX-User: bob\r\nCookie: alligator_auth=%s\r\n\r\n", two_hex);
+            authorize_check_deny(hc, req_bind, 0, "authorize code rejected");
+            free(hc->authorize_secret);
+            free(hc->authorize_header_name);
+            free(hc->authorize_cookie_name);
+            authorize_binds_free(hc->authorize_binds, hc->authorize_bind_count);
+            free(hc);
+        }
+    }
+
     string_free(response);
     alligator_ht_foreach_arg(carg->env, env_struct_free, NULL);
     alligator_ht_done(carg->env);
     free(carg->env);
     free(carg->authorize_secret);
     free(carg->authorize_header_name);
+    free(carg->authorize_cookie_name);
+    authorize_binds_free(carg->authorize_binds, carg->authorize_bind_count);
     free(carg);
 }

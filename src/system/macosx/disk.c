@@ -55,8 +55,8 @@ static void emit_disk_ident(const char *disk, const char *model, const char *ser
 	if (firmware && firmware[0])
 		metric_add_labels2("disk_firmware", &val, DATATYPE_UINT, ac->system_carg, "firmware", (char *)firmware, "disk", (char *)disk);
 	if (size > 0)
-		metric_add_labels2("disk_size", &size, DATATYPE_UINT, ac->system_carg, "disk", (char *)disk, "controller", (char *)disk);
-	metric_add_labels2("disk_unallocated", &unalloc, DATATYPE_UINT, ac->system_carg, "disk", (char *)disk, "controller", (char *)disk);
+		metric_add_labels2("disk_size_bytes", &size, DATATYPE_UINT, ac->system_carg, "disk", (char *)disk, "controller", (char *)disk);
+	metric_add_labels2("disk_unallocated_bytes", &unalloc, DATATYPE_UINT, ac->system_carg, "disk", (char *)disk, "controller", (char *)disk);
 }
 
 static void emit_disk_io(const char *disk, CFDictionaryRef stats)
@@ -85,11 +85,11 @@ static void emit_disk_io(const char *disk, CFDictionaryRef stats)
 	 */
 	busy_time = duration_read + duration_write;
 
-	metric_add_labels2("disk_io", &bytes_read, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "bytes_read");
-	metric_add_labels2("disk_io", &bytes_write, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "bytes_write");
-	metric_add_labels2("disk_io", &transfers_read, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "transfers_read");
-	metric_add_labels2("disk_io", &transfers_write, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "type", "transfers_write");
-	metric_add_labels("disk_busy", &busy_time, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk);
+	metric_add_labels2("disk_io_bytes_total", &bytes_read, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "op", "read");
+	metric_add_labels2("disk_io_bytes_total", &bytes_write, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "op", "write");
+	metric_add_labels2("disk_io_transfers_total", &transfers_read, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "op", "read");
+	metric_add_labels2("disk_io_transfers_total", &transfers_write, DATATYPE_INT, ac->system_carg, "dev", (char *)disk, "op", "write");
+	metric_add_labels("disk_busy_seconds_total", &busy_time, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk);
 	metric_add_labels2("disk_io_await_seconds_total", &duration_read, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk, "type", "read");
 	metric_add_labels2("disk_io_await_seconds_total", &duration_write, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk, "type", "write");
 	metric_add_labels2("disk_io_await_seconds_total", &duration_other, DATATYPE_DOUBLE, ac->system_carg, "dev", (char *)disk, "type", "other");

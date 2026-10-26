@@ -40,6 +40,8 @@ typedef struct http_reply_data
 	/* Time-based authorize material. Independent of Authorization basic/bearer/other. */
 	char *authorize_cookie;
 	char *authorize_header;
+	/* Set when http_check_auth denies. No secret or presented code. */
+	char auth_deny[160];
 	uint8_t connection_close;
 	uint8_t connection_keepalive;
 } http_reply_data;
@@ -48,6 +50,9 @@ http_reply_data* http_reply_parser(char *http, ssize_t n);
 http_reply_data* http_proto_get_request_data(char *buf, size_t size, char *auth_header);
 /* Fill authorize_cookie / authorize_header from Cookie and the named header. Names may be NULL. */
 void http_reply_authorize_extract(http_reply_data *hr, char *authorize_header, char *authorize_cookie);
+/* First value, or NULL when the field is missing, empty, or repeated. */
+char *http_header_get(http_reply_data *hr, const char *name);
+char *http_cookie_get(http_reply_data *hr, const char *name);
 void http_reply_data_free(http_reply_data* http);
 char* http_proto_proxer(char *metrics, size_t size, char *instance);
 void env_serialize_http_answer(void *funcarg, void* arg);

@@ -64,7 +64,12 @@ curl -s http://127.0.0.1:1111/conf
         "set": "[cookie|header|json]",
         "validate": "[cookie|header]",
         "cookie_name": "alligator_auth",
-        "header_name": "X-Alligator-Auth"
+        "header_name": "X-Alligator-Auth",
+        "bind": [
+          {"type": "remote_addr"},
+          {"type": "header", "name": "X-Client"},
+          {"type": "cookie", "name": "sid"}
+        ]
       },
       "env": {
         "<name>": "<value>"
@@ -294,6 +299,13 @@ curl -s http://127.0.0.1:1111/conf
       "timeout": "5s",
       "loop": 10,
       "percent": 0.5
+    },
+    {
+      "name": "grpc_health",
+      "prober": "grpc",
+      "service": "foo.Bar",
+      "tls": "on",
+      "timeout": "5s"
     }
   ]
 }

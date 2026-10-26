@@ -17,6 +17,8 @@ Entrypoint functionality includes:
 - Alligator API
 - Replication log for [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) configuration.
 
+Walkthrough for StatsD, Graphite, blackbox `/probe`, cluster gauges, auth, and `metric_filter`: [receiving metrics](metric-receive.md).
+
 Full explain
 ```
 entrypoint {
@@ -34,6 +36,9 @@ entrypoint {
         validate [cookie|header];
         cookie_name <name>;
         header_name <name>;
+        bind remote_addr;
+        bind header <name>;
+        bind cookie <name>;
     }
     header <name> <value>;
     ttl <time to live>;
@@ -191,7 +196,7 @@ Missing credentials are HTTP 401. Credentials that are present but do not match 
 Default: off\
 Plural: no
 
-Issues a time-based secret from `GET /authorize` and requires that secret on other requests. The code is HMAC-SHA256 of `master_secret || ":" || decimal_time_bucket` (the HMAC key is the master secret), written as 64 lowercase hex characters. `period` is the bucket size in seconds (`10`, `10s`, `1m`, …). A request is accepted when the presented code matches the current bucket or one bucket on either side.
+Issues a time-based secret from `GET /authorize` and requires that secret on other requests. With no `bind`, the code is HMAC-SHA256 of `master_secret || ":" || decimal_time_bucket` (the HMAC key is the master secret), written as 64 lowercase hex characters. `period` is the bucket size in seconds (`10`, `10s`, `1m`, …). A request is accepted when the presented code matches the current bucket or one bucket on either side.
 
 The master secret and the issued code are not written to the log.
 
@@ -204,6 +209,14 @@ The master secret and the issued code are not written to the log.
 
 `validate` chooses where clients send the code back: `cookie` (default) or `header`. `set json` with `validate header` is valid: the mint response is JSON, and later requests carry the code in the header. The authorize header is separate from `Authorization`, so basic auth and the time-based secret can be required together (`satisfy all`).
 
+`bind` mixes the client into that HMAC message, in the order written. Repeat it. At most 8 binds. The HMAC key stays the master secret. Each value is length-prefixed, so the current bucket and every configured bind have to be present and identical on `GET /authorize` and on the later request.
+
+- `bind remote_addr` — accepted TCP peer, without the port. An IPv4-mapped IPv6 address is stored as IPv4. A unix socket has no peer address.
+- `bind header <name>` — that request header. The name is not `header_name`.
+- `bind cookie <name>` — that cookie. The name is not `cookie_name`.
+
+A missing or repeated header or cookie on `GET /authorize` is HTTP 400. A missing peer is HTTP 500. On later requests a code that does not match these values is HTTP 403. The same header or cookie sent twice on one request does not match. A header or cookie the client chooses only separates clients who send different values. Several `bind header` or `bind cookie` lines are all required; each name is distinct. A bind entry that is rejected (unknown type, missing or extra name, or the code header/cookie name) denies every request on that entrypoint.
+
 ```
 entrypoint {
     auth basic user:pass;
@@ -215,14 +228,17 @@ entrypoint {
         validate cookie;
         cookie_name alligator_auth;
         header_name X-Alligator-Auth;
+        bind remote_addr;
+        bind header X-Client;
+        bind cookie sid;
     }
     tcp 9091;
 }
 ```
 
 ```
-$ curl -sD- -u user:pass http://localhost:9091/authorize
-$ curl -s -u user:pass --cookie alligator_auth=<hex> http://localhost:9091/metrics
+$ curl -sD- -u user:pass -H 'X-Client: scraper-a' --cookie sid=sess-1 http://localhost:9091/authorize
+$ curl -s -u user:pass -H 'X-Client: scraper-a' --cookie 'sid=sess-1; alligator_auth=<hex>' http://localhost:9091/metrics
 ```
 
 ## header

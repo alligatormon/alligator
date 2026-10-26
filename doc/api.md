@@ -64,7 +64,12 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
         "set": "[cookie|header|json]",
         "validate": "[cookie|header]",
         "cookie_name": "alligator_auth",
-        "header_name": "X-Alligator-Auth"
+        "header_name": "X-Alligator-Auth",
+        "bind": [
+          {"type": "remote_addr"},
+          {"type": "header", "name": "X-Client"},
+          {"type": "cookie", "name": "sid"}
+        ]
       },
       "env": {
         "<name>": "<value>"
@@ -300,6 +305,13 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
       "timeout": "5s",
       "loop": 10,
       "percent": 0.5
+    },
+    {
+      "name": "grpc_health",
+      "prober": "grpc",
+      "service": "foo.Bar",
+      "tls": "on",
+      "timeout": "5s"
     }
   ]
 }

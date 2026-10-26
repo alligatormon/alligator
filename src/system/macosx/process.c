@@ -402,9 +402,9 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 		"name", (char *)proc->pbi_name, "pid", pidstr, "mode", "total");
 
 	val = (int64_t)task->pti_virtual_size;
-	metric_add_labels3("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "vsz", "pid", pidstr);
+	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "vsz", "pid", pidstr);
 	val = (int64_t)task->pti_resident_size;
-	metric_add_labels3("process_memory", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "rss", "pid", pidstr);
+	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "rss", "pid", pidstr);
 
 	val = task->pti_threadnum;
 	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "threads", "pid", pidstr);
@@ -419,7 +419,7 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 		return;
 
 	uptime = (uint64_t)(now - proc->pbi_start_tvsec);
-	metric_add_labels2("process_uptime", &uptime, DATATYPE_UINT, ac->system_carg, "name", (char *)proc->pbi_name, "pid", pidstr);
+	metric_add_labels2("process_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg, "name", (char *)proc->pbi_name, "pid", pidstr);
 	macosx_emit_process_state(proc->pbi_status, (char *)proc->pbi_name, pidstr, 1);
 	macosx_emit_process_io(pid, (char *)proc->pbi_name, pidstr);
 	macosx_count_fds(pid, &fds);

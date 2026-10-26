@@ -23,6 +23,13 @@ aggregate {
     # WebSocket connectivity check (handshake + stream):
     blackbox ws://api.example.com:8080/health  add_label=service:api;
     blackbox wss://ws.example.com/status       add_label=service:ws-gateway;
+
+    # gRPC health (grpc.health.v1.Health/Check), not a TCP connect check.
+    # service= selects the gRPC service; omit it for a server-wide check.
+    # Default port is 80 for grpc:// and 443 for grpcs://.
+    blackbox grpc://127.0.0.1:50051;
+    blackbox grpc://api.example.com:50051 service=foo.Bar;
+    blackbox grpcs://api.example.com:443 service=foo.Bar tls_verify=on tls_server_name=api.example.com;
 }
 ```
 
@@ -37,6 +44,8 @@ aggregate {
 ```
 
 That emits `alligator_icmp_response_duration_seconds_{bucket,sum,count}`. Optional `payload_size`, `ttl`, `tos`, `negative_test` are accepted on the same aggregate object. On-demand checks stay on **`probe`** + async `GET /probe` (see [probe.md](../probe.md)).
+
+`grpc://` and `grpcs://` run a unary `grpc.health.v1.Health/Check`. `probe_success` is 1 only when the gRPC status is 0 and the health status is `SERVING`. A completed TCP connect is not success. `service=` selects the gRPC service name (protobuf field 1); without it the check is server-wide. `grpcs://` turns TLS on (default port 443). `grpc://` stays plaintext (default port 80).
 
 ### Blackbox in entrypoint
 

@@ -961,8 +961,8 @@ void system_test(char *binary) {
     get_rapl_stats();
     metric_test_run(CMP_EQUAL, "rapl_energy_joules_total{name=\"intel-rapl:0\"}", "rapl_energy_joules_total", 5);
     metric_test_run(CMP_EQUAL, "rapl_energy_joules_total{name=\"intel-rapl:0:0\"}", "rapl_energy_joules_total", 2);
-    metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"total\"}", "memory_usage_hw", 2036900ULL * 1024);
-    metric_test_run(CMP_EQUAL, "memory_usage_hw{type=\"usage\"}", "memory_usage_hw", (2036900ULL - 1439972ULL) * 1024);
+    metric_test_run(CMP_EQUAL, "memory_usage_hw_bytes{type=\"total\"}", "memory_usage_hw_bytes", 2036900ULL * 1024);
+    metric_test_run(CMP_EQUAL, "memory_usage_hw_bytes{type=\"usage\"}", "memory_usage_hw_bytes", (2036900ULL - 1439972ULL) * 1024);
     metric_test_run(CMP_EQUAL, "numa_node_stat_total{node=\"node0\",stat=\"numa_hit\"}", "numa_node_stat_total", 1000);
     metric_test_run(CMP_EQUAL, "hugepages_total", "hugepages_total", 8);
     metric_test_run(CMP_EQUAL, "hugepages_free", "hugepages_free", 6);

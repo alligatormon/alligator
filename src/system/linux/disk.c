@@ -52,8 +52,8 @@ uint64_t nvme_ioctl_stat(char *dev, char *controller, char *disk) {
 	metric_add_labels4("nvme_temperature_threshold_celsius", &composite_temp_warn_thresh, DATATYPE_UINT, ac->system_carg, "model", trim_whitespaces(model), "disk", disk, "kind", "warning", "controller", controller);
 	metric_add_labels4("nvme_temperature_threshold_celsius", &composite_temp_crit_thresh, DATATYPE_UINT, ac->system_carg, "model", trim_whitespaces(model), "disk", disk, "kind", "critical", "controller", controller);
 	metric_add_labels3("nvme_total_namespace_count", &ns_count, DATATYPE_UINT, ac->system_carg, "model", trim_whitespaces(model), "disk", disk, "controller", controller);
-	metric_add_labels2("disk_size", &capacity_total, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
-	metric_add_labels2("disk_unallocated", &capacity_unalloc, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
+	metric_add_labels2("disk_size_bytes", &capacity_total, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
+	metric_add_labels2("disk_unallocated_bytes", &capacity_unalloc, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
 	//metric_add_labels2("nvme_ns_capacity_bytes", &capacity, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
 	//metric_add_labels2("nvme_ns_utilization_bytes", &utilization, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);
 	//metric_add_labels2("nvme_ns_size_bytes", &size, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller);

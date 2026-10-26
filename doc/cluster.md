@@ -16,7 +16,7 @@ If the cluster is enabled in the aggregate context, it allows for lock-based clu
 <br>
 </p>
 
-The Cluster enables the multi-node capabilities and can be used in two directions - as a metric receiver or as a metric crawler.\
+The Cluster enables the multi-node capabilities and can be used in two directions - as a metric receiver or as a metric crawler. For gauges pushed from several hosts, see [receiving metrics](metric-receive.md#cluster-gauges-and-several-hosts).\
 To set up metric receiver cluster, each node have to be configured in the entrypoint as follows:
 ```
 entrypoint {

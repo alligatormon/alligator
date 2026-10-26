@@ -301,9 +301,9 @@ void get_disk()
 			double pused = (double)used*100/(double)total;
 			double pfree = 100 - pused;
 
-			metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
-			metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
-			metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
+			metric_add_labels2("disk_usage_bytes", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
+			metric_add_labels2("disk_usage_bytes", &total, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "total");
+			metric_add_labels2("disk_usage_bytes", &used, DATATYPE_INT, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 			metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "used");
 			metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", mounts[i].f_mntonname, "type", "free");
 
@@ -451,13 +451,13 @@ void get_mem()
 	/* available ≈ free + inactive (reclaimable); t_avm is active virtual memory, not RAM */
 	int64_t avail_memory = free_memory + inact_memory;
 
-	metric_add_labels("memory_usage", &physmem, DATATYPE_INT, ac->system_carg, "type", "total");
-	metric_add_labels("memory_usage", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
-	metric_add_labels("memory_usage", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
-	metric_add_labels("memory_usage", &inact_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
-	metric_add_labels("memory_usage", &real_memory, DATATYPE_INT, ac->system_carg, "type", "real");
-	metric_add_labels("memory_usage", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
-	metric_add_labels("memory_usage", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
+	metric_add_labels("memory_usage_bytes", &physmem, DATATYPE_INT, ac->system_carg, "type", "total");
+	metric_add_labels("memory_usage_bytes", &free_memory, DATATYPE_INT, ac->system_carg, "type", "free");
+	metric_add_labels("memory_usage_bytes", &wire_memory, DATATYPE_INT, ac->system_carg, "type", "wire");
+	metric_add_labels("memory_usage_bytes", &inact_memory, DATATYPE_INT, ac->system_carg, "type", "inactive");
+	metric_add_labels("memory_usage_bytes", &real_memory, DATATYPE_INT, ac->system_carg, "type", "real");
+	metric_add_labels("memory_usage_bytes", &active_memory, DATATYPE_INT, ac->system_carg, "type", "active");
+	metric_add_labels("memory_usage_bytes", &avail_memory, DATATYPE_INT, ac->system_carg, "type", "available");
 
 	if (physmem > 0) {
 		double percentused = ((double)physmem - (double)avail_memory) * 100.0 / (double)physmem;
@@ -473,8 +473,8 @@ void get_mem()
 	metric_add_labels("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1");
 	metric_add_labels("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5");
 	metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");
-	metric_add_auto("vm_faults", &vm_faults, DATATYPE_UINT, ac->system_carg);
-	metric_add_auto("io_faults", &io_faults, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("vm_faults_total", &vm_faults, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("io_faults_total", &io_faults, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
@@ -517,11 +517,11 @@ void get_vmstat()
 {
 	get_sysctl_stat_u64("vm.stats.sys.v_soft", "softirq_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts_total");
-	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls");
+	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_swtch", "context_switches_total");
 	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks_total");
-	get_sysctl_stat_u64("vm.stats.vm.v_vforks", "vforks");
-	get_sysctl_stat_u64("vm.stats.vm.v_rforks", "rforks");
+	get_sysctl_stat_u64("vm.stats.vm.v_vforks", "vforks_total");
+	get_sysctl_stat_u64("vm.stats.vm.v_rforks", "rforks_total");
 	get_sysctl_stat_u64("kern.openfiles", "open_files");
 	get_sysctl_stat_u64("kern.maxfiles", "max_files");
 	get_sysctl_stat_u64("kern.maxfilesperproc", "max_files_per_proc");
@@ -652,11 +652,11 @@ void get_cpu(void)
 			intr_sec = cp_ticks_to_seconds(t_intr);
 			idle_sec = cp_ticks_to_seconds(t_idle);
 
-			metric_add_labels2("cpu_usage_core_time", &user_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
-			metric_add_labels2("cpu_usage_core_time", &system_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
-			metric_add_labels2("cpu_usage_core_time", &nice_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
-			metric_add_labels2("cpu_usage_core_time", &intr_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "intr");
-			metric_add_labels2("cpu_usage_core_time", &idle_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
+			metric_add_labels2("cpu_usage_core_seconds_total", &user_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
+			metric_add_labels2("cpu_usage_core_seconds_total", &system_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
+			metric_add_labels2("cpu_usage_core_seconds_total", &nice_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
+			metric_add_labels2("cpu_usage_core_seconds_total", &intr_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "intr");
+			metric_add_labels2("cpu_usage_core_seconds_total", &idle_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
 
 			cpu_core_interval_push(&ac->scs->cores[n], cpuname, t_user, t_nice, t_system, t_intr, t_idle);
 
@@ -752,14 +752,14 @@ void disk_io_stats()
 				DSM_TOTAL_BLOCKS, &blocks,
 				DSM_NONE);
 
-		metric_add_labels2("disk_io", &bytes_read, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "bytes_read");
-		metric_add_labels2("disk_io", &bytes_write, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "bytes_write");
-		metric_add_labels2("disk_io", &bytes_free, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "bytes_free");
-		metric_add_labels2("disk_io", &transfers_read, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "transfers_read");
-		metric_add_labels2("disk_io", &transfers_write, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "transfers_write");
-		metric_add_labels2("disk_io", &transfers_free, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "transfers_free");
+		metric_add_labels2("disk_io_bytes_total", &bytes_read, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "read");
+		metric_add_labels2("disk_io_bytes_total", &bytes_write, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "write");
+		metric_add_labels2("disk_io_bytes_total", &bytes_free, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "free");
+		metric_add_labels2("disk_io_transfers_total", &transfers_read, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "read");
+		metric_add_labels2("disk_io_transfers_total", &transfers_write, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "write");
+		metric_add_labels2("disk_io_transfers_total", &transfers_free, DATATYPE_INT, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "op", "free");
 		double d_busy_time = (double)busy_time;
-		metric_add_labels("disk_busy", &d_busy_time, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name);
+		metric_add_labels("disk_busy_seconds_total", &d_busy_time, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name);
 		metric_add_labels2("disk_io_await_seconds_total", &duration_read, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "read");
 		metric_add_labels2("disk_io_await_seconds_total", &duration_write, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "write");
 		metric_add_labels2("disk_io_await_seconds_total", &duration_other, DATATYPE_DOUBLE, ac->system_carg, "dev", current.dinfo->devices[i].device_name, "type", "other");

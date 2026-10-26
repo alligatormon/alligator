@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include "common/atomic.h"
 #include <jansson.h>
+#include "common/authorize.h"
 #include "common/rtime.h"
 #include "common/pcre_parser.h"
 #include "common/multiline.h"
@@ -175,6 +176,13 @@ struct context_arg
 	uint8_t authorize_validate;
 	char *authorize_cookie_name;
 	char *authorize_header_name;
+	/* Ordered binds mixed into the HMAC message. authorize_peer is the accepted
+	   address without a port, filled when the TCP client is accepted. */
+	authorize_bind *authorize_binds;
+	uint8_t authorize_bind_count;
+	/* Set when a configured bind was rejected. Requests are denied. */
+	uint8_t authorize_config_error;
+	char authorize_peer[AUTHORIZE_PEER_SIZE];
 	uint8_t satisfy;
 	char *body;
 	uint8_t body_read;

@@ -118,9 +118,9 @@ void print_mount(const struct mntent *fs)
 
 				double iused = inodes_used*100.0/inodes_total;
 				double ifree = 100.0 - iused;
-				metric_add_labels2("disk_usage", &total, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "total");
-				metric_add_labels2("disk_usage", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "free");
-				metric_add_labels2("disk_usage", &used, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "used");
+				metric_add_labels2("disk_usage_bytes", &total, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "total");
+				metric_add_labels2("disk_usage_bytes", &avail, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "free");
+				metric_add_labels2("disk_usage_bytes", &used, DATATYPE_INT, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "used");
 				metric_add_labels2("disk_usage_percent", &pused, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "used");
 				metric_add_labels2("disk_usage_percent", &pfree, DATATYPE_DOUBLE, ac->system_carg, "mountpoint", fs->mnt_dir, "type", "free");
 
@@ -333,12 +333,12 @@ void get_mem(int8_t platform)
 		}
 		else	continue;
 
-		metric_add_labels("memory_usage_hw", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
+		metric_add_labels("memory_usage_hw_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
 	}
 	int64_t usageswap = totalswap - freeswap;
 	int64_t usagemem = memtotal - memavailable;
-	metric_add_labels("memory_usage_hw", &usageswap, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
-	metric_add_labels("memory_usage_hw", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
+	metric_add_labels("memory_usage_hw_bytes", &usageswap, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
+	metric_add_labels("memory_usage_hw_bytes", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
 	
 	fclose(fd);
 
@@ -417,6 +417,8 @@ void get_mem(int8_t platform)
 			metric_add_labels("pgsteal_total", &ival, DATATYPE_INT, ac->system_carg, "type", key+7);
 	}
 	fclose(fd);
+	metric_add_auto("vm_faults_total", &pgfault, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("io_faults_total", &pgmajfault, DATATYPE_INT, ac->system_carg);
 
 	// scrape cgroup
 	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.stat", ac->system_sysfs);
@@ -500,28 +502,30 @@ void get_mem(int8_t platform)
 		}
 		else	continue;
 
-		metric_add_labels("memory_usage_cgroup", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
+		metric_add_labels("memory_usage_cgroup_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
 	}
 	fclose(fd);
 
-	metric_add_labels("memory_usage", &cache, DATATYPE_INT, ac->system_carg, "type", "cache");
-	metric_add_labels("memory_usage", &mapped, DATATYPE_INT, ac->system_carg, "type", "mapped");
-	metric_add_labels("memory_usage", &dirty, DATATYPE_INT, ac->system_carg, "type", "dirty");
-	metric_add_labels("memory_usage", &unevictable, DATATYPE_INT, ac->system_carg, "type", "unevictable");
-	metric_add_labels("memory_usage", &inactive_anon, DATATYPE_INT, ac->system_carg, "type", "inactive_anon");
-	metric_add_labels("memory_usage", &active_anon, DATATYPE_INT, ac->system_carg, "type", "active_anon");
-	metric_add_labels("memory_usage", &active_file, DATATYPE_INT, ac->system_carg, "type", "active_file");
-	metric_add_labels("memory_usage", &inactive_file, DATATYPE_INT, ac->system_carg, "type", "inactive_file");
+	metric_add_labels("memory_usage_bytes", &cache, DATATYPE_INT, ac->system_carg, "type", "cache");
+	metric_add_labels("memory_usage_bytes", &mapped, DATATYPE_INT, ac->system_carg, "type", "mapped");
+	metric_add_labels("memory_usage_bytes", &dirty, DATATYPE_INT, ac->system_carg, "type", "dirty");
+	metric_add_labels("memory_usage_bytes", &unevictable, DATATYPE_INT, ac->system_carg, "type", "unevictable");
+	metric_add_labels("memory_usage_bytes", &inactive_anon, DATATYPE_INT, ac->system_carg, "type", "inactive_anon");
+	metric_add_labels("memory_usage_bytes", &active_anon, DATATYPE_INT, ac->system_carg, "type", "active_anon");
+	metric_add_labels("memory_usage_bytes", &active_file, DATATYPE_INT, ac->system_carg, "type", "active_file");
+	metric_add_labels("memory_usage_bytes", &inactive_file, DATATYPE_INT, ac->system_carg, "type", "inactive_file");
 	metric_add_labels("memory_stat", &pgpgin, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
 	metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", "pgmajfault");
 	metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, ac->system_carg, "type", "pgfault");
+	metric_add_auto("vm_faults_total", &pgfault, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("io_faults_total", &pgmajfault, DATATYPE_INT, ac->system_carg);
 	metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
 	metric_add_labels("memory_stat", &shmem, DATATYPE_INT, ac->system_carg, "type", "shmem");
 
 	inactive = inactive_file+inactive_anon;
 	active = active_file+active_anon;
-	metric_add_labels("memory_usage", &active, DATATYPE_INT, ac->system_carg, "type", "active");
-	metric_add_labels("memory_usage", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
+	metric_add_labels("memory_usage_bytes", &active, DATATYPE_INT, ac->system_carg, "type", "active");
+	metric_add_labels("memory_usage_bytes", &inactive, DATATYPE_INT, ac->system_carg, "type", "inactive");
 
 	usagemem = is_cgroup ? container_memory_usage : usagemem;
 	if (memtotal > 0) {
@@ -530,8 +534,8 @@ void get_mem(int8_t platform)
 		metric_add_labels("memory_usage_percent", &percentused, DATATYPE_DOUBLE, ac->system_carg, "type", "used");
 		metric_add_labels("memory_usage_percent", &percentfree, DATATYPE_DOUBLE, ac->system_carg, "type", "free");
 	}
-	metric_add_labels("memory_usage", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
-	metric_add_labels("memory_usage", &memtotal, DATATYPE_INT, ac->system_carg, "type", "total");
+	metric_add_labels("memory_usage_bytes", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
+	metric_add_labels("memory_usage_bytes", &memtotal, DATATYPE_INT, ac->system_carg, "type", "total");
 
 	// check oom control
 	snprintf(pathbuf, 255, "%s/fs/cgroup/memory/memory.oom_control", ac->system_sysfs);
@@ -789,19 +793,19 @@ void get_disk_io_stat()
 		int64_t io_w = stat[7];
 		int64_t io_r = stat[3];
 		int64_t disk_busy = stat[12]/1000;
-		metric_add_labels2("disk_io", &io_r, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_read");
-		metric_add_labels2("disk_io", &io_w, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_write");
-		metric_add_labels2("disk_io", &read_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_read");
-		metric_add_labels2("disk_io", &write_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "bytes_write");
+		metric_add_labels2("disk_io_transfers_total", &io_r, DATATYPE_INT, ac->system_carg, "dev", devname, "op", "read");
+		metric_add_labels2("disk_io_transfers_total", &io_w, DATATYPE_INT, ac->system_carg, "dev", devname, "op", "write");
+		metric_add_labels2("disk_io_bytes_total", &read_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "op", "read");
+		metric_add_labels2("disk_io_bytes_total", &write_bytes, DATATYPE_INT, ac->system_carg, "dev", devname, "op", "write");
 		int64_t await_write_sec = stat[10] / 1000;
 		int64_t await_read_sec = stat[6] / 1000;
 		int64_t await_queue_sec = stat[13] / 1000;
 		metric_add_labels2("disk_io_await_seconds_total", &await_write_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "write");
 		metric_add_labels2("disk_io_await_seconds_total", &await_read_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "read");
 		metric_add_labels2("disk_io_await_seconds_total", &await_queue_sec, DATATYPE_INT, ac->system_carg, "dev", devname, "type", "queue");
-		metric_add_labels("disk_busy", &disk_busy, DATATYPE_INT, ac->system_carg, "dev", devname);
+		metric_add_labels("disk_busy_seconds_total", &disk_busy, DATATYPE_INT, ac->system_carg, "dev", devname);
 		if (j>14)
-			metric_add_labels2("disk_io", &stat[14], DATATYPE_INT, ac->system_carg, "dev", devname, "type", "transfers_discard");
+			metric_add_labels2("disk_io_transfers_total", &stat[14], DATATYPE_INT, ac->system_carg, "dev", devname, "op", "discard");
 	}
 	fclose(fd);
 }
@@ -1979,7 +1983,7 @@ void get_utmp_info()
 	struct utmp log;
 
 	uint64_t btmp_size = get_file_size("/var/log/btmp");
-	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("btmp_file_size_bytes", &btmp_size, DATATYPE_UINT, ac->system_carg);
 
 	file = fopen("/var/run/utmp", "rb");
 

@@ -81,7 +81,7 @@ Detailed information about the configuration file structure is in [configuration
 
 
 ## Entrypoint context
-Please refer to the entrypoint context [explanation](doc/entrypoint.md).
+Please refer to the entrypoint context [explanation](doc/entrypoint.md). A walkthrough for receiving StatsD, Graphite, and blackbox checks, with cluster, auth, and ingest filters, is in [receiving metrics](doc/metric-receive.md).
 
 Here's an example of a simple handler that can respond to Prometheus:
 ```

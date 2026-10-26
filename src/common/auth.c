@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <time.h>
+#include <string.h>
 #include "events/context_arg.h"
 #include "common/auth.h"
 #include "common/authorize.h"
@@ -65,16 +67,66 @@ static int8_t http_check_static_auth(context_arg *carg, http_reply_data *http_da
 	return 0;
 }
 
-static int8_t http_check_authorize_group(context_arg *carg, http_reply_data *http_data)
+static void auth_deny_copy(char *dst, size_t dstlen, const char *msg)
+{
+	if (!dst || !dstlen)
+		return;
+	snprintf(dst, dstlen, "%s", msg ? msg : "");
+}
+
+static int8_t http_check_authorize_group(context_arg *carg, http_reply_data *http_data, char *why, size_t why_len)
 {
 	const char *presented;
+	char *values[AUTHORIZE_BIND_MAX];
+	int filled;
+	int8_t rc;
+	uint8_t fail_index = 0;
+
+	if (why && why_len)
+		why[0] = 0;
 
 	if (carg->authorize_validate == AUTHORIZE_VALIDATE_HEADER)
 		presented = http_data->authorize_header;
 	else
 		presented = http_data->authorize_cookie;
 
-	return authorize_validate(carg->authorize_secret, carg->authorize_period, presented, (int64_t)time(NULL));
+	if (!carg->authorize_bind_count)
+	{
+		rc = authorize_validate(carg->authorize_secret, carg->authorize_period, presented, (int64_t)time(NULL));
+		if (rc == 0)
+			auth_deny_copy(why, why_len, "authorize code rejected");
+		else if (rc < 0)
+			auth_deny_copy(why, why_len, "authorize code missing");
+		return rc;
+	}
+
+	if (!presented || !presented[0])
+	{
+		auth_deny_copy(why, why_len, "authorize code missing");
+		return -1;
+	}
+
+	memset(values, 0, sizeof(values));
+	filled = authorize_factors_fill(carg, http_data, values, &fail_index);
+	if (filled != AUTHORIZE_FACTORS_OK)
+	{
+		char label[160];
+
+		if (carg->authorize_binds && fail_index < carg->authorize_bind_count &&
+		    authorize_bind_label(&carg->authorize_binds[fail_index], label, sizeof(label)) > 0 && why && why_len)
+			snprintf(why, why_len, "authorize bind %s rejected", label);
+		else
+			auth_deny_copy(why, why_len, "authorize bind rejected");
+		return 0;
+	}
+	rc = authorize_validate_bound(carg->authorize_secret, carg->authorize_period, presented, (int64_t)time(NULL),
+		carg->authorize_binds, carg->authorize_bind_count, (const char *const *)values);
+	authorize_factors_free(values, carg->authorize_bind_count);
+	if (rc == 0)
+		auth_deny_copy(why, why_len, "authorize code rejected");
+	else if (rc < 0)
+		auth_deny_copy(why, why_len, "authorize code missing");
+	return rc;
 }
 
 static int8_t http_combine_auth(int8_t static_rc, int8_t authorize_rc, int satisfy_all)
@@ -105,8 +157,17 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 	char *header_name;
 	char *cookie_name;
 
+	char why[160];
+	int8_t rc;
+
+	why[0] = 0;
 	if (!carg || !http_data)
 		return 1;
+	if (carg->authorize_config_error)
+	{
+		auth_deny_copy(http_data->auth_deny, sizeof(http_data->auth_deny), "authorize config rejected");
+		return 0;
+	}
 
 	static_on = carg->auth_basic || carg->auth_bearer || carg->auth_other;
 	authorize_on = authorize_is_configured(carg);
@@ -128,14 +189,42 @@ int8_t http_check_auth(context_arg *carg, http_reply_data *http_data)
 		return 1;
 
 	if (static_on && (!authorize_on || skip_authorize))
-		return http_check_static_auth(carg, http_data);
+	{
+		rc = http_check_static_auth(carg, http_data);
+		if (rc == 0)
+			auth_deny_copy(http_data->auth_deny, sizeof(http_data->auth_deny), "static auth rejected");
+		else if (rc < 0)
+			auth_deny_copy(http_data->auth_deny, sizeof(http_data->auth_deny), "static auth missing");
+		return rc;
+	}
 
 	if (!static_on)
-		return http_check_authorize_group(carg, http_data);
+	{
+		rc = http_check_authorize_group(carg, http_data, why, sizeof(why));
+		if (rc < 1)
+			auth_deny_copy(http_data->auth_deny, sizeof(http_data->auth_deny), why[0] ? why : "authorize rejected");
+		return rc;
+	}
 
 	static_rc = http_check_static_auth(carg, http_data);
-	authorize_rc = http_check_authorize_group(carg, http_data);
-	return http_combine_auth(static_rc, authorize_rc, carg->satisfy == SATISFY_ALL);
+	authorize_rc = http_check_authorize_group(carg, http_data, why, sizeof(why));
+	rc = http_combine_auth(static_rc, authorize_rc, carg->satisfy == SATISFY_ALL);
+	if (rc < 1)
+	{
+		const char *msg = NULL;
+
+		if (authorize_rc == 0)
+			msg = why[0] ? why : "authorize code rejected";
+		else if (static_rc == 0)
+			msg = "static auth rejected";
+		else if (authorize_rc < 0)
+			msg = why[0] ? why : "authorize code missing";
+		else if (static_rc < 0)
+			msg = "static auth missing";
+		if (msg)
+			auth_deny_copy(http_data->auth_deny, sizeof(http_data->auth_deny), msg);
+	}
+	return rc;
 }
 
 int http_auth_push(alligator_ht *auth_context, char *key) {

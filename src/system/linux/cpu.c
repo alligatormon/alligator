@@ -109,7 +109,7 @@ void get_cpu(int8_t platform)
 	else
 	{
 		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 18);
-		strlcpy(cpu_usage_time_name, "cpu_usage_hw_time", 18);
+		strlcpy(cpu_usage_time_name, "cpu_usage_hw_seconds_total", sizeof(cpu_usage_time_name));
 	}
 
 	// hw stats

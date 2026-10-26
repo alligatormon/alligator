@@ -13,6 +13,7 @@
 #include "common/rtime.h"
 #include "common/revocation.h"
 #include "common/http_entrypoint.h"
+#include "common/authorize.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -584,6 +585,8 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 		tcp_server_close_client(carg);
 		return;
 	}
+
+	authorize_peer_capture(carg);
 
 	carg->read_time = setrtime();
 	carg->shutdown_time = (r_time){0, 0};

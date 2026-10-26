@@ -16,6 +16,7 @@
 #include "common/units.h"
 #include "common/logs.h"
 #include "common/auth.h"
+#include "common/authorize.h"
 #include "external/amtail/variables.h"
 #include "vrl/type.h"
 extern aconf *ac;
@@ -191,6 +192,24 @@ context_arg *carg_copy(context_arg *src)
 		carg->authorize_cookie_name = strdup(src->authorize_cookie_name);
 	if (src->authorize_header_name)
 		carg->authorize_header_name = strdup(src->authorize_header_name);
+	carg->authorize_binds = NULL;
+	carg->authorize_bind_count = 0;
+	if (src->authorize_bind_count && src->authorize_binds)
+	{
+		carg->authorize_binds = authorize_binds_dup(src->authorize_binds, src->authorize_bind_count);
+		if (carg->authorize_binds)
+			carg->authorize_bind_count = src->authorize_bind_count;
+		else
+		{
+			carg->authorize_config_error = 1;
+			carglog(carg, L_ERROR, "authorize: bind copy failed; requests will be denied\n");
+		}
+	}
+	else if (src->authorize_bind_count)
+	{
+		carg->authorize_config_error = 1;
+		carglog(carg, L_ERROR, "authorize: bind list missing; requests will be denied\n");
+	}
 
 	if (src->env)
 		carg->env = env_struct_duplicate(src->env);
@@ -549,9 +568,12 @@ void carg_free(context_arg *carg)
 	free(carg->authorize_secret);
 	free(carg->authorize_cookie_name);
 	free(carg->authorize_header_name);
+	authorize_binds_free(carg->authorize_binds, carg->authorize_bind_count);
 	carg->authorize_secret = NULL;
 	carg->authorize_cookie_name = NULL;
 	carg->authorize_header_name = NULL;
+	carg->authorize_binds = NULL;
+	carg->authorize_bind_count = 0;
 
 	if (carg->threaded_loop_name)
 		free(carg->threaded_loop_name);

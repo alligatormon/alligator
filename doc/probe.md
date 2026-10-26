@@ -44,15 +44,18 @@ There are **no built-in modules**. `http_2xx` in the example only works after yo
 - `hostname` — optional Host header and TLS SNI (use with IP-literal `target`)
 - `X-Prometheus-Scrape-Timeout-Seconds` — optional request header; applied only as the **kicked** carg timeout (minus 500 ms, capped by module `timeout`). It does **not** make `/probe` wait.
 
-The handler builds a full URL (`http://`, `https://`, `tcp://`, `icmp://`, `ws://`, `unix://`, …) from `prober`, optional `tls on`, and `target`, then kicks the matching aggregator **asynchronously** (`smart_aggregator` + `aggregator_oneshot_start`) and immediately returns last-known Prometheus text metrics for `host=<target>`. The HTTP response does not wait for the probe to finish (`aggregator_oneshot_await` is never used here). The first scrape can be empty; the next scrape sees this kick’s result. Kick keys are `probe:<module>:<base>` so they do not replace a scheduled `aggregate { blackbox }` of the same host.
+The handler builds a full URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) from `prober`, optional `tls on`, and `target`, then kicks the matching aggregator **asynchronously** (`smart_aggregator` + `aggregator_oneshot_start`) and immediately returns last-known Prometheus text metrics for `host=<target>`. The HTTP response does not wait for the probe to finish (`aggregator_oneshot_await` is never used here). The first scrape can be empty; the next scrape sees this kick’s result. Kick keys are `probe:<module>:<base>` so they do not replace a scheduled `aggregate { blackbox }` of the same host.
+
+`prober grpc` does not put `grpc://` on the target. The kick URL is `tcp://host:port` or, with `tls on`, `tls://host:port`. A missing port is 80, or 443 when TLS is on. A leading `http://` or `https://` on `target` is stripped and does not select TLS.
 
 ## Fields
 
 | Field | Description |
 |-------|-------------|
 | `name` | Module name referenced by `module=` query parameter (required) |
-| `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`), or `unix` (required) |
-| `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` → `tls://`), WSS (`prober websocket` → `wss://`), or `tls://unix:` (`prober unix`) |
+| `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`), `unix`, or `grpc` (required) |
+| `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` or `prober grpc` → `tls://`), WSS (`prober websocket` → `wss://`), or `tls://unix:` (`prober unix`) |
+| `service` | gRPC service name for `prober grpc` (`grpc.health.v1.Health/Check` field 1). Omit it for a server-wide check |
 | `timeout` | Probe timeout applied to the async work (default `5s`) |
 | `method` | HTTP method: `GET` (default), `POST`, `HEAD`, `PUT`, `DELETE`, `PATCH` |
 | `body` | HTTP request body (inline). Mutually exclusive with `body_file` |
@@ -231,13 +234,48 @@ curl 'http://127.0.0.1:1111/probe?module=http_target&target=example.com:443'
 
 emits labels `instance="example.com:443"` and `site="example.com"`.
 
+Unary gRPC health (`grpc.health.v1.Health/Check`). `probe_success` is 1 only when grpc-status is 0 and the health status is `SERVING`:
+
+```
+probe {
+    name grpc_plain;
+    prober grpc;
+    timeout 5s;
+}
+probe {
+    name grpc_svc;
+    prober grpc;
+    service my.service;
+    timeout 3s;
+}
+probe {
+    name grpc_tls;
+    prober grpc;
+    tls on;
+    tls_verify on;
+    server_name api.example.com;
+    ca_file /etc/alligator/ca.pem;
+    service foo.Bar;
+}
+```
+
+```
+curl 'http://127.0.0.1:1111/probe?module=grpc_tls&target=api.example.com'
+curl 'http://127.0.0.1:1111/probe?module=grpc_tls&target=https://api.example.com:443'
+```
+
+Both use the module `tls on` flag. The second target’s `https://` prefix is ignored. Extra headers from `env` / `header` are sent on the HTTP/2 request.
+
 ## Probe metrics
 
 Native Alligator names (`alligator_*`, `aggregator_*`, `x509_*`). There is no blackbox_exporter alias layer. Unique `probe_*` families stay where they have no native twin (visible on the **next** scrape of async `GET /probe`):
 
 | Metric | Meaning |
 |--------|---------|
-| `probe_success` | 1 when the module checks passed (inverted by `negative_test`) |
+| `probe_success` | 1 when the module checks passed (inverted by `negative_test`). For `prober grpc`, that is grpc-status 0 and health status `SERVING` |
+| `probe_grpc_status_code` | Parsed gRPC status. `14` (`UNAVAILABLE`) when connect, TLS, or timeout happens before a grpc-status. `-1` when the HTTP/2 response cannot be parsed |
+| `probe_grpc_healthcheck_response` | One series per `serving_status` (`UNKNOWN`, `SERVING`, `NOT_SERVING`, `SERVICE_UNKNOWN`). The matching status is 1, the others 0. All four are 0 when there is no health body |
+| `probe_grpc_ssl` | 1 when the TLS handshake completed |
 | `probe_failed_due_to_regex` | Set when a TCP/HTTP regex expect or body matcher failed |
 | `probe_expect_info` | TCP `query_response` expect step matched |
 | `alligator_http_response_status_code` | HTTP status code |
@@ -253,7 +291,7 @@ Native Alligator names (`alligator_*`, `aggregator_*`, `x509_*`). There is no bl
 
 Continuous ICMP (`interval` on `probe` or `aggregate { blackbox icmp://… interval=… }`) emits a classic histogram `alligator_icmp_response_duration_seconds_{bucket,sum,count}`.
 
-HTTP probes also observe `alligator_http_request_duration_seconds_*`. Out of scope: gRPC, HTTP/2, HTTP/3, CEL, libjq, OAuth2.
+HTTP probes also observe `alligator_http_request_duration_seconds_*`. HTTP/2 is not a user-facing prober. Out of scope: HTTP/3, CEL, libjq, OAuth2.
 
 ## JSON configuration
 

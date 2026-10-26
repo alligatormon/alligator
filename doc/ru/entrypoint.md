@@ -19,6 +19,8 @@ Entrypoint нужен для включения портов, через кот�
 - Alligator API
 - Replication log для конфигурации [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md).
 
+Сценарий StatsD, Graphite, blackbox `/probe`, gauge в кластере, авторизации и `metric_filter`: [приём метрик](metric-receive.md).
+
 Полное описание
 ```
 entrypoint {
@@ -36,6 +38,9 @@ entrypoint {
         validate [cookie|header];
         cookie_name <name>;
         header_name <name>;
+        bind remote_addr;
+        bind header <name>;
+        bind cookie <name>;
     }
     header <name> <value>;
     ttl <time to live>;
@@ -193,7 +198,7 @@ $
 По умолчанию: выключено\
 Множественное: нет
 
-Выдаёт временный секрет на `GET /authorize` и требует его на остальных запросах. Код — это HMAC-SHA256 от строки `master_secret || ":" || decimal_time_bucket` (ключ HMAC — сам master secret), в виде 64 шестнадцатеричных символов в нижнем регистре. `period` — длина бакета в секундах (`10`, `10s`, `1m` и другие суффиксы времени). Подходит код текущего бакета и соседних ±1, чтобы пережить небольшой рассинхрон часов.
+Выдаёт временный секрет на `GET /authorize` и требует его на остальных запросах. Без `bind` код — это HMAC-SHA256 от строки `master_secret || ":" || decimal_time_bucket` (ключ HMAC — сам master secret), в виде 64 шестнадцатеричных символов в нижнем регистре. `period` — длина бакета в секундах (`10`, `10s`, `1m` и другие суффиксы времени). Подходит код текущего бакета и соседних ±1, чтобы пережить небольшой рассинхрон часов.
 
 Мастер-секрет и выданный код в лог не пишутся.
 
@@ -206,6 +211,14 @@ $
 
 `validate` задаёт, куда клиент кладёт код в следующих запросах: `cookie` (по умолчанию) или `header`. Сочетание `set json` и `validate header` нормально: `/authorize` отвечает JSON, а дальше код едет в заголовке. Заголовок authorize не занимает `Authorization`, поэтому basic и временный секрет можно требовать вместе (`satisfy all`).
 
+`bind` подмешивает клиента в сообщение HMAC, в том порядке, в каком строки записаны. Опцию можно повторять, не больше 8 раз. Ключ HMAC по-прежнему мастер-секрет. Бакет и каждое значение записаны с десятичным префиксом длины, поэтому на `GET /authorize` и на следующем запросе должны быть те же значения.
+
+- `bind remote_addr` — адрес принятого TCP-клиента, без порта. IPv4-mapped IPv6 записывается как IPv4. У unix-сокета адреса нет.
+- `bind header <name>` — этот заголовок запроса. Имя не совпадает с `header_name`.
+- `bind cookie <name>` — эта cookie. Имя не совпадает с `cookie_name`.
+
+Нет заголовка или cookie, либо одно и то же имя пришло дважды, на `GET /authorize` — HTTP 400. Нет адреса клиента — HTTP 500. На остальных запросах код, который не сходится с этими значениями, — HTTP 403. Заголовок или cookie, которые клиент выбирает сам, только отличают клиентов с разными значениями. Несколько строк `bind header` или `bind cookie` требуются все сразу, у каждой своё имя. Если запись `bind` отвергнута (неизвестный тип, нет имени, лишнее имя или это имя заголовка/cookie с кодом), entrypoint отвечает отказ на каждый запрос.
+
 ```
 entrypoint {
     auth basic user:pass;
@@ -217,14 +230,17 @@ entrypoint {
         validate cookie;
         cookie_name alligator_auth;
         header_name X-Alligator-Auth;
+        bind remote_addr;
+        bind header X-Client;
+        bind cookie sid;
     }
     tcp 9091;
 }
 ```
 
 ```
-$ curl -sD- -u user:pass http://localhost:9091/authorize
-$ curl -s -u user:pass --cookie alligator_auth=<hex> http://localhost:9091/metrics
+$ curl -sD- -u user:pass -H 'X-Client: scraper-a' --cookie sid=sess-1 http://localhost:9091/authorize
+$ curl -s -u user:pass -H 'X-Client: scraper-a' --cookie 'sid=sess-1; alligator_auth=<hex>' http://localhost:9091/metrics
 ```
 
 ## header

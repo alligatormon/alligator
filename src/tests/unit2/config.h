@@ -3538,7 +3538,7 @@ void test_metricstransform_plain_and_ingest()
 
     {
         const char *frag_repl_active =
-            "action { name regexpr expr exec://true metricstransform { include ci12312312.memory_usage_cgroup match_type regexp label type regex '^total$' replacement 'active'; }; }\n";
+            "action { name regexpr expr exec://true metricstransform { include ci12312312.memory_usage_cgroup_bytes match_type regexp label type regex '^total$' replacement 'active'; }; }\n";
         string *sx = string_new();
         string_cat(sx, (char *)frag_repl_active, strlen(frag_repl_active));
         char *jsx = config_plain_to_json(sx);
@@ -6524,6 +6524,9 @@ void test_entrypoint_authorize_plain_parse(void)
         "    validate header;\n"
         "    cookie_name alligator_auth;\n"
         "    header_name X-Alligator-Auth;\n"
+        "    bind remote_addr;\n"
+        "    bind header X-Client;\n"
+        "    bind cookie sid;\n"
         "  }\n"
         "  tcp 9091;\n"
         "}\n";
@@ -6566,10 +6569,57 @@ void test_entrypoint_authorize_plain_parse(void)
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "header", json_string_value(json_object_get(authorize, "validate")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "alligator_auth", json_string_value(json_object_get(authorize, "cookie_name")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "X-Alligator-Auth", json_string_value(json_object_get(authorize, "header_name")));
+    {
+        json_t *bind = json_object_get(authorize, "bind");
+        json_t *b0;
+        json_t *b1;
+        json_t *b2;
+
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, bind);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, json_array_size(bind));
+        b0 = json_array_get(bind, 0);
+        b1 = json_array_get(bind, 1);
+        b2 = json_array_get(bind, 2);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "remote_addr", json_string_value(json_object_get(b0, "type")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "header", json_string_value(json_object_get(b1, "type")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "X-Client", json_string_value(json_object_get(b1, "name")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cookie", json_string_value(json_object_get(b2, "type")));
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "sid", json_string_value(json_object_get(b2, "name")));
+    }
 
     tcp = json_object_get(ep0, "tcp");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tcp);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9091", json_string_value(json_array_get(tcp, 0)));
 
     json_decref(root);
+
+    {
+        const char *bad =
+            "entrypoint {\n"
+            "  authorize {\n"
+            "    secret master-secret;\n"
+            "    period 10s;\n"
+            "    bind header X-Client X-User;\n"
+            "  }\n"
+            "}\n";
+        json_t *bad_bind;
+        json_t *bad_one;
+
+        s = string_new();
+        string_cat(s, (char *)bad, strlen(bad));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        root = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+        authorize = json_object_get(ep0, "authorize");
+        bad_bind = json_object_get(authorize, "bind");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, bad_bind);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(bad_bind));
+        bad_one = json_array_get(bad_bind, 0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "", json_string_value(json_object_get(bad_one, "type")));
+        json_decref(root);
+    }
 }

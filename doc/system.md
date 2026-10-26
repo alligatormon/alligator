@@ -78,7 +78,7 @@ From `/sys/block/zram*` (skipped if no zram devices; missing per-device files su
 - `zram_stat_total{device,stat}` — counters: `pages_compacted`, `huge_pages_since`, `failed_reads`, `failed_writes`, `invalid_io`, `notify_free`
 - `zram_comp_algorithm{device,algorithm}` — value `1` for the active compressor (the name in brackets in `comp_algorithm`)
 
-Block-layer I/O for zram still appears in `disk_io` when `disk` is enabled. Compression ratio:
+Block-layer I/O for zram still appears in `disk_io_bytes_total` and `disk_io_transfers_total` when `disk` is enabled. Compression ratio:
 
 ```promql
 zram_bytes{stat="orig_data_size"}
@@ -163,7 +163,7 @@ From `disk` scrape:
 
 Slow scrape (`disk`): runtime stats when present — `xfs_stat_total{device,stat}`, `btrfs_stat_total{uuid,stat}`, `bcache_stat_total{uuid,stat}`, `tape_stat_total{device,stat}`.
 
-`disk_usage` / `disk_inodes` include ZFS mounts (`fstype` `zfs`) along with ext*, xfs, btrfs, and tmpfs. ARC and pool health are opt-in `system { zfs; }`.
+`disk_usage_bytes` / `disk_inodes` include ZFS mounts (`fstype` `zfs`) along with ext*, xfs, btrfs, and tmpfs. ARC and pool health are opt-in `system { zfs; }`.
 
 
 ## network
@@ -300,7 +300,7 @@ Reads `{procfs}/spl/kstat/zfs`. No libzfs and no `zpool`/`zfs` CLI.
 - `zfs_dmu_tx_stat{stat}` — TXG assign/delay/dirty throttle from `dmu_tx`
 - `zfs_zil_stat{stat}` — intent log from `zil`
 
-Per-dataset `objset-*` files are **not** collected (high cardinality). Mounted ZFS datasets already appear in `disk_usage` when `disk` is enabled.
+Per-dataset `objset-*` files are **not** collected (high cardinality). Mounted ZFS datasets already appear in `disk_usage_bytes` when `disk` is enabled.
 
 ARC hit ratio:
 

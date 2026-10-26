@@ -232,7 +232,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 	r_time time = setrtime();
 	uint64_t uptime = time.sec - get_file_atime(file);
 
-	metric_add_labels2("process_uptime", &uptime, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_uptime_seconds", &uptime, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 
 	while (fgets(tmp, LINUXFS_LINE_LENGTH, fd))
 	{
@@ -324,7 +324,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "file_bytes", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmRSS", 5) )
 		{
-			metric_add_labels3("process_memory", &ival, DATATYPE_INT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
 			if (ups && ups->rsssize)
 			{
 				metric_add_labels3("process_rlimit", &ups->rsssize, DATATYPE_UINT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
@@ -334,7 +334,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		}
 		else if ( !strncmp(key, "VmSize", 6) )
 		{
-			metric_add_labels3("process_memory", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "vsz", "name", name, "pid", pid);
 			if (ups && ups->addressspace)
 			{
 				metric_add_labels3("process_rlimit", &ups->addressspace, DATATYPE_UINT, ac->system_carg, "type", "vsz", "name", name, "pid", pid);

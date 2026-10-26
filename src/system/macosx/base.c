@@ -136,7 +136,7 @@ void get_utmp_info(void)
 	struct utmpx *log;
 	uint64_t btmp_size = get_file_size("/var/log/btmp");
 
-	metric_add_auto("btmp_file_size", &btmp_size, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("btmp_file_size_bytes", &btmp_size, DATATYPE_UINT, ac->system_carg);
 
 	setutxent();
 	while ((log = getutxent()) != NULL)

@@ -32,8 +32,8 @@ static void emit_disk_ident(struct gprovider *pp)
 		metric_add_labels2("disk_serial", &val, DATATYPE_UINT, ac->system_carg, "serial", serial, "disk", disk);
 
 	if (pp->lg_mediasize > 0)
-		metric_add_labels2("disk_size", &pp->lg_mediasize, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", disk);
-	metric_add_labels2("disk_unallocated", &unalloc, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", disk);
+		metric_add_labels2("disk_size_bytes", &pp->lg_mediasize, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", disk);
+	metric_add_labels2("disk_unallocated_bytes", &unalloc, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", disk);
 }
 
 void disks_info(void)

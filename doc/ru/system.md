@@ -77,7 +77,7 @@ system {
 - `zram_stat_total{device,stat}` — counters: `pages_compacted`, `huge_pages_since`, `failed_reads`, `failed_writes`, `invalid_io`, `notify_free`
 - `zram_comp_algorithm{device,algorithm}` — значение `1` для активного компрессора (имя в скобках в `comp_algorithm`)
 
-Block-layer I/O zram по-прежнему в `disk_io` при `disk`. Коэффициент сжатия:
+Block-layer I/O zram по-прежнему в `disk_io_bytes_total` и `disk_io_transfers_total` при `disk`. Коэффициент сжатия:
 
 ```promql
 zram_bytes{stat="orig_data_size"}
@@ -102,7 +102,7 @@ zram_bytes{stat="compr_data_size"}
 ## disk
 Включает мониторинг disk-метрик, включая статистику файловых систем и I/O блочных устройств.
 
-Из scrape `disk`: `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM volume'ы (`/sys/block/dm-*/dm/uuid` начинается с `LVM-`). `disk_usage` включает mount'ы с fstype `zfs`.
+Из scrape `disk`: `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM volume'ы (`/sys/block/dm-*/dm/uuid` начинается с `LVM-`). `disk_usage_bytes` включает mount'ы с fstype `zfs`.
 
 
 ## nfs
@@ -143,7 +143,7 @@ system {
 - `zfs_zpool_state{pool,state}` — one-hot health пула (`online`, `degraded`, …)
 - `zfs_dmu_tx_stat{stat}` / `zfs_zil_stat{stat}` — TXG throttle и ZIL
 
-Per-dataset `objset-*` **не** собираются (cardinality). Смонтированные ZFS dataset'ы уже есть в `disk_usage` при `disk`.
+Per-dataset `objset-*` **не** собираются (cardinality). Смонтированные ZFS dataset'ы уже есть в `disk_usage_bytes` при `disk`.
 
 
 ## wifi

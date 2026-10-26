@@ -1150,6 +1150,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 									header_name = "X-Alligator-Auth";
 								carg->authorize_cookie_name = strdup(cookie_name);
 								carg->authorize_header_name = strdup(header_name);
+								authorize_binds_apply_json(carg, json_object_get(json_authorize, "bind"));
 							}
 						}
 					}
