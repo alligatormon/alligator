@@ -10,6 +10,8 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 #include <sys/param.h>
+/* struct xinpgen in <netinet/in_pcb.h> is defined only after this header. */
+#include <sys/socketvar.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <net/if_media.h>

@@ -2041,6 +2041,21 @@ static void ut_grpc_assert_health(const char *ns, int64_t unknown, int64_t servi
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)service_unknown, (int)v);
 }
 
+/* memmem is not ISO C99. The gRPC request buffer also contains embedded NULs. */
+static const void *ut_memmem(const void *haystack, size_t hlen, const void *needle, size_t nlen)
+{
+    const char *h = haystack;
+    size_t i;
+
+    if (!nlen || nlen > hlen)
+        return NULL;
+    for (i = 0; i + nlen <= hlen; i++) {
+        if (!memcmp(h + i, needle, nlen))
+            return h + i;
+    }
+    return NULL;
+}
+
 void test_probe_grpc()
 {
     json_error_t error;
@@ -2085,16 +2100,16 @@ void test_probe_grpc()
     req = probe_grpc_build_request("127.0.0.1:50051", "foo.Bar", 0, NULL, &req_len);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > strlen(req));
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, path, strlen(path)));
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, "application/grpc", strlen("application/grpc")));
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, "foo.Bar", 7));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ut_memmem(req, req_len, path, strlen(path)));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ut_memmem(req, req_len, "application/grpc", strlen("application/grpc")));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ut_memmem(req, req_len, "foo.Bar", 7));
     free(req);
     req_len = 0;
     req = probe_grpc_build_request("127.0.0.1:80", NULL, 0, NULL, &req_len);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > 0);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > strlen(req));
-    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, memmem(req, req_len, path, strlen(path)));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ut_memmem(req, req_len, path, strlen(path)));
     free(req);
 
     {
