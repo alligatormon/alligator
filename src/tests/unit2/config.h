@@ -6623,3 +6623,98 @@ void test_entrypoint_authorize_plain_parse(void)
         json_decref(root);
     }
 }
+
+void test_entrypoint_limit_plain_parse(void)
+{
+    const char *conf =
+        "entrypoint {\n"
+        "  limit { path /authorize; rps 100; }\n"
+        "  limit {\n"
+        "    path /authorize;\n"
+        "    rps 10;\n"
+        "    key remote_addr;\n"
+        "    key header X-Client;\n"
+        "    key cookie sid;\n"
+        "  }\n"
+        "  tcp 9091;\n"
+        "}\n";
+    string *s = string_new();
+    char *json_s;
+    json_error_t error;
+    json_t *root;
+    json_t *ep0;
+    json_t *limit;
+    json_t *l0;
+    json_t *l1;
+    json_t *keys;
+
+    string_cat(s, (char *)conf, strlen(conf));
+    json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+    root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+    ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+    limit = json_object_get(ep0, "limit");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, limit);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(limit));
+    l0 = json_array_get(limit, 0);
+    l1 = json_array_get(limit, 1);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/authorize", json_string_value(json_object_get(l0, "path")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100, (int)json_integer_value(json_object_get(l0, "rps")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/authorize", json_string_value(json_object_get(l1, "path")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 10, (int)json_integer_value(json_object_get(l1, "rps")));
+    keys = json_object_get(l1, "key");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, keys);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)json_array_size(keys));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "remote_addr", json_string_value(json_array_get(keys, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "header:X-Client", json_string_value(json_array_get(keys, 1)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cookie:sid", json_string_value(json_array_get(keys, 2)));
+    json_decref(root);
+
+    {
+        const char *bad =
+            "entrypoint {\n"
+            "  limit { path /authorize; rps 0; }\n"
+            "  limit { path /authorize; key header; }\n"
+            "  limit { path /authorize; rps 10; key header X-Client extra; }\n"
+            "}\n";
+
+        s = string_new();
+        string_cat(s, (char *)bad, strlen(bad));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        root = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, json_object_get(ep0, "limit") != NULL);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_true(json_object_get(ep0, "limit_error")));
+        json_decref(root);
+    }
+
+    {
+        const char *mixed =
+            "entrypoint {\n"
+            "  limit { path /authorize; rps 10; }\n"
+            "  limit { path /stats; rps 0; }\n"
+            "}\n";
+
+        s = string_new();
+        string_cat(s, (char *)mixed, strlen(mixed));
+        json_s = config_plain_to_json(s);
+        string_free(s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+        root = json_loads(json_s, 0, &error);
+        free(json_s);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+        ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+        limit = json_object_get(ep0, "limit");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, limit);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)json_array_size(limit));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_is_true(json_object_get(ep0, "limit_error")));
+        json_decref(root);
+    }
+}

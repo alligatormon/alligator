@@ -183,6 +183,10 @@ struct context_arg
 	/* Set when a configured bind was rejected. Requests are denied. */
 	uint8_t authorize_config_error;
 	char authorize_peer[AUTHORIZE_PEER_SIZE];
+	/* Shared by carg_copy across listener threads. Connections borrow the pointer. */
+	struct http_limit *http_limit;
+	/* Set when a configured limit could not be installed. Requests are denied. */
+	uint8_t http_limit_config_error;
 	uint8_t satisfy;
 	char *body;
 	uint8_t body_read;

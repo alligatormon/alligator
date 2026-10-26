@@ -42,6 +42,13 @@ entrypoint {
         bind header <name>;
         bind cookie <name>;
     }
+    limit {
+        path <path>;
+        rps <запросов в секунду>;
+        key remote_addr;
+        key header <name>;
+        key cookie <name>;
+    }
     header <name> <value>;
     ttl <time to live>;
     read_metric_interval <seconds>;
@@ -241,6 +248,41 @@ entrypoint {
 ```
 $ curl -sD- -u user:pass -H 'X-Client: scraper-a' --cookie sid=sess-1 http://localhost:9091/authorize
 $ curl -s -u user:pass -H 'X-Client: scraper-a' --cookie 'sid=sess-1; alligator_auth=<hex>' http://localhost:9091/metrics
+```
+
+## limit
+По умолчанию: выключено\
+Множественное: да
+
+Ограничивает число HTTP-запросов к точному пути. Строка запроса не учитывается: `path /authorize` совпадает с `/authorize` и `/authorize?x=1` и не совпадает с `/authorized` или `/authorize/`. Лимит общий для всех методов, включая неуспешную аутентификацию и `OPTIONS`. Проверка выполняется до выпуска кода на `GET /authorize`.
+
+`rps` — целое число запросов в секунду, не меньше 1. После паузы можно сразу отправить `rps` запросов, дальше не чаще одного за `1/rps` секунды. Лишний запрос получает HTTP 429 и `Retry-After`.
+
+Блок `limit`, который нельзя установить (нет `path`, `rps` меньше 1, неизвестный `key` или не хватило памяти на таблицу), заставляет entrypoint отвечать HTTP 500 на каждый запрос. Путь при этом не остаётся без ограничения.
+
+Без строк `key` все клиенты entrypoint делят одну корзину. Каждая строка `key` входит в один идентификатор корзины, в порядке записи. Запрос проходит, только если бюджет есть в каждом блоке `limit` с этим путём, поэтому второй блок — это отдельный бюджет.
+
+- `key remote_addr` — адрес принятого TCP-клиента, без порта
+- `key header <name>` — этот заголовок запроса
+- `key cookie <name>` — эта cookie
+
+Пустое или отсутствующее значение попадает в общую корзину и от лимита не освобождает. Имена заголовка и cookie проверяются так же, как имена `bind`. Для ключей хранится не больше 4096 живых корзин. Корзина без запросов 60 секунд может быть занята заново. Новое значение при полной таблице — HTTP 429, поэтому заголовок или cookie, которые выбирает клиент, не дают бесконечно много отдельных бюджетов. Полная таблица не вытесняет уже занятую корзину. Если ключ выбирает клиент, добавьте на тот же путь второй `limit` без `key`: общая корзина продолжает действовать и после заполнения таблицы. `remote_addr` — это принятый TCP-адрес, а не `X-Forwarded-For`.
+
+Потоки `threads` делят одну таблицу: `threads 4` не превращает 10 rps в 40. Разные порты считаются отдельно.
+
+```
+entrypoint {
+    authorize { secret change-me; period 30s; }
+    limit { path /authorize; rps 100; }
+    limit {
+        path /authorize;
+        rps 10;
+        key remote_addr;
+        key header X-Client;
+        key cookie sid;
+    }
+    tcp 9091;
+}
 ```
 
 ## header

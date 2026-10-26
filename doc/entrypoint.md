@@ -40,6 +40,13 @@ entrypoint {
         bind header <name>;
         bind cookie <name>;
     }
+    limit {
+        path <path>;
+        rps <requests per second>;
+        key remote_addr;
+        key header <name>;
+        key cookie <name>;
+    }
     header <name> <value>;
     ttl <time to live>;
     read_metric_interval <seconds>;
@@ -239,6 +246,41 @@ entrypoint {
 ```
 $ curl -sD- -u user:pass -H 'X-Client: scraper-a' --cookie sid=sess-1 http://localhost:9091/authorize
 $ curl -s -u user:pass -H 'X-Client: scraper-a' --cookie 'sid=sess-1; alligator_auth=<hex>' http://localhost:9091/metrics
+```
+
+## limit
+Default: off\
+Plural: yes
+
+Caps HTTP requests to one exact path. The query string is ignored, so `path /authorize` matches `/authorize` and `/authorize?x=1`, and does not match `/authorized` or `/authorize/`. Every method counts, including a failed authentication and `OPTIONS`. The check runs before `GET /authorize` mints a code.
+
+`rps` is an integer number of requests per second, at least 1. After a pause a client may send `rps` requests at once, then one per `1/rps` seconds. A request over the limit is HTTP 429 with `Retry-After`.
+
+A `limit` block that cannot be installed (missing `path`, `rps` below 1, an unknown `key`, or no memory for the table) makes every request on that entrypoint HTTP 500. The path is not left unlimited.
+
+With no `key` lines, every client on the entrypoint shares one bucket. Each `key` line is part of the same bucket id, in the order written. A request must pass every `limit` block whose path matches, so a second block is a separate budget.
+
+- `key remote_addr` — accepted TCP peer, without the port
+- `key header <name>` — that request header
+- `key cookie <name>` — that cookie
+
+A missing or empty value shares one bucket. It is not exempt. Header and cookie names use the same character rules as authorize `bind` names. A keyed rule keeps at most 4096 live buckets. A bucket with no request for 60 seconds may be reused. A new value while the table is full is HTTP 429, so a header or cookie the client chooses cannot mint an unlimited number of budgets. A full table does not drop an existing bucket to make room. When the key is chosen by the client, add a second `limit` on the same path with no `key`. That shared bucket still applies after the table is full. `remote_addr` is the accepted TCP peer, not `X-Forwarded-For`.
+
+Listener `threads` share one table, so `threads 4` does not turn 10 rps into 40. Different ports are separate entrypoints.
+
+```
+entrypoint {
+    authorize { secret change-me; period 30s; }
+    limit { path /authorize; rps 100; }
+    limit {
+        path /authorize;
+        rps 10;
+        key remote_addr;
+        key header X-Client;
+        key cookie sid;
+    }
+    tcp 9091;
+}
 ```
 
 ## header

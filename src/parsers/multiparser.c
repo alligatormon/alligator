@@ -6,6 +6,7 @@
 #include "main.h"
 #include "common/auth.h"
 #include "common/authorize.h"
+#include "common/http_limit.h"
 #include "parsers/multiparser.h"
 #include "parsers/pushgateway.h"
 #include "common/selector.h"
@@ -489,6 +490,50 @@ int http_parser(char *buf, size_t len, string *response, context_arg *carg)
 		return 0;
 
 	http_entrypoint_negotiate(carg, http_data);
+
+	if (carg->http_limit_config_error)
+	{
+		carglog(carg, L_ERROR, "http limit: config rejected\n");
+		string_cat(response, HTTP_INTERNAL_ERROR, strlen(HTTP_INTERNAL_ERROR));
+		if (carg->env)
+			alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+		http_entrypoint_finish_empty_body(response);
+		http_reply_data_free(http_data);
+		return 1;
+	}
+
+	{
+		uint64_t retry_after = 1;
+
+		if (!http_limit_check(carg, http_data, uv_hrtime(), &retry_after))
+		{
+			char hdr[192];
+			int hdr_n;
+			static char hdr_fallback[] =
+				"HTTP/1.1 429 Too Many Requests\r\n"
+				"Server: alligator\r\n"
+				"Content-Type: text/plain\r\n"
+				"Connection: close\r\n"
+				"Retry-After: 1\r\n";
+
+			hdr_n = snprintf(hdr, sizeof(hdr),
+				"HTTP/1.1 429 Too Many Requests\r\n"
+				"Server: alligator\r\n"
+				"Content-Type: text/plain\r\n"
+				"Connection: close\r\n"
+				"Retry-After: %" PRIu64 "\r\n",
+				retry_after ? retry_after : 1);
+			if (hdr_n > 0 && (size_t)hdr_n < sizeof(hdr))
+				string_cat(response, hdr, (size_t)hdr_n);
+			else
+				string_cat(response, hdr_fallback, sizeof(hdr_fallback) - 1);
+			if (carg->env)
+				alligator_ht_foreach_arg(carg->env, env_serialize_http_answer, response);
+			http_entrypoint_finish_empty_body(response);
+			http_reply_data_free(http_data);
+			return 1;
+		}
+	}
 
 	int8_t auth = http_check_auth(carg, http_data);
 	if (auth < 1 && http_data->method != HTTP_METHOD_OPTIONS)

@@ -444,6 +444,7 @@ set(STATIC_FILES
 	common/patricia.c
 	common/auth.c
 	common/authorize.c
+	common/http_limit.c
 	smart/smart.c
 	smart/drivedb.c
 	x509/pem_check.c

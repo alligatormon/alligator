@@ -1557,6 +1557,158 @@ static void plain_perf_functions_add_name(json_t *obj, const char *raw)
 	free(name);
 }
 
+static int plain_limit_take_key(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count, json_t *keys)
+{
+	const char *kind;
+	const char *bname = NULL;
+	int extra = 0;
+	uint64_t i;
+	char buf[192];
+	int n;
+
+	if (!wstokens || !idx || !keys || *idx >= token_count)
+		return 0;
+	i = *idx;
+	kind = (wstokens[i].token && wstokens[i].token->s) ? wstokens[i].token->s : NULL;
+	if (!(wstokens[i].semicolon || wstokens[i].end))
+	{
+		uint64_t j;
+
+		for (j = i + 1; j < token_count; j++)
+		{
+			if (wstokens[j].argument && wstokens[j].token && wstokens[j].token->s)
+			{
+				if (!bname)
+					bname = wstokens[j].token->s;
+				else
+					extra = 1;
+			}
+			if (wstokens[j].semicolon || wstokens[j].end)
+			{
+				i = j;
+				break;
+			}
+		}
+	}
+	*idx = i;
+	if (extra || !kind || !kind[0])
+		return 0;
+	if (!strcmp(kind, "remote_addr"))
+	{
+		if (bname && bname[0])
+			return 0;
+		json_array_append_new(keys, json_string("remote_addr"));
+		return 1;
+	}
+	if ((!strcmp(kind, "header") || !strcmp(kind, "cookie")) && bname && bname[0])
+	{
+		n = snprintf(buf, sizeof(buf), "%s:%s", kind, bname);
+		if (n <= 0 || (size_t)n >= sizeof(buf))
+			return 0;
+		json_array_append_new(keys, json_string(buf));
+		return 1;
+	}
+	return 0;
+}
+
+/* One limit { } block. *idx starts on the limit token and ends on its closing token.
+   Returns a JSON object, or NULL when the block is rejected. */
+static json_t *plain_http_limit_block(config_parser_stat *wstokens, uint64_t *idx, uint64_t token_count)
+{
+	json_t *one;
+	json_t *keys = NULL;
+	const char *name = NULL;
+	int bad = 0;
+	uint64_t i;
+
+	if (!wstokens || !idx)
+		return NULL;
+	one = json_object();
+	if (!one)
+		return NULL;
+	i = *idx;
+	for (; i < token_count; i++)
+	{
+		if (wstokens[i].token && wstokens[i].token->l)
+		{
+			if (wstokens[i].operator)
+				name = wstokens[i].token->s;
+			else if (wstokens[i].argument && name && !strcmp(name, "key"))
+			{
+				if (!keys)
+					keys = json_array();
+				if (!keys || !plain_limit_take_key(wstokens, &i, token_count, keys))
+					bad = 1;
+				name = NULL;
+			}
+			else if (wstokens[i].argument && name)
+			{
+				const char *val = wstokens[i].token->s;
+
+				if (!(wstokens[i].semicolon || wstokens[i].end))
+				{
+					uint64_t j;
+					int extra = 0;
+
+					for (j = i + 1; j < token_count; j++)
+					{
+						if (wstokens[j].argument)
+							extra = 1;
+						if (wstokens[j].semicolon || wstokens[j].end)
+						{
+							i = j;
+							break;
+						}
+					}
+					if (extra)
+						bad = 1;
+				}
+				if (!val)
+					bad = 1;
+				else if (!strcmp(name, "path"))
+				{
+					if (json_object_get(one, "path"))
+						bad = 1;
+					else
+						json_object_set_new(one, "path", json_string(val));
+				}
+				else if (!strcmp(name, "rps"))
+				{
+					char *end = NULL;
+					long long v = strtoll(val, &end, 10);
+
+					if (json_object_get(one, "rps") || !end || *end || v < 1 || v > 1000000000LL)
+						bad = 1;
+					else
+						json_object_set_new(one, "rps", json_integer((json_int_t)v));
+				}
+				else
+					bad = 1;
+				name = NULL;
+			}
+		}
+		if (wstokens[i].end)
+		{
+			wstokens[i].end = 0;
+			break;
+		}
+	}
+	*idx = i;
+	if (!bad && keys && json_array_size(keys) > 8)
+		bad = 1;
+	if (!bad && keys)
+		json_object_set_new(one, "key", keys);
+	else
+		json_decref(keys);
+	if (bad || !json_is_string(json_object_get(one, "path")) || !json_is_integer(json_object_get(one, "rps")))
+	{
+		glog(L_ERROR, "entrypoint: limit block rejected\n");
+		json_decref(one);
+		return NULL;
+	}
+	return one;
+}
+
 char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 {
 	json_t *root = json_object();
@@ -1616,6 +1768,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *unixgram_entrypoint = NULL;
 			json_t *handler_entrypoint = NULL;
 			json_t *mapping_entrypoint = NULL;
+			json_t *limit_entrypoint = NULL;
 			json_t *api_entrypoint = NULL;
 			json_t *ttl_entrypoint = NULL;
 			json_t *mtail_full_export_interval_entrypoint = NULL;
@@ -3022,6 +3175,34 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 				else if (wstokens[i].context)
 				{
 					if (!strcmp(context_name, "entrypoint") && wstokens[i].token && wstokens[i].token->s &&
+					    !strcmp(wstokens[i].token->s, "limit"))
+					{
+						uint64_t j = i;
+						json_t *one = plain_http_limit_block(wstokens, &j, token_count);
+
+						i = j;
+						if (!one)
+						{
+							if (operator_json)
+								json_object_set_new(operator_json, "limit_error", json_true());
+						}
+						else if (operator_json)
+						{
+							if (!limit_entrypoint)
+							{
+								limit_entrypoint = json_array();
+								if (limit_entrypoint)
+									json_array_object_insert(operator_json, "limit", limit_entrypoint);
+							}
+							if (limit_entrypoint)
+								json_array_append_new(limit_entrypoint, one);
+							else
+								json_decref(one);
+						}
+						else
+							json_decref(one);
+					}
+					else if (!strcmp(context_name, "entrypoint") && wstokens[i].token && wstokens[i].token->s &&
 					    !strcmp(wstokens[i].token->s, "authorize"))
 					{
 						json_t *authorize_object = json_object();

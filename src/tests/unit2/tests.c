@@ -4144,6 +4144,7 @@ static void run_core_net_suites(void)
     test_http_access_1();
     test_http_access_2();
     test_authorize_secret_and_satisfy();
+    test_http_limit();
     test_validator_core();
     test_ht_core_paths();
     test_ht_guard_paths();
@@ -4887,6 +4888,7 @@ static void run_helpers_and_events_suites(void)
     test_aggregate_multi_block_plain_parse();
     test_entrypoint_log_channel_plain_parse();
     test_entrypoint_authorize_plain_parse();
+    test_entrypoint_limit_plain_parse();
     test_log_channel_raw_plain_parse();
     test_log_channel_out_plain_parse();
     test_puppeteer_option_kv_plain_parse();

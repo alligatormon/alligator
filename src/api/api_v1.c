@@ -39,6 +39,7 @@
 #include "common/units.h"
 #include "common/auth.h"
 #include "common/authorize.h"
+#include "common/http_limit.h"
 #include "common/crc32.h"
 #include "common/murmurhash.h"
 #include "common/xxh.h"
@@ -1153,6 +1154,16 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 								authorize_binds_apply_json(carg, json_object_get(json_authorize, "bind"));
 							}
 						}
+					}
+
+					{
+						json_t *json_limit = json_object_get(entrypoint, "limit");
+						json_t *json_limit_error = json_object_get(entrypoint, "limit_error");
+
+						if (json_is_true(json_limit_error))
+							carg->http_limit_config_error = 1;
+						if (json_limit)
+							http_limit_apply_json(carg, json_limit);
 					}
 
 					json_t *tcp_json = json_object_get(entrypoint, "tcp");

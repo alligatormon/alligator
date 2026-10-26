@@ -17,6 +17,7 @@
 #include "common/logs.h"
 #include "common/auth.h"
 #include "common/authorize.h"
+#include "common/http_limit.h"
 #include "external/amtail/variables.h"
 #include "vrl/type.h"
 extern aconf *ac;
@@ -240,6 +241,9 @@ context_arg *carg_copy(context_arg *src)
 
 	if (src->mm)
 		carg->mm = mapping_copy(src->mm);
+
+	/* Listener threads share one bucket table. The memcpy above copied the pointer. */
+	http_limit_incref(carg->http_limit);
 
 	return carg;
 }
@@ -574,6 +578,8 @@ void carg_free(context_arg *carg)
 	carg->authorize_header_name = NULL;
 	carg->authorize_binds = NULL;
 	carg->authorize_bind_count = 0;
+	http_limit_decref(carg->http_limit);
+	carg->http_limit = NULL;
 
 	if (carg->threaded_loop_name)
 		free(carg->threaded_loop_name);

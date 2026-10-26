@@ -33,6 +33,7 @@
 #include "common/base64.h"
 #include "common/auth.h"
 #include "common/authorize.h"
+#include "common/http_limit.h"
 #include "parsers/http_proto.h"
 #include <time.h>
 #include "parsers/multiparser.h"
@@ -950,4 +951,178 @@ void test_authorize_secret_and_satisfy(void)
     free(carg->authorize_cookie_name);
     authorize_binds_free(carg->authorize_binds, carg->authorize_bind_count);
     free(carg);
+}
+
+static int limit_apply(context_arg *carg, const char *json)
+{
+    json_error_t err;
+    json_t *j;
+    int n;
+
+    j = json_loads(json, 0, &err);
+    if (!j)
+        return -2;
+    n = http_limit_apply_json(carg, j);
+    json_decref(j);
+    return n;
+}
+
+static int limit_check_req(context_arg *carg, const char *req, uint64_t now, uint64_t *retry)
+{
+    http_reply_data *http;
+    int rc;
+
+    http = http_proto_get_request_data((char *)req, strlen(req), "Authorization");
+    if (!http)
+        return -1;
+    rc = http_limit_check(carg, http, now, retry);
+    http_reply_data_free(http);
+    return rc;
+}
+
+void test_http_limit(void)
+{
+    context_arg *carg;
+    context_arg *dup;
+    uint64_t t0 = 1000000000000ULL;
+    uint64_t interval = 1000000000ULL / 10;
+    uint64_t retry = 0;
+    int i;
+    string *response;
+    uint64_t wall0;
+    uint64_t wall1;
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":10}]"));
+    for (i = 0; i < 10; i++)
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, retry >= 1);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize?x=1 HTTP/1.1\r\n\r\n", t0, &retry) == 0);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorized HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0 + interval, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":1,\"key\":[\"remote_addr\"]}]"));
+    strlcpy(carg->authorize_peer, "203.0.113.9", sizeof(carg->authorize_peer));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    strlcpy(carg->authorize_peer, "203.0.113.10", sizeof(carg->authorize_peer));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    carg->authorize_peer[0] = '\0';
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":1,\"key\":[\"header:X-Client\"]}]"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\nX-Client: b\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: b\r\n\r\n", t0, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":1,\"key\":[\"header:X-Client\",\"cookie:sid\"]}]"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\nCookie: sid=1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\nCookie: sid=1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\nCookie: sid=2\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: b\r\nCookie: sid=1\r\n\r\n", t0, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, limit_apply(carg,
+        "[{\"path\":\"/authorize\",\"rps\":2},{\"path\":\"/authorize\",\"rps\":1,\"key\":[\"header:X-Client\"]}]"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: a\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: b\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\nX-Client: c\r\n\r\n", t0, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_apply(carg, "[{\"path\":\"/nope\"},{\"path\":\"/authorize\",\"rps\":0},{\"path\":\"/stats\",\"rps\":1}]"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->http_limit_config_error);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, carg->http_limit);
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/cap\",\"rps\":1,\"key\":[\"header:X-Client\"]}]"));
+    for (i = 0; i < 4096; i++)
+    {
+        char req[96];
+
+        snprintf(req, sizeof(req), "GET /cap HTTP/1.1\r\nX-Client: k%d\r\n\r\n", i);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, req, t0, &retry));
+    }
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /cap HTTP/1.1\r\nX-Client: fresh\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 60, (int)retry);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /cap HTTP/1.1\r\nX-Client: fresh\r\n\r\n", t0 + 30ULL * 1000000000ULL, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /cap HTTP/1.1\r\nX-Client: fresh\r\n\r\n", t0 + 60ULL * 1000000000ULL, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":1}]"));
+    dup = carg_copy(carg);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dup);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->http_limit == dup->http_limit);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(dup, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    carg_free(dup);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, limit_check_req(carg, "GET /authorize HTTP/1.1\r\n\r\n", t0, &retry));
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->auth_header = strdup("Authorization");
+    carg->authorize_secret = strdup("master");
+    carg->authorize_period = 10;
+    carg->authorize_set = AUTHORIZE_SET_JSON;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, limit_apply(carg, "[{\"path\":\"/authorize\",\"rps\":1}]"));
+    response = string_init(4096);
+    wall0 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    wall1 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "200 OK") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, authorize_body_has_code(response->s, "master", 10, wall0, wall1));
+    string_null(response);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "429 Too Many Requests") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "Retry-After: ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_body_has_code(response->s, "master", 10, wall0, wall1));
+    string_null(response);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorized HTTP/1.1\r\n\r\n", strlen("GET /authorized HTTP/1.1\r\n\r\n"), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "401 Unauthorized") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, strstr(response->s, "429") != NULL);
+    string_null(response);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("OPTIONS /authorize HTTP/1.1\r\n\r\n", strlen("OPTIONS /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "429 Too Many Requests") != NULL);
+    string_free(response);
+    carg_free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->auth_header = strdup("Authorization");
+    carg->authorize_secret = strdup("master");
+    carg->authorize_period = 10;
+    carg->authorize_set = AUTHORIZE_SET_JSON;
+    carg->http_limit_config_error = 1;
+    response = string_init(4096);
+    wall0 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, http_parser("GET /authorize HTTP/1.1\r\n\r\n", strlen("GET /authorize HTTP/1.1\r\n\r\n"), response, carg));
+    wall1 = (uint64_t)time(NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(response->s, "500 Internal Server Error") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, authorize_body_has_code(response->s, "master", 10, wall0, wall1));
+    string_free(response);
+    carg_free(carg);
 }

@@ -71,6 +71,10 @@ There is no CLI flag to dump configuration; `-l` sets log level only.
           {"type": "cookie", "name": "sid"}
         ]
       },
+      "limit": [
+        {"path": "/authorize", "rps": 100},
+        {"path": "/authorize", "rps": 10, "key": ["remote_addr", "header:X-Client", "cookie:sid"]}
+      ],
       "env": {
         "<name>": "<value>"
       },
