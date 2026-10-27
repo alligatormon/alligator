@@ -4308,6 +4308,7 @@ static void run_config_query_suites(char **argv)
     api_test_scheduler_1();
     api_test_lang_1();
     api_test_cluster_1();
+    api_test_cluster_maglev_follows_sort();
     api_test_parser_ntp();
     api_test_parser_nginx_stub_status();
     api_test_parser_fail2ban();

@@ -9,8 +9,16 @@ int cluster_sort_compare(const void *a1, const void *a2)
 {
 	cluster_server_oplog *s1 = (cluster_server_oplog*)a1;
 	cluster_server_oplog *s2 = (cluster_server_oplog*)a2;
+	char *n1 = s1->name;
+	char *n2 = s2->name;
 
-	return strcmp(s1->name, s2->name);
+	if (n1 == n2)
+		return 0;
+	if (!n1)
+		return 1;
+	if (!n2)
+		return -1;
+	return strcmp(n1, n2);
 }
 
 void cluster_push_json(json_t *cluster)
@@ -37,29 +45,42 @@ void cluster_push_json(json_t *cluster)
 	json_t *jservers = json_object_get(cluster, "servers");
 	if (jservers)
 	{
-		uint64_t servers_size = cn->servers_size = json_array_size(jservers);
-		maglev_init(&cn->m_maglev_hash);
-		int rc = 0;
-		uint64_t hash_size = (servers_size * 100);
-		while (!rc)
+		uint64_t json_size = json_array_size(jservers);
+		uint64_t servers_size = 0;
+		for (uint64_t i = 0; i < json_size; i++)
 		{
-			++hash_size;
-			rc = is_maglev_prime(hash_size);
-		}
-		rc = maglev_update_service(&cn->m_maglev_hash, servers_size, hash_size);
-		if (rc)
-		{
-			free(cn);
-			return;
+			if (json_string_value(json_array_get(jservers, i)))
+				servers_size++;
 		}
 
-		cn->servers = calloc(1, sizeof(cluster_server_oplog) * servers_size);
-		for (uint64_t i = 0, j = 0; i < servers_size; i++, j++)
+		if (servers_size)
 		{
-			json_t *servers = json_array_get(jservers, i);
-			char *data = (char*)json_string_value(servers);
-			if (data)
+			cn->servers_size = servers_size;
+			maglev_init(&cn->m_maglev_hash);
+			int rc = 0;
+			uint64_t hash_size = (servers_size * 100);
+			while (!rc)
 			{
+				++hash_size;
+				rc = is_maglev_prime(hash_size);
+			}
+			rc = maglev_update_service(&cn->m_maglev_hash, servers_size, hash_size);
+			if (rc)
+			{
+				free(cn->name);
+				maglev_lock_destroy(&cn->m_maglev_hash);
+				free(cn);
+				return;
+			}
+
+			cn->servers = calloc(servers_size, sizeof(*cn->servers));
+			for (uint64_t i = 0, j = 0; i < json_size; i++)
+			{
+				json_t *servers = json_array_get(jservers, i);
+				char *data = (char*)json_string_value(servers);
+				if (!data)
+					continue;
+
 				cn->servers[j].name = strdup(data);
 
 				char namespacename[255];
@@ -75,21 +96,23 @@ void cluster_push_json(json_t *cluster)
 				insert_namespace(namespacename, 0);
 
 				cn->servers[j].oprec = oplog_record_init(cn->size);
-				cn->servers[j].index = j;
-				rc = maglev_add_node(&cn->m_maglev_hash, cn->servers[j].name, &cn->servers[j]);
-				if (rc)
-				{
-					glog(L_ERROR, "maglev_add_node error: name %s is not unique\n", data);
-				}
+				j++;
 			}
-		}
 
-		maglev_create_ht(&cn->m_maglev_hash);
-		maglev_swap_entry(&cn->m_maglev_hash);
-		qsort(cn->servers, servers_size, sizeof(*cn->servers), cluster_sort_compare);
+			/* maglev_add_node stores pointers into this array. Sort first, otherwise
+			 * qsort moves the structs and lookup returns a different server. */
+			qsort(cn->servers, servers_size, sizeof(*cn->servers), cluster_sort_compare);
 
-		for (uint64_t i = 0, j = 0; i < servers_size; i++, j++) {
-			cn->servers[i].index = i;
+			for (uint64_t i = 0; i < servers_size; i++)
+			{
+				cn->servers[i].index = i;
+				rc = maglev_add_node(&cn->m_maglev_hash, cn->servers[i].name, &cn->servers[i]);
+				if (rc)
+					glog(L_ERROR, "maglev_add_node error: name %s is not unique\n", cn->servers[i].name);
+			}
+
+			maglev_create_ht(&cn->m_maglev_hash);
+			maglev_swap_entry(&cn->m_maglev_hash);
 		}
 	}
 

@@ -328,6 +328,47 @@ void api_test_cluster_1() {
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "srv12.example.com:1111", cn->servers[1].name);
 }
 
+/* Unsorted servers must still be the hosts maglev returns. qsort after
+ * maglev_add_node used to leave lookup pointers aimed at the old slots. */
+void api_test_cluster_maglev_follows_sort() {
+    cluster_node *cn;
+    struct MAGLEV_SERVICE_PARAMS *params;
+    char *sorted[] = {
+        "node-a:1111",
+        "node-b:1111",
+        "node-c:1111",
+        "node-d:1111",
+        "node-e:1111",
+    };
+    char *config = "{\"cluster\":[{\"name\":\"maglev-sort\",\"size\":10,\"replica_factor\":2,\"type\":\"oplog\","
+        "\"servers\":[\"node-c:1111\",\"node-a:1111\",\"node-e:1111\",\"node-d:1111\",\"node-b:1111\"]}]}";
+    uint64_t i;
+
+    if (!ac->cluster)
+        ac->cluster = alligator_ht_init(NULL);
+
+    http_api_v1(NULL, NULL, config);
+
+    cn = cluster_get("maglev-sort");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cn);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, cn->servers_size);
+    for (i = 0; i < cn->servers_size; i++)
+    {
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, sorted[i], cn->servers[i].name);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)i, (int)cn->servers[i].index);
+    }
+
+    params = &cn->m_maglev_hash.item[cn->m_maglev_hash.is_use_index];
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 5, params->node_size);
+    for (i = 0; i < (uint64_t)params->node_size; i++)
+    {
+        cluster_server_oplog *srv = params->node_info_entry[i];
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, srv);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, params->node_name[i], srv->name);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)srv->index, (int)(srv - cn->servers));
+    }
+}
+
 void api_test_global_options_and_errors() {
     if (!ac->system_carg)
         ac->system_carg = calloc(1, sizeof(*ac->system_carg));
