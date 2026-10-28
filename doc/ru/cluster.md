@@ -48,6 +48,8 @@ aggregate {
 Значение sharedlock можно использовать в контексте aggregate. Это позволяет выполнять исходящие запросы ровно один раз через кластер.
 Oplog — вариант, который позволяет принимать и распределять метрики между нодами кластера.
 
+Push шардируется Maglev по `sharding_key` (по умолчанию `__name__`). Primary отдаёт сэмпл из default namespace в `/metrics`. Копии `replica_factor` лежат в namespace `имя_кластера:primary_peer` для HA и попадают в scrape этой ноды только если sync TTL primary peer протух (failover). Prometheus должен скрейпить все члены кластера; в здоровом кластере каждая серия видна с одного Maglev primary.
+
 
 ## server
 Задаёт все хосты кластера.
@@ -55,7 +57,15 @@ Oplog — вариант, который позволяет принимать �
 
 ## size
 По умолчанию: 1000
-Задаёт размер oplog. При переполнении operation log старые метрики в oplog будут отброшены.
+Задаёт размер oplog. Минимум **2** (`begin==end` = пусто, ёмкость `size-1`). Невалидные значения отклоняются, остаётся 1000. Если кольцо полное, каждая новая запись вытесняет **одну** самую старую (не весь лог). Каждый такой drop увеличивает `alligator_cluster_oplog_overflow_total{cluster,peer}` в default namespace (без TTL entrypoint/push).
+
+Каждый POST `/oplog` (shift) и GET отдают не больше **1 MiB** накопившихся записей; остаток остаётся в кольце до следующего sync — чтобы peer не применял десятки мегабайт backlog одним вызовом на event loop.
+
+Объём репликации (тоже default namespace; обновление ~1s с атомиков):
+
+- `alligator_cluster_oplog_enqueued_total{cluster,peer}` — сэмплы, положенные в oplog для `peer` (на ноде, принявшей push)
+- `alligator_cluster_oplog_applied_total{cluster,peer}` — сэмплы, применённые из sync `/oplog` с `peer`
+- `alligator_cluster_oplog_overflow_total{cluster,peer}` — drop oldest при полном кольце peer’а
 
 
 ## shardinag\_key

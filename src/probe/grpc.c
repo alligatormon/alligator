@@ -159,7 +159,7 @@ char *probe_grpc_build_request(const char *authority, const char *service, int s
 	if (!framed)
 		goto out;
 	req = otlp_grpc_http2_request_build(authority, PROBE_GRPC_HEALTH_PATH, scheme_https,
-		framed->s, framed->l, env, out_len);
+		framed->s, framed->l, env, out_len, NULL, NULL);
 out:
 	if (pb)
 		string_free(pb);

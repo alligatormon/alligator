@@ -28,6 +28,10 @@ typedef struct cluster_server_oplog
 	oplog_record *oprec;
 	uint64_t index;
 	char *name;
+	/* Hot-path atomics; flushed to the metric tree from general_loop. */
+	uint64_t stat_enqueued;
+	uint64_t stat_overflow;
+	uint64_t stat_applied;
 } cluster_server_oplog;
 
 typedef struct cluster_node
@@ -57,8 +61,11 @@ typedef struct cluster_node
 cluster_node* cluster_get(char *name);
 int cluster_compare(const void* arg, const void* obj);
 char* server_get_server_offset(char *replica, char *name, uint64_t offset, uint64_t *size, uint64_t *nowoffset);
-oplog_node* oplog_record_insert(oplog_record *oplog, string *data);
+/* Returns 1 on overflow (oldest dropped), 0 on success, -1 on failure (nothing stored). */
+int oplog_record_insert(oplog_record *oplog, string *data);
 oplog_record *oplog_record_init(uint64_t size);
+/* Export atomic oplog stats into nsdefault gauges/counters (non-expiring TTL). */
+void cluster_oplog_stats_flush(void);
 string* oplog_record_get_string(oplog_record *oplog);
 string* oplog_record_shift_string(oplog_record *oplog);
 string* cluster_get_server_data(char *replica, char *name);

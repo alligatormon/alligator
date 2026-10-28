@@ -172,19 +172,30 @@ void prometheus_response_cluster_namespaces(void *funcarg, void* arg)
 	char namespacename[255];
 	r_time time_now = setrtime();
 
+	/*
+	 * Replica namespaces (`cluster:primary_peer`) are HA copies. Export them
+	 * only when that peer's sync TTL has expired (peer looks dead), so a live
+	 * primary is not double-scraped by Prometheus. Healthy cluster → only the
+	 * Maglev primary answers each series from nsdefault.
+	 */
 	for (uint64_t i = 0; i < cn->servers_size; i++)
 	{
+		uint16_t cur;
+
 		if (cn->servers[i].is_me)
 			continue;
+		if (!cn->name || !cn->servers[i].name)
+			continue;
+		if (cn->servers[i].ttl >= time_now.sec)
+			continue;
 
-		uint16_t cur = strlcpy(namespacename, cn->name, 255);
-		strlcpy(namespacename + cur, ":", 255);
-		strlcpy(namespacename + cur + 1, cn->servers[i].name, 255);
+		cur = strlcpy(namespacename, cn->name, sizeof(namespacename));
+		if (cur >= sizeof(namespacename) - 2)
+			continue;
+		namespacename[cur++] = ':';
+		strlcpy(namespacename + cur, cn->servers[i].name, sizeof(namespacename) - cur);
 
-
-		if (cn->servers[i].ttl < time_now.sec) {
-			metric_str_build(namespacename, body, openmetrics, ctx->carg);
-		}
+		metric_str_build(namespacename, body, openmetrics, ctx->carg);
 	}
 }
 

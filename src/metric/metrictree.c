@@ -7,6 +7,7 @@
 #include "query/promql.h"
 #include "common/logs.h"
 #include <inttypes.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <math.h>
 #include <pcre.h>
@@ -338,9 +339,17 @@ int metric_delete_locked (metric_tree *tree, labels_t *labels, expire_tree *expi
 static void metric_refresh_expire(metric_node *mnode, expire_tree *expiretree, int64_t ttl)
 {
 	r_time time = setrtime();
-	int64_t new_key = time.sec + ttl;
+	int64_t new_key = (int64_t)time.sec + ttl;
 	/* Expiry uses second resolution; re-arming is redundant if the key is unchanged. */
 	if (mnode->expire_node && mnode->expire_node->key == new_key)
+		return;
+	/*
+	 * Never-expire sentinel (INT64_MAX-UINT32_MAX): key still advances by 1s on
+	 * every write, which churns the far list for hot flush paths (oplog counters).
+	 * Keep the existing far key while it remains in the future.
+	 */
+	if (ttl >= (INT64_MAX - (int64_t)UINT32_MAX) && mnode->expire_node &&
+	    mnode->expire_node->key > (int64_t)time.sec)
 		return;
 	expire_arm(expiretree, new_key, mnode);
 }

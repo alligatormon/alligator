@@ -3,10 +3,10 @@
 #include <inttypes.h>
 #include "common/selector.h"
 #include "metric/namespace.h"
+#include "metric/labels.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
 #include "query/type.h"
-#include "common/selector.h"
 #include "common/logs.h"
 #include "metric/metric_types.h"
 #include "main.h"
@@ -19,31 +19,54 @@
 
 void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 {
-	carglog(carg, L_DEBUG, "cluster_sync_handler: key=%s size=%zu payload:\n%s\n", carg->key, size, metrics);
+	/* Never %s the payload: a full oplog ring is multi‑MB. */
+	carglog(carg, L_DEBUG, "cluster_sync_handler: key=%s size=%zu\n",
+		carg && carg->key ? carg->key : "-", size);
 
 	char field[LABEL_LEN];
 	char replica[LABEL_LEN];
 	char data[LABEL_LEN];
-	cluster_node* cn = carg->cluster_node;
-	cluster_server_oplog *srvoplog = carg->data;
+	cluster_node* cn = carg ? carg->cluster_node : NULL;
+	cluster_server_oplog *srvoplog = carg ? carg->data : NULL;
 	r_time time_now = setrtime();
-	srvoplog->ttl = time_now.sec + 60;
+	uint64_t applied = 0;
 	char namespacename[255];
+
+	if (!carg || !cn || !metrics)
+		return;
+	carg->namespace = NULL;
+	if (srvoplog)
+		srvoplog->ttl = time_now.sec + 60;
 
 	for (uint64_t i = 0; i < size; i++)
 	{
-		*field = 0;
 		uint8_t cluster_type = CLUSTER_HANDLER_REPLICATYPE;
-		uint64_t field_size = str_get_next(metrics, field, LABEL_LEN, "\n", &i);
+		uint64_t line_len = str_get_next(metrics, field, LABEL_LEN, "\n", &i);
 		uint8_t is_primary = 0;
 		char metric_name[MAX_METRIC_NAME_SIZE], label_name[MAX_METRIC_NAME_SIZE], label_key[MAX_METRIC_NAME_SIZE];
 		*metric_name = 0;
 		*replica = 0;
 		uint8_t next_is_value = 0;
-		double value;
-		alligator_ht *lbl = alligator_ht_init(NULL);
+		uint8_t value_seen = 0;
+		uint8_t lbl_consumed = 0;
+		double value = 0;
+		alligator_ht *lbl;
 
-		for (uint64_t j = 0; j < field_size; j++)
+		/* Truncated copy cannot be parsed safely (type/value would be wrong). */
+		if (line_len >= LABEL_LEN - 1) {
+			carglog(carg, L_WARN,
+				"cluster_sync_handler: skip oversized line (%" PRIu64 " bytes, limit %d)\n",
+				line_len, LABEL_LEN - 1);
+			continue;
+		}
+		if (!line_len)
+			continue;
+
+		lbl = alligator_ht_init(NULL);
+		if (!lbl)
+			continue;
+
+		for (uint64_t j = 0; j < line_len; j++)
 		{
 			str_get_next(field, data, LABEL_LEN, "\t", &j);
 
@@ -64,7 +87,7 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 				strlcpy(replica, data, LABEL_LEN);
 				cluster_type = CLUSTER_HANDLER_DATA;
 
-				if (!is_primary) {
+				if (!is_primary && cn->name) {
 					uint16_t cur = strlcpy(namespacename, cn->name, 255);
 					size_t remain = cur < sizeof(namespacename) ? sizeof(namespacename) - cur : 0;
 					if (remain > 0) {
@@ -81,7 +104,7 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 			{
 				if (!*metric_name)
 					strlcpy(metric_name, data, MAX_METRIC_NAME_SIZE);
-				else if ((!next_is_value) && (j != field_size)) {
+				else if ((!next_is_value) && (j != line_len)) {
 					if (!*data) {
 						next_is_value = 1;
 						continue; // two tabs before value
@@ -95,20 +118,36 @@ void cluster_sync_handler(char *metrics, size_t size, context_arg *carg)
 				else if (next_is_value) {
 					next_is_value = 0;
 					value = strtod(data, NULL);
+					value_seen = 1;
 				}
 				else {
 					uint8_t dt_type = atoi(data);
+					if (!value_seen || !*metric_name) {
+						carglog(carg, L_WARN,
+							"cluster_sync_handler: incomplete record for '%s', skip\n",
+							*metric_name ? metric_name : "-");
+						break;
+					}
 					if (dt_type == METRIC_TYPE_COUNTER || dt_type == METRIC_TYPE_HISTOGRAM)
 						metric_update(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
 					else
 						metric_add(metric_name, lbl, &value, DATATYPE_DOUBLE, carg);
+					lbl_consumed = 1;
+					++applied;
 
 					carglog(carg, L_DEBUG, "\t\t\treplication metric add/update(%u) %s:%lf to namespace '%s'\n", dt_type, metric_name, value, carg->namespace);
-					carg->namespace = NULL;
+					break; /* lbl ownership transferred; do not touch further fields */
 				}
 			}
 		}
+		if (!lbl_consumed)
+			labels_hash_free(lbl);
+		/* namespacename is stack-local; never leave it on the long-lived sync carg. */
+		carg->namespace = NULL;
 	}
+	if (applied && srvoplog)
+		__atomic_fetch_add(&srvoplog->stat_applied, applied, __ATOMIC_RELAXED);
+	carg->namespace = NULL;
 	carg->parser_status = 1;
 }
 

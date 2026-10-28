@@ -1467,7 +1467,8 @@ void cluster_generate_conf(void *funcarg, void* arg)
 	json_t *name_ctx = json_string(cn->name);
 	json_array_object_insert(cluster, "name", name_ctx);
 
-	json_t *size_ctx = json_integer(cn->servers_size);
+	/* oplog ring capacity (config `size`), not servers_size — that was a /conf bug */
+	json_t *size_ctx = json_integer(cn->size);
 	json_array_object_insert(cluster, "size", size_ctx);
 
 	json_t *replica_factor_ctx = json_integer(cn->replica_factor);

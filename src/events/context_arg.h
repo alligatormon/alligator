@@ -353,10 +353,29 @@ struct context_arg
 	uint8_t tls_verify_client;
 	/* Offer ALPN "h2" on the client TLS handshake (OTLP/gRPC export). */
 	uint8_t tls_alpn_h2;
-	/* Oneshot HTTP/2: SETTINGS ACK already sent for this connection. */
+	/* Oneshot HTTP/2: at least one SETTINGS ACK was written. */
 	uint8_t http2_settings_ack_sent;
+	/* Offset of the SETTINGS frame whose window delta was already applied.
+	 * Later SETTINGS frames (different offset) are applied and ACKed too. */
+	uint8_t http2_settings_apply_valid;
+	size_t http2_settings_apply_off;
+	/* Logged once while pending DATA waits for WINDOW_UPDATE. */
+	uint8_t http2_flow_stall_logged;
 	/* Bytes of full_body already consumed by otlp_grpc_expect_complete (avoid re-ACKing). */
 	size_t http2_feed_offset;
+	/* Send flow-control: remaining gRPC-framed body not yet written as DATA. */
+	char *http2_send_body;
+	size_t http2_send_body_len;
+	size_t http2_send_body_off;
+	int64_t http2_conn_send_window;
+	int64_t http2_stream_send_window;
+	uint32_t http2_peer_max_frame;
+	uint32_t http2_peer_init_window;
+	/* Receive window for peer DATA. 0 means exhausted. Not replenished. */
+	int64_t http2_conn_recv_window;
+	int64_t http2_stream_recv_window;
+	/* Distinguishes exhausted (0) from not-yet-initialized. */
+	uint8_t http2_recv_window_inited;
 	revocation_policy rev;
 	uint64_t rev_gen;
 

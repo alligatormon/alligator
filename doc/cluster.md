@@ -46,6 +46,8 @@ Available values:
 The sharedlock value can be used to in aggregate context. This allows making outgoing requests exactly once through the cluster.
 Oplog is an option that allows receiving and destributing metrics through the cluster nodes.
 
+Pushed samples are Maglev-sharded by `sharding_key` (default `__name__`). The primary holder exposes them from the default namespace on `/metrics`. Extra `replica_factor` copies live in namespace `cluster_name:primary_peer` for HA and are scraped from that node only if the primary peer's sync TTL has expired (failover). Prometheus should scrape every cluster member; under a healthy cluster each series appears from one Maglev primary.
+
 
 ## server
 Specifies all hosts of the cluster.
@@ -53,7 +55,15 @@ Specifies all hosts of the cluster.
 
 ## size
 Default: 1000
-Specifies the oplog size. If operation log overflows, old metrics in the oplog will be dropped.
+Specifies the oplog size. Minimum usable value is **2** (`begin==end` means empty, so capacity is `size-1`). Invalid values are rejected and fall back to 1000. If the operation log is full, each new insert drops **one** oldest entry (circular buffer), not the whole log. Each such drop increments `alligator_cluster_oplog_overflow_total{cluster,peer}` in the default namespace (not subject to entrypoint/push TTL).
+
+Each `/oplog` POST shift (and GET peek) returns at most **1 MiB** of pending entries; the remainder stays in the ring for the next sync. This keeps the peer event loop from applying a multi‑tens‑of‑MB backlog in one shot.
+
+Replication volume (also default namespace; updated ~1s from atomics):
+
+- `alligator_cluster_oplog_enqueued_total{cluster,peer}` — samples appended into the oplog destined for `peer` (on the node that accepted the push)
+- `alligator_cluster_oplog_applied_total{cluster,peer}` — samples applied from an `/oplog` sync pulled from `peer`
+- `alligator_cluster_oplog_overflow_total{cluster,peer}` — oldest-entry drops when that peer ring is full
 
 
 ## shardinag\_key

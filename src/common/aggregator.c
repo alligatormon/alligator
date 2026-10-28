@@ -460,6 +460,21 @@ void aggregator_oneshot_apply_tls(context_arg *dst, context_arg *src)
 	}
 	if (src->tls_alpn_h2)
 		dst->tls_alpn_h2 = 1;
+	/* HTTP/2 send flow-control pending body: transfer ownership from the hint. */
+	if (src->http2_send_body && !dst->http2_send_body) {
+		dst->http2_send_body = src->http2_send_body;
+		src->http2_send_body = NULL;
+		dst->http2_send_body_len = src->http2_send_body_len;
+		dst->http2_send_body_off = src->http2_send_body_off;
+		dst->http2_conn_send_window = src->http2_conn_send_window;
+		dst->http2_stream_send_window = src->http2_stream_send_window;
+		dst->http2_peer_max_frame = src->http2_peer_max_frame;
+		dst->http2_peer_init_window = src->http2_peer_init_window;
+		dst->http2_conn_recv_window = src->http2_conn_recv_window;
+		dst->http2_stream_recv_window = src->http2_stream_recv_window;
+		src->http2_send_body_len = 0;
+		src->http2_send_body_off = 0;
+	}
 }
 
 context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, char *mesg, size_t mesg_len, void *handler, char *parser_name, void *validator, char *override_key, uint64_t follow_redirects, void *data, char *s_stdin, size_t l_stdin, string* work_dir, alligator_ht *env)

@@ -3393,14 +3393,16 @@ void test_config_generators_additional_scalars()
     cn.name = "cluster-a";
     cn.servers = servers;
     cn.servers_size = 2;
+    cn.size = 100000;
     cn.replica_factor = 3;
     cluster_generate_conf(dst, &cn);
     json_t *cluster = json_object_get(dst, "cluster");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cluster);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, json_integer_value(json_object_get(cluster, "replica_factor")));
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, json_integer_value(json_object_get(cluster, "size")));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 100000, json_integer_value(json_object_get(cluster, "size")));
     json_t *srv = json_object_get(cluster, "servers");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, srv);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(srv));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_integer_value(json_object_get(json_array_get(srv, 0), "is_me")));
 
     context_arg ep = {0};

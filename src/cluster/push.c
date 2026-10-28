@@ -2,6 +2,7 @@
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "metric/namespace.h"
+#include <inttypes.h>
 #include <string.h>
 #include "main.h"
 
@@ -40,7 +41,18 @@ void cluster_push_json(json_t *cluster)
 	cn->name = strdup(name);
 
 	cn->size = 1000;
-	cn->size = config_get_intstr_json(cluster, "size");
+	if (json_object_get(cluster, "size"))
+	{
+		int64_t configured = config_get_intstr_json(cluster, "size");
+		/* Need at least 2 slots for a usable circular buffer (begin==end means empty). */
+		if (configured >= 2)
+			cn->size = (uint64_t)configured;
+		else {
+			glog(L_WARN, "cluster '%s': size %" PRId64 " invalid (need >= 2), using 1000\n",
+				cn->name, configured);
+			cn->size = 1000;
+		}
+	}
 
 	json_t *jservers = json_object_get(cluster, "servers");
 	if (jservers)
@@ -96,6 +108,9 @@ void cluster_push_json(json_t *cluster)
 				insert_namespace(namespacename, 0);
 
 				cn->servers[j].oprec = oplog_record_init(cn->size);
+				if (!cn->servers[j].oprec)
+					glog(L_ERROR, "cluster '%s': oplog_record_init failed for peer %s\n",
+						name, data);
 				j++;
 			}
 

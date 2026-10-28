@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #include "common/selector.h"
 #include "common/logs.h"
@@ -19,6 +20,11 @@
 #define H2_FRAME_GOAWAY 0x7
 #define H2_FRAME_WINDOW_UPDATE 0x8
 #define H2_FRAME_CONTINUATION 0x9
+
+/* Inbound response cap: initial recv window (1 MiB) plus framing/HPACK overhead.
+ * We do not replenish the peer send window, so a compliant peer stops at 1 MiB.
+ * A peer that ignores that still gets the connection closed at this cap. */
+#define H2_MAX_RESPONSE_WIRE ((1u << 20) + 65536u)
 
 #define H2_FLAG_END_STREAM 0x1
 #define H2_FLAG_ACK 0x1
@@ -608,25 +614,36 @@ static void hpack_env_foreach(void *funcarg, void *arg)
 
 char *otlp_grpc_http2_request_build(const char *authority, const char *path,
 	int scheme_https, const char *grpc_framed, size_t grpc_framed_len,
-	alligator_ht *env, size_t *out_len)
+	alligator_ht *env, size_t *out_len,
+	char **pending_out, size_t *pending_len_out)
 {
 	string *out;
 	string *hdrs;
 	char *ret;
 	const char *use_path = path;
+	size_t send_now;
+	size_t rem;
 
 	if (out_len)
 		*out_len = 0;
-	if (!authority || !grpc_framed)
+	if (pending_out)
+		*pending_out = NULL;
+	if (pending_len_out)
+		*pending_len_out = 0;
+	if (!authority || (!grpc_framed && grpc_framed_len))
 		return NULL;
-	/* Defense in depth: action.c also refuses; without send flow-control a
-	 * framed body over the default 65535 connection window is unsafe. */
-	if (grpc_framed_len > 65535)
+
+	send_now = grpc_framed_len;
+	if (send_now > H2_DEFAULT_WINDOW_SIZE)
+		send_now = H2_DEFAULT_WINDOW_SIZE;
+	rem = grpc_framed_len - send_now;
+	if (rem && !pending_out)
 		return NULL;
+
 	if (!use_path || !*use_path || !strcmp(use_path, "/"))
 		use_path = OTLP_GRPC_METRICS_PATH;
 
-	out = string_init(256 + grpc_framed_len);
+	out = string_init(256 + send_now);
 	hdrs = string_init(512);
 	if (!out || !hdrs) {
 		string_free(out);
@@ -644,7 +661,7 @@ char *otlp_grpc_http2_request_build(const char *authority, const char *path,
 		h2_put_u16(sp + 0, 0x4); /* SETTINGS_INITIAL_WINDOW_SIZE */
 		h2_put_u32(sp + 2, 1u << 20);
 		h2_put_u16(sp + 6, 0x5); /* SETTINGS_MAX_FRAME_SIZE */
-		h2_put_u32(sp + 8, 16384);
+		h2_put_u32(sp + 8, H2_DEFAULT_MAX_FRAME_SIZE);
 		h2_append_frame(out, H2_FRAME_SETTINGS, 0, 0, sp, 12);
 	}
 
@@ -665,22 +682,36 @@ char *otlp_grpc_http2_request_build(const char *authority, const char *path,
 	}
 
 	h2_append_frame(out, H2_FRAME_HEADERS, H2_FLAG_END_HEADERS, 1, hdrs->s, hdrs->l);
-	/* Split DATA to peer MAX_FRAME_SIZE (we advertise 16384). */
+	/* Split DATA to peer MAX_FRAME_SIZE (we advertise 16384). Only send_now
+	 * bytes fit the default connection/stream windows before peer WINDOW_UPDATE. */
 	{
 		size_t off = 0;
-		const size_t max_frame = 16384;
-		while (off < grpc_framed_len) {
-			size_t chunk = grpc_framed_len - off;
+		const size_t max_frame = H2_DEFAULT_MAX_FRAME_SIZE;
+		while (off < send_now) {
+			size_t chunk = send_now - off;
 			uint8_t flags = 0;
 			if (chunk > max_frame)
 				chunk = max_frame;
-			if (off + chunk >= grpc_framed_len)
+			if (!rem && off + chunk >= send_now)
 				flags = H2_FLAG_END_STREAM;
 			h2_append_frame(out, H2_FRAME_DATA, flags, 1, grpc_framed + off, chunk);
 			off += chunk;
 		}
 		if (grpc_framed_len == 0)
 			h2_append_frame(out, H2_FRAME_DATA, H2_FLAG_END_STREAM, 1, NULL, 0);
+	}
+
+	if (rem) {
+		char *pend = malloc(rem);
+		if (!pend) {
+			string_free(out);
+			string_free(hdrs);
+			return NULL;
+		}
+		memcpy(pend, grpc_framed + send_now, rem);
+		*pending_out = pend;
+		if (pending_len_out)
+			*pending_len_out = rem;
 	}
 
 	string_free(hdrs);
@@ -691,30 +722,59 @@ char *otlp_grpc_http2_request_build(const char *authority, const char *path,
 	return ret;
 }
 
+void otlp_grpc_http2_flow_attach(context_arg *carg,
+	char *pending, size_t pending_len, size_t already_sent)
+{
+	if (!carg)
+		return;
+	if (carg->http2_send_body) {
+		free(carg->http2_send_body);
+		carg->http2_send_body = NULL;
+	}
+	carg->http2_send_body = pending;
+	carg->http2_send_body_len = pending_len;
+	carg->http2_send_body_off = 0;
+	carg->http2_peer_max_frame = H2_DEFAULT_MAX_FRAME_SIZE;
+	carg->http2_peer_init_window = H2_DEFAULT_WINDOW_SIZE;
+	carg->http2_conn_send_window = (int64_t)H2_DEFAULT_WINDOW_SIZE - (int64_t)already_sent;
+	carg->http2_stream_send_window = (int64_t)H2_DEFAULT_WINDOW_SIZE - (int64_t)already_sent;
+	carg->http2_conn_recv_window = (int64_t)(1u << 20);
+	carg->http2_stream_recv_window = (int64_t)(1u << 20);
+	carg->http2_recv_window_inited = 1;
+	if (carg->http2_conn_send_window < 0)
+		carg->http2_conn_send_window = 0;
+	if (carg->http2_stream_send_window < 0)
+		carg->http2_stream_send_window = 0;
+}
+
 typedef struct {
 	uv_write_t req;
 	uv_buf_t buf;
-	char data[17]; /* SETTINGS ACK (9) or PING ACK (17) */
-} h2_ack_write_t;
+	char *data;
+} h2_frame_write_t;
 
-static void h2_ack_written(uv_write_t *req, int status)
+static void h2_frame_written(uv_write_t *req, int status)
 {
+	h2_frame_write_t *w = (h2_frame_write_t *)req;
 	(void)status;
-	free(req);
+	if (w->data)
+		free(w->data);
+	free(w);
 }
 
-static int h2_write_control(context_arg *carg, const char *frame, size_t frame_len)
+/* Write an HTTP/2 frame without reusing carg->write_req / write_tls (may still
+ * be in flight for the oneshot preface). TLS: SSL_write_ex + independent BIO flush. */
+static int h2_write_frame(context_arg *carg, const char *frame, size_t frame_len)
 {
-	h2_ack_write_t *w;
+	h2_frame_write_t *w;
 
-	if (!carg || !frame || !frame_len || frame_len > sizeof(((h2_ack_write_t *)0)->data))
+	if (!carg || !frame || !frame_len)
+		return -1;
+	if (!carg->tls && carg->client.type != UV_TCP && carg->client.type != UV_NAMED_PIPE)
+		return -1;
+	if (!carg->tls && uv_is_closing((uv_handle_t *)&carg->client))
 		return -1;
 
-	/*
-	 * Never use tls_write() here: it reuses carg->write_tls / write_buffer and
-	 * may run while the oneshot request write is still in flight. Encrypt into
-	 * the SSL BIO and flush with independent uv_write reqs instead.
-	 */
 	if (carg->tls) {
 		size_t written = 0;
 
@@ -729,29 +789,179 @@ static int h2_write_control(context_arg *carg, const char *frame, size_t frame_l
 	w = calloc(1, sizeof(*w));
 	if (!w)
 		return -1;
+	w->data = malloc(frame_len);
+	if (!w->data) {
+		free(w);
+		return -1;
+	}
 	memcpy(w->data, frame, frame_len);
 	w->buf = uv_buf_init(w->data, (unsigned int)frame_len);
 	w->req.data = carg;
-	if (uv_write(&w->req, (uv_stream_t *)&carg->client, &w->buf, 1, h2_ack_written) < 0) {
+	if (uv_write(&w->req, (uv_stream_t *)&carg->client, &w->buf, 1, h2_frame_written) < 0) {
+		free(w->data);
 		free(w);
 		return -1;
 	}
 	return 0;
 }
 
-static void h2_send_settings_ack(context_arg *carg)
+static int h2_write_control(context_arg *carg, const char *frame, size_t frame_len)
+{
+	return h2_write_frame(carg, frame, frame_len);
+}
+
+static int h2_window_add(int64_t *win, uint32_t increment)
+{
+	int64_t next;
+
+	if (!win || !increment)
+		return -1;
+	next = *win + (int64_t)increment;
+	if (next > 0x7fffffffLL)
+		return -1;
+	*win = next;
+	return 0;
+}
+
+static void h2_flush_pending_data(context_arg *carg)
+{
+	uint32_t max_frame;
+
+	if (!carg || !carg->http2_send_body)
+		return;
+	/* Unit tests and pre-connect paths may leave client uninitialized. */
+	if (carg->client.type != UV_TCP && carg->client.type != UV_NAMED_PIPE)
+		return;
+	if (uv_is_closing((uv_handle_t *)&carg->client))
+		return;
+
+	max_frame = carg->http2_peer_max_frame ? carg->http2_peer_max_frame : H2_DEFAULT_MAX_FRAME_SIZE;
+	if (max_frame < 1)
+		max_frame = H2_DEFAULT_MAX_FRAME_SIZE;
+	if (max_frame > H2_DEFAULT_MAX_FRAME_SIZE)
+		max_frame = H2_DEFAULT_MAX_FRAME_SIZE; /* we do not send larger than we advertise */
+
+	while (carg->http2_send_body_off < carg->http2_send_body_len) {
+		int64_t avail;
+		size_t rem;
+		size_t chunk;
+		uint8_t flags = 0;
+		string *frame;
+		int rc;
+
+		avail = carg->http2_conn_send_window;
+		if (carg->http2_stream_send_window < avail)
+			avail = carg->http2_stream_send_window;
+		if (avail <= 0)
+			break;
+
+		rem = carg->http2_send_body_len - carg->http2_send_body_off;
+		chunk = rem;
+		if (chunk > (size_t)avail)
+			chunk = (size_t)avail;
+		if (chunk > max_frame)
+			chunk = max_frame;
+		if (carg->http2_send_body_off + chunk >= carg->http2_send_body_len)
+			flags = H2_FLAG_END_STREAM;
+
+		frame = string_init(9 + chunk);
+		if (!frame)
+			break;
+		h2_append_frame(frame, H2_FRAME_DATA, flags, 1,
+			carg->http2_send_body + carg->http2_send_body_off, chunk);
+		rc = h2_write_frame(carg, frame->s, frame->l);
+		string_free(frame);
+		if (rc < 0)
+			break;
+
+		carg->http2_send_body_off += chunk;
+		carg->http2_conn_send_window -= (int64_t)chunk;
+		carg->http2_stream_send_window -= (int64_t)chunk;
+		carglog(carg, L_TRACE,
+			"http2 send DATA chunk=%zu off=%zu/%zu conn_win=%"PRId64" stream_win=%"PRId64" end=%d\n",
+			chunk, carg->http2_send_body_off, carg->http2_send_body_len,
+			carg->http2_conn_send_window, carg->http2_stream_send_window,
+			(flags & H2_FLAG_END_STREAM) ? 1 : 0);
+	}
+
+	if (carg->http2_send_body_off >= carg->http2_send_body_len) {
+		free(carg->http2_send_body);
+		carg->http2_send_body = NULL;
+		carg->http2_send_body_len = 0;
+		carg->http2_send_body_off = 0;
+		carg->http2_flow_stall_logged = 0;
+	} else {
+		int64_t avail = carg->http2_conn_send_window;
+		if (carg->http2_stream_send_window < avail)
+			avail = carg->http2_stream_send_window;
+		if (avail <= 0 && !carg->http2_flow_stall_logged) {
+			carglog(carg, L_INFO,
+				"http2: %zu data bytes waiting for WINDOW_UPDATE (conn=%"PRId64" stream=%"PRId64")\n",
+				carg->http2_send_body_len - carg->http2_send_body_off,
+				carg->http2_conn_send_window, carg->http2_stream_send_window);
+			carg->http2_flow_stall_logged = 1;
+		}
+	}
+}
+
+static int h2_send_settings_ack(context_arg *carg)
 {
 	uint8_t frame[9];
 
-	if (!carg || carg->http2_settings_ack_sent)
-		return;
+	if (!carg)
+		return 0;
 
 	h2_put_u24(frame, 0);
 	frame[3] = H2_FRAME_SETTINGS;
 	frame[4] = H2_FLAG_ACK;
 	h2_put_u32(frame + 5, 0);
-	if (h2_write_control(carg, (char *)frame, 9) == 0)
+	if (h2_write_control(carg, (char *)frame, 9) == 0) {
 		carg->http2_settings_ack_sent = 1;
+		return 1;
+	}
+	return 0;
+}
+
+static int h2_feed_fail(size_t *start_off, size_t commit)
+{
+	if (start_off)
+		*start_off = commit;
+	return 0;
+}
+
+/* 0 ok, -1 if SETTINGS_INITIAL_WINDOW_SIZE would push the stream window above 2^31-1.
+ * A shrink below bytes already sent leaves a negative stream window (RFC 7540 §6.9.2);
+ * the sender must not transmit until WINDOW_UPDATE catches up. */
+static int h2_apply_peer_settings(context_arg *carg, const uint8_t *payload, uint32_t plen)
+{
+	size_t i;
+
+	if (!carg || !payload || (plen % 6) != 0)
+		return 0;
+	for (i = 0; i + 6 <= plen; i += 6) {
+		uint16_t id = ((uint16_t)payload[i] << 8) | payload[i + 1];
+		uint32_t val = h2_get_u32(payload + i + 2);
+		if (id == 0x4) { /* SETTINGS_INITIAL_WINDOW_SIZE */
+			int64_t delta;
+			int64_t next;
+			if (val > 0x7fffffffu) {
+				carglog(carg, L_ERROR, "http2 SETTINGS_INITIAL_WINDOW_SIZE %u exceeds 2^31-1\n", val);
+				return -1;
+			}
+			delta = (int64_t)val - (int64_t)carg->http2_peer_init_window;
+			next = carg->http2_stream_send_window + delta;
+			if (next > 0x7fffffffLL) {
+				carglog(carg, L_ERROR, "http2 stream send window overflow (%"PRId64")\n", next);
+				return -1;
+			}
+			carg->http2_peer_init_window = val;
+			carg->http2_stream_send_window = next;
+		} else if (id == 0x5 && val >= 16384 && val <= 16777215u) {
+			carg->http2_peer_max_frame = val > H2_DEFAULT_MAX_FRAME_SIZE
+				? H2_DEFAULT_MAX_FRAME_SIZE : val;
+		}
+	}
+	return 0;
 }
 
 static void h2_send_ping_ack(context_arg *carg, const uint8_t *payload, size_t plen)
@@ -914,23 +1124,58 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 		size_t poff = 0;
 		size_t next;
 		int do_ack;
+		int settings_acked;
 
 		if (off + 9 + plen > len)
 			break; /* need more */
 
 		payload = buf + off + 9;
 		next = off + 9 + plen;
-		do_ack = (carg_for_ack && off >= commit);
+		/* Only the commit frontier. Frames past a SETTINGS whose ACK has not
+		 * landed must not apply WINDOW_UPDATE again on the next read. */
+		do_ack = (carg_for_ack && start_off && off == commit);
+		settings_acked = 1;
 
 		if (type == H2_FRAME_SETTINGS && sid == 0) {
 			st->saw_settings = 1;
-			if (do_ack && !(flags & H2_FLAG_ACK))
-				h2_send_settings_ack(carg_for_ack);
+			if (do_ack && !(flags & H2_FLAG_ACK)) {
+				/* Apply each distinct SETTINGS once. A failed ACK retries the
+				 * write without applying the delta again. */
+				if (!carg_for_ack->http2_settings_apply_valid
+					|| carg_for_ack->http2_settings_apply_off != off) {
+					if (h2_apply_peer_settings(carg_for_ack, payload, plen) < 0) {
+						st->stream_ended = 1;
+						if (st->end_reason == H2_END_NONE)
+							st->end_reason = H2_END_RST;
+					}
+					carg_for_ack->http2_settings_apply_valid = 1;
+					carg_for_ack->http2_settings_apply_off = off;
+				}
+				settings_acked = h2_send_settings_ack(carg_for_ack);
+			}
 		} else if (type == H2_FRAME_PING && sid == 0) {
 			if (do_ack && !(flags & H2_FLAG_ACK) && plen == 8)
 				h2_send_ping_ack(carg_for_ack, payload, plen);
 		} else if (type == H2_FRAME_WINDOW_UPDATE) {
-			/* MVP: ignore peer window updates; we do not track send window. */
+			if (do_ack && plen >= 4) {
+				uint32_t incr = h2_get_u32(payload) & 0x7fffffffu;
+				int64_t *win = NULL;
+				if (!incr) {
+					carglog(carg_for_ack, L_ERROR, "http2 WINDOW_UPDATE increment 0 sid=%u\n", sid);
+				} else if (sid == 0) {
+					win = &carg_for_ack->http2_conn_send_window;
+				} else if (sid == 1) {
+					win = &carg_for_ack->http2_stream_send_window;
+				}
+				if (win && h2_window_add(win, incr) < 0) {
+					carglog(carg_for_ack, L_ERROR,
+						"http2 WINDOW_UPDATE overflow sid=%u incr=%u win=%"PRId64"\n",
+						sid, incr, *win);
+					st->stream_ended = 1;
+					if (st->end_reason == H2_END_NONE)
+						st->end_reason = H2_END_RST;
+				}
+			}
 		} else if (type == H2_FRAME_GOAWAY) {
 			st->saw_goaway = 1;
 			if (plen >= 8) {
@@ -959,19 +1204,19 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 			if (type == H2_FRAME_HEADERS) {
 				if (flags & H2_FLAG_PADDED) {
 					if (blen < 1)
-						return 0;
+						return h2_feed_fail(start_off, commit);
 					{
 						uint8_t pad = payload[0];
 						poff = 1;
 						if (blen < poff + pad)
-							return 0;
+							return h2_feed_fail(start_off, commit);
 						blen -= poff + pad;
 						block = payload + poff;
 					}
 				}
 				if (flags & H2_FLAG_PRIORITY) {
 					if (blen < 5)
-						return 0;
+						return h2_feed_fail(start_off, commit);
 					block += 5;
 					blen -= 5;
 				}
@@ -991,13 +1236,30 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 			st->saw_data = 1;
 			if (flags & H2_FLAG_PADDED) {
 				if (dlen < 1)
-					return 0;
+					return h2_feed_fail(start_off, commit);
 				{
 					uint8_t pad = payload[0];
 					if (dlen < 1u + pad)
-						return 0;
+						return h2_feed_fail(start_off, commit);
 					data = payload + 1;
 					dlen = dlen - 1u - pad;
+				}
+			}
+			/* Count padded DATA once, at the commit frontier. Do not send
+			 * WINDOW_UPDATE: the initial 1 MiB recv window is the cap. */
+			if (do_ack && plen) {
+				if ((int64_t)plen > carg_for_ack->http2_conn_recv_window
+					|| (int64_t)plen > carg_for_ack->http2_stream_recv_window) {
+					carglog(carg_for_ack, L_ERROR,
+						"http2 peer DATA %u exceeds recv window (conn=%"PRId64" stream=%"PRId64")\n",
+						plen, carg_for_ack->http2_conn_recv_window,
+						carg_for_ack->http2_stream_recv_window);
+					st->stream_ended = 1;
+					if (st->end_reason == H2_END_NONE)
+						st->end_reason = H2_END_RST;
+				} else {
+					carg_for_ack->http2_conn_recv_window -= (int64_t)plen;
+					carg_for_ack->http2_stream_recv_window -= (int64_t)plen;
 				}
 			}
 			if (dlen && st->data)
@@ -1011,8 +1273,7 @@ static int h2_feed_frames(const uint8_t *buf, size_t len, h2_resp_state *st,
 
 		if (start_off && off == commit) {
 			int block_commit = (type == H2_FRAME_SETTINGS && sid == 0
-				&& !(flags & H2_FLAG_ACK) && carg_for_ack
-				&& !carg_for_ack->http2_settings_ack_sent);
+				&& !(flags & H2_FLAG_ACK) && do_ack && !settings_acked);
 			if (!block_commit)
 				commit = next;
 		}
@@ -1033,13 +1294,36 @@ int8_t otlp_grpc_expect_complete(context_arg *carg, char *buf, size_t nread)
 	if (!carg || !carg->full_body || !carg->full_body->s)
 		return 0;
 
+	if (carg->full_body->l > H2_MAX_RESPONSE_WIRE) {
+		carglog(carg, L_ERROR, "http2 response %zu bytes exceeds cap %u; closing\n",
+			carg->full_body->l, H2_MAX_RESPONSE_WIRE);
+		return 1;
+	}
+
+	/* 0 is a real window (exhausted recv, or peer INITIAL_WINDOW_SIZE 0), not unset. */
+	if (!carg->http2_recv_window_inited) {
+		if (!carg->http2_peer_init_window)
+			carg->http2_peer_init_window = H2_DEFAULT_WINDOW_SIZE;
+		if (!carg->http2_peer_max_frame)
+			carg->http2_peer_max_frame = H2_DEFAULT_MAX_FRAME_SIZE;
+		carg->http2_conn_recv_window = (int64_t)(1u << 20);
+		carg->http2_stream_recv_window = (int64_t)(1u << 20);
+		carg->http2_recv_window_inited = 1;
+	}
+
 	memset(&st, 0, sizeof(st));
 	st.grpc_status = -1;
 	st.hpack_ok = 1;
 	st.data = NULL;
-	/* Side-effect only (ACKs + stream_ended); advance feed offset so PINGs are not re-ACKed. */
-	h2_feed_frames((const uint8_t *)carg->full_body->s, carg->full_body->l, &st, carg,
-		&carg->http2_feed_offset);
+	/* Side-effect only (ACKs, window updates, stream_ended); advance feed offset. */
+	if (!h2_feed_frames((const uint8_t *)carg->full_body->s, carg->full_body->l, &st, carg,
+		&carg->http2_feed_offset)) {
+		carglog(carg, L_ERROR, "http2 frame parse error; closing\n");
+		return 1;
+	}
+
+	/* After peer SETTINGS / WINDOW_UPDATE, push any remaining request DATA. */
+	h2_flush_pending_data(carg);
 
 	if (st.stream_ended)
 		return 1;
@@ -1065,6 +1349,12 @@ int otlp_grpc_http2_response_parse(const char *buf, size_t len,
 		*protobuf_len = 0;
 	if (!buf)
 		return 0;
+	if (len > H2_MAX_RESPONSE_WIRE) {
+		if (status_msg && status_msg_size)
+			snprintf(status_msg, status_msg_size, "response %zu bytes exceeds cap %u",
+				len, H2_MAX_RESPONSE_WIRE);
+		return 0;
+	}
 
 	memset(&st, 0, sizeof(st));
 	st.grpc_status = -1;

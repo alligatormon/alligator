@@ -166,11 +166,18 @@ double double_get_next(char *buf, char *sep, uint64_t *cursor)
 int64_t str_get_next(const char *buf, char *ret, uint64_t ret_sz, char *sep, uint64_t *cursor)
 {
 	uint64_t end = strcspn(buf + *cursor, sep);
-	//printf("end is %"u64": '%s' (buf+%"u64"), find:('%s')\n", end, buf + *cursor, *cursor, sep);
-	uint64_t copysize = (end + 1) > ret_sz ? ret_sz : (end + 1);
-	//printf("copysize %"u64": (%d)\n", copysize, ((end + 1) > ret_sz));
-
-	strlcpy(ret, buf + *cursor, copysize);
+	/*
+	 * memcpy + explicit NUL — do not use strlcpy here. Our strlcpy (OpenBSD)
+	 * walks src until '\0' after a truncated copy to compute the return length.
+	 * Hot callers (cluster_sync_handler) pass slices of multi‑MB buffers that
+	 * are only NUL-terminated at the very end; strlcpy would rescan the tail
+	 * on every field and go O(n²) / 100% CPU.
+	 */
+	if (ret && ret_sz) {
+		uint64_t copylen = end < (ret_sz - 1) ? end : (ret_sz - 1);
+		memcpy(ret, buf + *cursor, copylen);
+		ret[copylen] = 0;
+	}
 	(*cursor) += end;
 
 	return end;

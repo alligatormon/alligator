@@ -3593,7 +3593,7 @@ static void test_otlp_grpc_frame_and_http2(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)(sizeof(proto) - 1), (int)unwrapped_len);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, memcmp(unwrapped, proto, unwrapped_len));
 
-    req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, framed->s, framed->l, NULL, &req_len);
+    req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, framed->s, framed->l, NULL, &req_len, NULL, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req_len > sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
@@ -3806,16 +3806,140 @@ static void test_otlp_grpc_frame_and_http2(void)
         free(protobuf);
     }
 
-    /* request_build must refuse framed payloads over the default HTTP/2 window. */
+    /* Large framed body: initial wire ≤ default window; remainder via pending;
+     * without pending_out the build must refuse. */
     {
         char *big = malloc(65536);
         size_t out_len = 1;
         char *req;
+        char *pending = NULL;
+        size_t pending_len = 0;
+        context_arg fc;
+        unsigned char wu[13];
+        string *body;
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, big);
         memset(big, 'x', 65536);
-        req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, big, 65536, NULL, &out_len);
+
+        req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, big, 65536, NULL, &out_len, NULL, NULL);
         assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, req);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)out_len);
+
+        out_len = 0;
+        req = otlp_grpc_http2_request_build("collector:4317", NULL, 1, big, 65536, NULL, &out_len,
+            &pending, &pending_len);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, out_len > 0);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pending);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)pending_len);
+        /* Initial DATA must not set END_STREAM while pending remains. */
+        {
+            size_t off = sizeof("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n") - 1;
+            int saw_data = 0;
+            int saw_data_end = 0;
+            while (off + 9 <= out_len) {
+                uint32_t plen = ((uint32_t)(unsigned char)req[off] << 16)
+                    | ((uint32_t)(unsigned char)req[off + 1] << 8)
+                    | (uint32_t)(unsigned char)req[off + 2];
+                uint8_t type = (uint8_t)req[off + 3];
+                uint8_t flags = (uint8_t)req[off + 4];
+                if (off + 9 + plen > out_len)
+                    break;
+                if (type == 0x0) {
+                    saw_data = 1;
+                    if (flags & 0x1)
+                        saw_data_end = 1;
+                }
+                off += 9 + plen;
+            }
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, saw_data);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, saw_data_end);
+        }
+        free(req);
+
+        memset(&fc, 0, sizeof(fc));
+        otlp_grpc_http2_flow_attach(&fc, pending, pending_len, 65535);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)fc.http2_conn_send_window);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)fc.http2_stream_send_window);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fc.http2_send_body);
+
+        /* Peer WINDOW_UPDATE on connection + stream unlocks the last byte.
+         * expect_complete without a live uv handle must not crash on flush. */
+        body = string_init(64);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+        /* WINDOW_UPDATE stream 0 incr=1 (no SETTINGS, so the frontier is not blocked on ACK). */
+        wu[0] = 0; wu[1] = 0; wu[2] = 4; wu[3] = 0x8; wu[4] = 0;
+        wu[5] = 0; wu[6] = 0; wu[7] = 0; wu[8] = 0;
+        wu[9] = 0; wu[10] = 0; wu[11] = 0; wu[12] = 1;
+        string_cat(body, (char *)wu, 13);
+        /* WINDOW_UPDATE stream 1 incr=1 */
+        wu[8] = 1;
+        string_cat(body, (char *)wu, 13);
+        fc.full_body = body;
+        /* No live TCP handle — flush is a no-op; windows still advance once. */
+        (void)otlp_grpc_expect_complete(&fc, NULL, 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)fc.http2_conn_send_window);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)fc.http2_stream_send_window);
+        /* Rescan of the same WINDOW_UPDATE must not grant credit again. */
+        (void)otlp_grpc_expect_complete(&fc, NULL, 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)fc.http2_conn_send_window);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)fc.http2_stream_send_window);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, fc.http2_send_body);
+
+        /* SETTINGS_INITIAL_WINDOW_SIZE shrink below bytes already sent stays negative
+         * and is applied only once (ACK cannot be written without a socket). */
+        {
+            context_arg sh;
+            string *sb;
+            unsigned char settings[15];
+            size_t s = 0;
+            char *pend = malloc(1);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pend);
+            pend[0] = 'z';
+            memset(&sh, 0, sizeof(sh));
+            otlp_grpc_http2_flow_attach(&sh, pend, 1, 65535);
+            settings[s++] = 0; settings[s++] = 0; settings[s++] = 6;
+            settings[s++] = 0x4; settings[s++] = 0;
+            settings[s++] = 0; settings[s++] = 0; settings[s++] = 0; settings[s++] = 0;
+            settings[s++] = 0; settings[s++] = 0x4;
+            settings[s++] = 0; settings[s++] = 0; settings[s++] = 0x03; settings[s++] = 0xe8; /* 1000 */
+            sb = string_init(32);
+            string_cat(sb, (char *)settings, s);
+            sh.full_body = sb;
+            (void)otlp_grpc_expect_complete(&sh, NULL, 0);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000 - 65535, (int)sh.http2_stream_send_window);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)sh.http2_settings_apply_valid);
+            (void)otlp_grpc_expect_complete(&sh, NULL, 0);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1000 - 65535, (int)sh.http2_stream_send_window);
+            free(sh.http2_send_body);
+            string_free(sb);
+        }
+
+        /* Exhausted recv window must stay 0 across a later read (not lazy-refilled). */
+        {
+            context_arg rw;
+            string *rb;
+            unsigned char dataf[10];
+            memset(&rw, 0, sizeof(rw));
+            rw.http2_recv_window_inited = 1;
+            rw.http2_conn_recv_window = 0;
+            rw.http2_stream_recv_window = 0;
+            dataf[0] = 0; dataf[1] = 0; dataf[2] = 1;
+            dataf[3] = 0; dataf[4] = 0;
+            dataf[5] = 0; dataf[6] = 0; dataf[7] = 0; dataf[8] = 1;
+            dataf[9] = 'x';
+            rb = string_init(16);
+            string_cat(rb, (char *)dataf, sizeof(dataf));
+            rw.full_body = rb;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+                (int)otlp_grpc_expect_complete(&rw, NULL, 0));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)rw.http2_conn_recv_window);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)rw.http2_stream_recv_window);
+            string_free(rb);
+        }
+
+        free(fc.http2_send_body);
+        fc.http2_send_body = NULL;
+        string_free(body);
         free(big);
     }
 

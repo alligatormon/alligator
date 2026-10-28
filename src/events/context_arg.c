@@ -473,6 +473,13 @@ void carg_free(context_arg *carg)
 	if (carg->full_body)
 		string_free(carg->full_body);
 
+	if (carg->http2_send_body) {
+		free(carg->http2_send_body);
+		carg->http2_send_body = NULL;
+		carg->http2_send_body_len = 0;
+		carg->http2_send_body_off = 0;
+	}
+
 	if (carg->args)
 	{
 		char **args = carg->args;

@@ -261,40 +261,50 @@ void action_run_process(char *name, char *namespace, metric_query_context *mqc, 
 				alligator_ht_done(env);
 				free(env);
 			}
-			else if (framed->l > 65535)
-			{
-				/* MVP: oneshot writes DATA before reading peer WINDOW_UPDATE; sending
-				 * more than the default 65535 connection window is a protocol error. */
-				glog(L_ERROR, "action '%s': otlp_grpc framed payload %zu bytes exceeds HTTP/2 default window (65535); refuse export (no flow-control in MVP)\n", name, framed->l);
-				string_free(framed);
-				alligator_ht_foreach_arg(env, env_struct_free, env);
-				alligator_ht_done(env);
-				free(env);
-			}
 			else
 			{
-				if (framed->l > 60000)
-					glog(L_WARN, "action '%s': otlp_grpc framed payload %zu bytes is near the 64KiB HTTP/2 window limit\n", name, framed->l);
+				char *pending = NULL;
+				size_t pending_len = 0;
+				size_t sent_payload;
+
 				http2_req = otlp_grpc_http2_request_build(authority, OTLP_GRPC_METRICS_PATH,
-					scheme_https, framed->s, framed->l, env, &http2_len);
+					scheme_https, framed->s, framed->l, env, &http2_len,
+					&pending, &pending_len);
+				sent_payload = framed->l - pending_len;
 				string_free(framed);
 				if (!http2_req || !http2_len)
 				{
 					glog(L_ERROR, "action '%s': otlp_grpc HTTP/2 request build failed\n", name);
 					free(http2_req);
+					free(pending);
 					alligator_ht_foreach_arg(env, env_struct_free, env);
 					alligator_ht_done(env);
 					free(env);
 				}
 				else
 				{
-					glog(log_level, "run action otlp_grpc %s authority=%s path=%s bytes=%zu\n",
-						name, authority, OTLP_GRPC_METRICS_PATH, http2_len);
+					if (pending && oneshot_carg)
+						otlp_grpc_http2_flow_attach(oneshot_carg, pending, pending_len, sent_payload);
+					else
+						free(pending);
+					if (pending_len)
+						glog(log_level, "run action otlp_grpc %s authority=%s path=%s wire=%zu pending_data=%zu (flow-control)\n",
+							name, authority, OTLP_GRPC_METRICS_PATH, http2_len, pending_len);
+					else
+						glog(log_level, "run action otlp_grpc %s authority=%s path=%s bytes=%zu\n",
+							name, authority, OTLP_GRPC_METRICS_PATH, http2_len);
 					action_run_oneshot(an, oneshot_carg, an->expr, an->expr_len,
 						http2_req, http2_len,
 						an->parser, an->parser_name,
 						otlp_grpc_expect_complete,
 						NULL, NULL, NULL, 0, NULL, env, scheduler_name);
+					/* dry_run / failed oneshot may leave pending on the stack hint. */
+					if (oneshot_carg && oneshot_carg->http2_send_body) {
+						free(oneshot_carg->http2_send_body);
+						oneshot_carg->http2_send_body = NULL;
+						oneshot_carg->http2_send_body_len = 0;
+						oneshot_carg->http2_send_body_off = 0;
+					}
 					alligator_ht_foreach_arg(env, env_struct_free, env);
 					alligator_ht_done(env);
 					free(env);

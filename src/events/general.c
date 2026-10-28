@@ -5,6 +5,7 @@
 #include "metric/metric_types.h"
 #include "metric/namespace.h"
 #include "events/filetailer.h"
+#include "cluster/type.h"
 
 extern aconf *ac;
 
@@ -70,6 +71,9 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_session_reads_total", METRIC_TYPE_COUNTER, "Total read operations by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_shutdowns_total", METRIC_TYPE_COUNTER, "Total shutdown operations by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_timeouts_total", METRIC_TYPE_COUNTER, "Total timeouts by key/proto/type/host.");
+	namespace_metric_family_set(NULL, NULL, "alligator_cluster_oplog_overflow_total", METRIC_TYPE_COUNTER, "Oplog ring overflow drops (one oldest entry per increment) by cluster and peer.");
+	namespace_metric_family_set(NULL, NULL, "alligator_cluster_oplog_enqueued_total", METRIC_TYPE_COUNTER, "Metrics appended to a peer oplog for cluster replication by cluster and peer.");
+	namespace_metric_family_set(NULL, NULL, "alligator_cluster_oplog_applied_total", METRIC_TYPE_COUNTER, "Metrics applied from a peer oplog sync response by cluster and peer.");
 	namespace_metric_family_set(NULL, NULL, "alligator_version", METRIC_TYPE_GAUGE, "Alligator version marker with version label.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_written_bytes_total", METRIC_TYPE_COUNTER, "Total bytes written by key/proto/type/host.");
 	namespace_metric_family_set(NULL, NULL, "alligator_session_writes_total", METRIC_TYPE_COUNTER, "Total write operations by key/proto/type/host.");
@@ -89,6 +93,7 @@ void general_loop_cb(uv_timer_t* handle)
 	metric_add_auto("alligator_metric_cache_hits_total", &ac->metric_cache_hits, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_allocates_total", &ac->metric_allocates, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_free_total", &ac->metric_freed, DATATYPE_UINT, NULL);
+	cluster_oplog_stats_flush();
 }
 
 void namespaces_expire_foreach(void *funcarg, void* arg)

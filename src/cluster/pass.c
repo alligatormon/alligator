@@ -7,6 +7,8 @@
 #include "common/logs.h"
 #include "metric/metric_types.h"
 #include "cluster/get.h"
+#include "cluster/type.h"
+#include <inttypes.h>
 #include <string.h>
 void cluster_replica_handler(char *data, size_t size, context_arg *carg);
 
@@ -137,8 +139,22 @@ uint8_t cluster_pass(context_arg *carg, char *name, alligator_ht *lbl, void* val
 			string_cat(oplog, "\t", 1);
 			string_number(oplog, &dt_type, DATATYPE_UINT);
 			string_cat(oplog, "\n", 1);
-			carglog(carg, L_DEBUG, "\t\tcluster_pass pass metric '%s' to [%zu]: %s\n", oplog->s, (srvoplog->index + i) % cn->servers_size, cn->servers[(srvoplog->index + i) % cn->servers_size].name);
-			oplog_record_insert(cn->servers[(srvoplog->index + i) % cn->servers_size].oprec, oplog);
+			{
+				cluster_server_oplog *peer = &cn->servers[current_index];
+				int inserted;
+
+				carglog(carg, L_DEBUG, "\t\tcluster_pass pass metric '%s' to [%"PRIu64"]: %s\n",
+					oplog->s, current_index, peer->name);
+				inserted = oplog_record_insert(peer->oprec, oplog);
+				if (inserted >= 0) {
+					__atomic_fetch_add(&peer->stat_enqueued, 1, __ATOMIC_RELAXED);
+					if (inserted > 0) {
+						__atomic_fetch_add(&peer->stat_overflow, 1, __ATOMIC_RELAXED);
+						carglog(carg, L_DEBUG, "cluster oplog overflow cluster=%s peer=%s (dropped 1 oldest entry)\n",
+							cn->name, peer->name);
+					}
+				}
+			}
 		}
 	}
 	string_free(oplog);

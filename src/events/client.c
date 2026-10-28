@@ -20,6 +20,7 @@
 #include "common/stop.h"
 #include "probe/probe.h"
 #include "probe/grpc.h"
+#include "common/http2_grpc.h"
 #include "common/url.h"
 extern aconf* ac;
 
@@ -764,7 +765,23 @@ void tcp_client_connect(void *arg)
 	/* A reused carg (periodic aggregate, OTLP export) must not append the next
 	 * HTTP/2 response onto the previous body or skip SETTINGS ACK. */
 	carg->http2_settings_ack_sent = 0;
+	carg->http2_settings_apply_valid = 0;
+	carg->http2_settings_apply_off = 0;
+	carg->http2_flow_stall_logged = 0;
 	carg->http2_feed_offset = 0;
+	carg->http2_recv_window_inited = 0;
+	carg->http2_conn_recv_window = 0;
+	carg->http2_stream_recv_window = 0;
+	/* New TCP connection starts at RFC defaults. Do not wipe a flow_attach
+	 * debit: pending DATA already subtracted the bytes in the preface. */
+	if (!carg->http2_send_body) {
+		carg->http2_conn_send_window = H2_DEFAULT_WINDOW_SIZE;
+		carg->http2_stream_send_window = H2_DEFAULT_WINDOW_SIZE;
+		carg->http2_peer_init_window = H2_DEFAULT_WINDOW_SIZE;
+		carg->http2_peer_max_frame = H2_DEFAULT_MAX_FRAME_SIZE;
+	} else if (!carg->http2_peer_init_window) {
+		carg->http2_peer_init_window = H2_DEFAULT_WINDOW_SIZE;
+	}
 	if (carg->full_body)
 		string_null(carg->full_body);
 
