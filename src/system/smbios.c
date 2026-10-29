@@ -114,6 +114,10 @@ struct smbios_s {
 			uint8_t thread_count;
 			uint16_t characteristics;
 			uint16_t family2;
+			/* SMBIOS 3.0+: present when structure length >= 0x30 */
+			uint16_t core_count_2;
+			uint16_t core_enabled_2;
+			uint16_t thread_count_2;
 		} processor;
 		struct {
 			uint16_t physical_handle;
@@ -386,6 +390,51 @@ int is_field_exists(struct smbios_s *smbios, void *field) {
 	return (field - (void*)smbios) + sizeof(field) <= smbios->h.length;
 }
 
+/* True when `field` of size `field_sz` lies within the formatted section. */
+static int smbios_field_present(struct smbios_s *smbios, const void *field, size_t field_sz) {
+	const uint8_t *base = (const uint8_t *)smbios;
+	const uint8_t *fp = (const uint8_t *)field;
+	if (fp < base)
+		return 0;
+	return (size_t)(fp - base) + field_sz <= smbios->h.length;
+}
+
+/*
+ * SMBIOS Type 4: 8-bit Core/Thread Count of 0xFF means "see the WORD at *_2"
+ * (SMBIOS 3.0+). Returns 0 if the 8-bit field is outside the formatted
+ * section or the value cannot be resolved (0xFF without a present *_2).
+ */
+static int smbios_processor_count_get(struct smbios_s *smbios,
+	const uint8_t *count8_field, const uint16_t *count16_field, uint64_t *out)
+{
+	uint8_t count8;
+
+	if (!smbios_field_present(smbios, count8_field, sizeof(*count8_field)))
+		return 0;
+	count8 = *count8_field;
+	if (count8 != 0xFF) {
+		*out = count8;
+		return 1;
+	}
+	if (smbios_field_present(smbios, count16_field, sizeof(*count16_field))) {
+		uint16_t count16;
+		memcpy(&count16, count16_field, sizeof(count16));
+		*out = count16;
+		return 1;
+	}
+	return 0;
+}
+
+static char *smbios_string_at(char **str, u_int strings_n, uint8_t idx) {
+	char *s;
+	if (!idx || idx > strings_n)
+		return NULL;
+	s = trim_whitespaces(str[idx - 1]);
+	if (!s || !*s)
+		return NULL;
+	return s;
+}
+
 int smbios_decode_strings(struct smbios_s *smbios, char ***strings, u_int *strings_n) {
 	uint8_t *p;
 	u_int n;
@@ -411,13 +460,14 @@ int smbios_decode_strings(struct smbios_s *smbios, char ***strings, u_int *strin
 	return(1);
 }
 
-void smbios_decode_struct(struct smbios_s *smbios) {
+void smbios_decode_struct(void *smbios_v, uint16_t *processor_idx) {
+	struct smbios_s *smbios = smbios_v;
 	char *strings[STRINGS_MAXN], **str;
 	u_int strings_n;
 	uint64_t size = 0;
 
-	uint16_t processors = 0;
-	char processor_str[11];
+	char processor_fallback[16];
+	char *processor_str;
 	uint64_t okval = 1;
 	uint64_t val = 1;
 
@@ -484,18 +534,48 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 			metric_add_labels("chassis_asset_tag", &okval, DATATYPE_UINT, ac->system_carg, "tag", trim_whitespaces(str[smbios->u.chassis.asset_tag-1]));
 		metric_add_labels("chassis_type", &okval, DATATYPE_UINT, ac->system_carg, "type", get_chassis_by_type(smbios->u.chassis.type));
 		break;
-	case 4:
-		snprintf(processor_str, 10, "CPU %"PRIu16, processors);
-		if (smbios->u.processor.manufacturer)
-			metric_add_labels2("processor_manufacturer", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "manufacturer", trim_whitespaces(str[smbios->u.processor.manufacturer-1]));
-		if (smbios->u.processor.version)
-			metric_add_labels2("processor_version", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "version", normalize_spaces(str[smbios->u.processor.version-1]));
-		if (smbios->u.processor.serial_number)
-			metric_add_labels2("processor_serial", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "serial", trim_whitespaces(str[smbios->u.processor.serial_number-1]));
-		if (smbios->u.processor.asset_tag)
-			metric_add_labels2("processor_asset_tag", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "tag", trim_whitespaces(str[smbios->u.processor.asset_tag-1]));
-		if (smbios->u.processor.part_number)
-			metric_add_labels2("processor_part_number", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "part_number", trim_whitespaces(str[smbios->u.processor.part_number-1]));
+	case 4: {
+		/*
+		 * Prefer SMBIOS Socket Designation (ussd parity). Fallback "CPU N"
+		 * uses a counter owned by the table walk so multi-socket hosts do not
+		 * all collapse to socket="CPU 0".
+		 */
+		char *designation = smbios_string_at(str, strings_n, smbios->u.processor.socket_designation);
+		uint16_t fallback_n = processor_idx ? *processor_idx : 0;
+		if (designation) {
+			processor_str = designation;
+		} else {
+			snprintf(processor_fallback, sizeof(processor_fallback), "CPU %"PRIu16, fallback_n);
+			processor_str = processor_fallback;
+		}
+		if (processor_idx)
+			(*processor_idx)++;
+
+		if (smbios->u.processor.manufacturer) {
+			char *manufacturer = smbios_string_at(str, strings_n, smbios->u.processor.manufacturer);
+			if (manufacturer)
+				metric_add_labels2("processor_manufacturer", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "manufacturer", manufacturer);
+		}
+		if (smbios->u.processor.version) {
+			char *version = smbios_string_at(str, strings_n, smbios->u.processor.version);
+			if (version)
+				metric_add_labels2("processor_version", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "version", normalize_spaces(version));
+		}
+		if (smbios->u.processor.serial_number) {
+			char *serial = smbios_string_at(str, strings_n, smbios->u.processor.serial_number);
+			if (serial)
+				metric_add_labels2("processor_serial", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "serial", serial);
+		}
+		if (smbios->u.processor.asset_tag) {
+			char *tag = smbios_string_at(str, strings_n, smbios->u.processor.asset_tag);
+			if (tag)
+				metric_add_labels2("processor_asset_tag", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "tag", tag);
+		}
+		if (smbios->u.processor.part_number) {
+			char *part = smbios_string_at(str, strings_n, smbios->u.processor.part_number);
+			if (part)
+				metric_add_labels2("processor_part_number", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "part_number", part);
+		}
 		metric_add_labels2("processor_status", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "status", get_processor_status_by_id(smbios->u.processor.status));
 
 		val = smbios->u.processor.external_clock;
@@ -507,17 +587,20 @@ void smbios_decode_struct(struct smbios_s *smbios) {
 		val = smbios->u.processor.current_speed;
 		metric_add_labels("processor_current_speed", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		val = smbios->u.processor.core_count;
-		metric_add_labels("processor_core_count", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		if (smbios_processor_count_get(smbios, &smbios->u.processor.core_count,
+				&smbios->u.processor.core_count_2, &val))
+			metric_add_labels("processor_core_count", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		val = smbios->u.processor.core_enabled;
-		metric_add_labels("processor_core_enabled", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		if (smbios_processor_count_get(smbios, &smbios->u.processor.core_enabled,
+				&smbios->u.processor.core_enabled_2, &val))
+			metric_add_labels("processor_core_enabled", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		val = smbios->u.processor.thread_count;
-		metric_add_labels("processor_thread_count", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		if (smbios_processor_count_get(smbios, &smbios->u.processor.thread_count,
+				&smbios->u.processor.thread_count_2, &val))
+			metric_add_labels("processor_thread_count", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		++processors;
 		break;
+	}
 	case 17:
 		if (is_field_exists(smbios, &smbios->u.memory.size)) {
 			size = smbios->u.memory.size;
@@ -570,6 +653,7 @@ void smbios_read_table(int memfd, const struct smbios_eps *eps) {
 	uint8_t *buf, *p, *pe;
 	u_int i;
 	struct smbios_s *smbios;
+	uint16_t processor_idx = 0;
 
 	if (!(buf = malloc(eps->table_length))) {
 		carglog(ac->system_carg, L_ERROR, "%s: malloc(%lu)\n", __FUNCTION__, (u_long)eps->table_length);
@@ -611,7 +695,7 @@ void smbios_read_table(int memfd, const struct smbios_eps *eps) {
 
 		carglog(ac->system_carg, L_INFO, "%s: Type %u, Handle 0x%04x, %lu/%lu bytes\n", __FUNCTION__, (u_int)smbios->h.type, (u_int)smbios->h.handle, (u_long)smbios->h.length, (u_long)(p - (uint8_t *)smbios - smbios->h.length));
 
-		smbios_decode_struct(smbios);
+		smbios_decode_struct(smbios, &processor_idx);
 	}
 
 	free(buf);

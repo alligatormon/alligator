@@ -715,6 +715,216 @@ void test_perf_functions_config_and_pure(void)
 	perf_functions_config_set(0, 99, 20, 0, NULL, 0);
 }
 
+/*
+ * Build a minimal SMBIOS Type 4 (Processor Information) record with strings.
+ * formatted_len 0x30 includes Core/Thread Count 2; 0x26 is pre-3.0 (no *_2).
+ * layout: header+body (formatted_len) + strings + double NUL.
+ */
+static size_t ut_smbios_type4(uint8_t *buf, size_t cap, uint16_t handle,
+	uint8_t formatted_len,
+	uint8_t socket_idx, uint8_t manufacturer_idx, uint8_t version_idx,
+	uint8_t core_count, uint8_t core_enabled, uint8_t thread_count,
+	uint16_t core_count_2, uint16_t core_enabled_2, uint16_t thread_count_2,
+	const char *s1, const char *s2, const char *s3)
+{
+	size_t off = 0;
+	size_t i;
+	const char *strings[3];
+	size_t nstr = 0;
+
+	if (formatted_len < 0x26 || cap < (size_t)formatted_len + 8)
+		return 0;
+	memset(buf, 0, formatted_len);
+	buf[0] = 4;
+	buf[1] = formatted_len;
+	buf[2] = (uint8_t)(handle & 0xff);
+	buf[3] = (uint8_t)((handle >> 8) & 0xff);
+	buf[4] = socket_idx;
+	buf[5] = 3; /* Central Processor */
+	buf[7] = manufacturer_idx;
+	buf[16] = version_idx;
+	buf[24] = 0x41; /* socket populated + enabled */
+	buf[35] = core_count;
+	buf[36] = core_enabled;
+	buf[37] = thread_count;
+	if (formatted_len >= 0x30) {
+		buf[42] = (uint8_t)(core_count_2 & 0xff);
+		buf[43] = (uint8_t)((core_count_2 >> 8) & 0xff);
+		buf[44] = (uint8_t)(core_enabled_2 & 0xff);
+		buf[45] = (uint8_t)((core_enabled_2 >> 8) & 0xff);
+		buf[46] = (uint8_t)(thread_count_2 & 0xff);
+		buf[47] = (uint8_t)((thread_count_2 >> 8) & 0xff);
+	}
+	off = formatted_len;
+
+	if (s1)
+		strings[nstr++] = s1;
+	if (s2)
+		strings[nstr++] = s2;
+	if (s3)
+		strings[nstr++] = s3;
+	for (i = 0; i < nstr; i++) {
+		size_t len = strlen(strings[i]) + 1;
+		if (off + len + 1 > cap)
+			return 0;
+		memcpy(buf + off, strings[i], len);
+		off += len;
+	}
+	if (off + 1 > cap)
+		return 0;
+	buf[off++] = 0; /* end of strings */
+	return off;
+}
+
+/* Return 1 if PromQL query yields at least one sample for metric_name. */
+static int ut_metric_exists(const char *query, const char *metric_name)
+{
+	metric_query_context *mqc = promql_parser(NULL, (char *)query, strlen(query));
+	string *body;
+	json_error_t error;
+	json_t *root;
+	uint64_t obj_size;
+	uint64_t i;
+	int found = 0;
+
+	if (!mqc)
+		return 0;
+	body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, NULL, NULL, NULL, NULL, NULL);
+	if (!body)
+		return 0;
+	root = json_loads(body->s, 0, &error);
+	string_free(body);
+	if (!root)
+		return 0;
+	obj_size = json_array_size(root);
+	for (i = 0; i < obj_size && !found; i++) {
+		json_t *metric = json_array_get(root, i);
+		json_t *labels;
+		const char *sname;
+		json_t *value;
+		if (!metric)
+			continue;
+		labels = json_object_get(metric, "labels");
+		if (!labels)
+			continue;
+		json_object_foreach(labels, sname, value) {
+			const char *svalue = json_string_value(value);
+			if (sname && svalue && !strcmp(sname, "__name__") && !strcmp(svalue, metric_name)) {
+				found = 1;
+				break;
+			}
+		}
+	}
+	json_decref(root);
+	return found;
+}
+
+void test_smbios_processor_socket_labels(void)
+{
+	uint8_t rec1[256];
+	uint8_t rec2[256];
+	uint8_t rec3[256];
+	uint8_t rec4[256];
+	size_t len1, len2, len3, len4;
+	uint16_t processor_idx = 0;
+
+	/* Two populated sockets with real designations — must not collide. */
+	len1 = ut_smbios_type4(rec1, sizeof(rec1), 0x007e, 0x30,
+		1, 2, 3, 10, 10, 20, 0, 0, 0,
+		"SOCKET 0", "Intel", "Xeon E5-2630 v4");
+	len2 = ut_smbios_type4(rec2, sizeof(rec2), 0x0082, 0x30,
+		1, 2, 3, 10, 10, 20, 0, 0, 0,
+		"SOCKET 1", "Intel", "Xeon E5-2630 v4");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len1 > 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len2 > 0);
+
+	smbios_decode_struct(rec1, &processor_idx);
+	smbios_decode_struct(rec2, &processor_idx);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)processor_idx);
+
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"SOCKET 0\"}",
+		"processor_thread_count", 20);
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"SOCKET 1\"}",
+		"processor_thread_count", 20);
+	metric_test_run(CMP_EQUAL,
+		"processor_core_count{socket=\"SOCKET 0\"}",
+		"processor_core_count", 10);
+	metric_test_run(CMP_EQUAL,
+		"processor_core_count{socket=\"SOCKET 1\"}",
+		"processor_core_count", 10);
+	metric_test_run(CMP_EQUAL,
+		"processor_core_enabled{socket=\"SOCKET 0\"}",
+		"processor_core_enabled", 10);
+
+	/* Missing designation → unique fallback CPU 0 / CPU 1. */
+	processor_idx = 0;
+	len3 = ut_smbios_type4(rec3, sizeof(rec3), 0x0100, 0x30,
+		0, 1, 2, 4, 4, 8, 0, 0, 0,
+		"Intel", "FallbackCPU", NULL);
+	len4 = ut_smbios_type4(rec4, sizeof(rec4), 0x0101, 0x30,
+		0, 1, 2, 6, 6, 12, 0, 0, 0,
+		"Intel", "FallbackCPU", NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len3 > 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len4 > 0);
+	smbios_decode_struct(rec3, &processor_idx);
+	smbios_decode_struct(rec4, &processor_idx);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)processor_idx);
+
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"CPU 0\"}",
+		"processor_thread_count", 8);
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"CPU 1\"}",
+		"processor_thread_count", 12);
+
+	/* Whitespace-only designation → same fallback path as missing. */
+	processor_idx = 5;
+	len1 = ut_smbios_type4(rec1, sizeof(rec1), 0x0150, 0x30,
+		1, 2, 3, 2, 2, 4, 0, 0, 0,
+		"   ", "Intel", "BlankSocket");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len1 > 0);
+	smbios_decode_struct(rec1, &processor_idx);
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"CPU 5\"}",
+		"processor_thread_count", 4);
+
+	/* 0xFF core/thread/enabled → resolve via *_2 WORD fields. */
+	processor_idx = 0;
+	len1 = ut_smbios_type4(rec1, sizeof(rec1), 0x0200, 0x30,
+		1, 2, 3, 0xFF, 0xFF, 0xFF, 48, 47, 96,
+		"CPU1", "Intel", "BigCPU");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len1 > 0);
+	smbios_decode_struct(rec1, &processor_idx);
+	metric_test_run(CMP_EQUAL,
+		"processor_thread_count{socket=\"CPU1\"}",
+		"processor_thread_count", 96);
+	metric_test_run(CMP_EQUAL,
+		"processor_core_count{socket=\"CPU1\"}",
+		"processor_core_count", 48);
+	metric_test_run(CMP_EQUAL,
+		"processor_core_enabled{socket=\"CPU1\"}",
+		"processor_core_enabled", 47);
+
+	/* 0xFF without *_2 (length 0x26): omit count metrics, keep status. */
+	processor_idx = 0;
+	len1 = ut_smbios_type4(rec1, sizeof(rec1), 0x0300, 0x26,
+		1, 2, 3, 0xFF, 0xFF, 0xFF, 0, 0, 0,
+		"NOCOUNT2", "Intel", "Legacy");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, len1 > 0);
+	smbios_decode_struct(rec1, &processor_idx);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		ut_metric_exists("processor_thread_count{socket=\"NOCOUNT2\"}", "processor_thread_count"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		ut_metric_exists("processor_core_count{socket=\"NOCOUNT2\"}", "processor_core_count"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		ut_metric_exists("processor_core_enabled{socket=\"NOCOUNT2\"}", "processor_core_enabled"));
+	metric_test_run(CMP_EQUAL,
+		"processor_status{socket=\"NOCOUNT2\",status=\"Enabled\"}",
+		"processor_status", 1);
+}
+
 void system_test(char *binary) {
 	test_perf_functions_config_and_pure();
 	test_system_iface_is_veth();
@@ -731,6 +941,7 @@ void system_test(char *binary) {
 	test_zfs_config_enable();
 	test_cadvisor_parsers();
 	test_perf_events_memory_bandwidth_config();
+	test_smbios_processor_socket_labels();
 	system_initialize();
     ac->system_procfs = malloc(PATH_MAX + 1);
     ac->system_sysfs = malloc(PATH_MAX + 1);

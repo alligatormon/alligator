@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #define PLATFORM_BAREMETAL 0
 #define PLATFORM_LXC 1
 #define PLATFORM_OPENVZ 2
@@ -22,6 +23,8 @@ void ipaddr_info();
 void hw_cpu_info();
 void get_utsname();
 void get_smbios();
+/* Decode one SMBIOS structure; processor_idx tracks fallback socket labels. */
+void smbios_decode_struct(void *smbios, uint16_t *processor_idx);
 void system_initialize();
 int is_container(int8_t platform);
 int system_iface_is_veth(const char *name);
