@@ -8,6 +8,10 @@
 #include "common/xml.h"
 #include "common/logs.h"
 #define LIBVIRT_XML_SIZE 10240
+/* Present in newer libvirt; hardcode for CentOS 7-era headers. */
+#ifndef VIR_DOMAIN_MEMORY_STAT_DISK_CACHES
+#define VIR_DOMAIN_MEMORY_STAT_DISK_CACHES 10
+#endif
 
 static void libvirt_log_domain_error(virDomainPtr d, const char *op)
 {
@@ -355,30 +359,54 @@ void libvirt_get_blkio_info(virDomainPtr d, char *id, char *name, char *devname)
 }
 
 void libvirt_memory(virDomainPtr d, char* id, char *name) {
+	/* Fixed size 13: old headers may define VIR_DOMAIN_MEMORY_STAT_NR < 13. */
 	virDomainMemoryStatStruct memstats[13];
-	memset(memstats, 0, sizeof(virDomainMemoryStatStruct) * 13);
+	memset(memstats, 0, sizeof(memstats));
 	int rc = ac->libvirt->virDomainSetMemoryStatsPeriod(d, 10, VIR_DOMAIN_AFFECT_LIVE);
 	if (rc < 0)
 		libvirt_log_domain_error(d, "virDomainSetMemoryStatsPeriod");
-	ac->libvirt->virDomainMemoryStats(d, (virDomainMemoryStatPtr)&memstats, VIR_DOMAIN_MEMORY_STAT_NR, 0);
 
-	uint64_t maxmemory = ac->libvirt->virDomainGetMaxMemory(d) * 1024;
+	int nstats = ac->libvirt->virDomainMemoryStats(d, memstats, 13, 0);
+	if (nstats < 0) {
+		libvirt_log_domain_error(d, "virDomainMemoryStats");
+		nstats = 0;
+	}
+
+	/* virDomainMemoryStats packs available tags densely; match by .tag, not index. */
+	uint64_t rssmemory = 0;
+	uint64_t freememory = 0;
+	uint64_t inactive_file = 0;
+	for (int i = 0; i < nstats; i++) {
+		uint64_t val = memstats[i].val * 1024;
+		switch (memstats[i].tag) {
+			case VIR_DOMAIN_MEMORY_STAT_RSS:
+				rssmemory = val;
+				break;
+			case VIR_DOMAIN_MEMORY_STAT_UNUSED:
+				freememory = val;
+				break;
+			case VIR_DOMAIN_MEMORY_STAT_DISK_CACHES:
+				inactive_file = val;
+				break;
+			default:
+				break;
+		}
+	}
+
+	metric_add_labels3("container_memory_rss", &rssmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
+	metric_add_labels3("container_memory_cache", &inactive_file, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
+
+	uint64_t maxmemory = (uint64_t)ac->libvirt->virDomainGetMaxMemory(d) * 1024;
+	if (!maxmemory) {
+		libvirt_log_domain_error(d, "virDomainGetMaxMemory");
+		return;
+	}
+
 	metric_add_labels3("container_spec_memory_swap_limit_bytes", &maxmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 	metric_add_labels3("container_spec_memory_limit_bytes", &maxmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
 
-	uint64_t rssmemory = memstats[12].val * 1024;
-	metric_add_labels3("container_memory_rss", &rssmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
-
-	//unsigned long availmemory = memstats[6].val * 1024;
-	uint64_t freememory = memstats[5].val * 1024;
-
-	uint64_t inactive_file = memstats[9].val * 1024;
-	metric_add_labels3("container_memory_cache", &inactive_file, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
-
-	uint64_t usedmemory = maxmemory - freememory;
+	uint64_t usedmemory = (freememory < maxmemory) ? (maxmemory - freememory) : 0;
 	metric_add_labels3("container_memory_usage_bytes", &usedmemory, DATATYPE_UINT, ac->cadvisor_carg, "name", name, "id", id, "libvirt_id", id);
-	//printf("name of domain %s is %s with memory 0:[%llu] 1:[%llu] 2:[%llu] 3:[%llu] 4:[%llu] 5:[%llu] 6:[%llu] 7:[%llu] 8:[%llu] 9:[%llu] 10:[%llu] 11:[%llu] 12:[%llu]\n", id, name, memstats[0].val, memstats[1].val, memstats[2].val, memstats[3].val, memstats[4].val, memstats[5].val, memstats[6].val, memstats[7].val, memstats[8].val, memstats[9].val, memstats[10].val, memstats[11].val, memstats[12].val);
-	//printf("name of domain %s is %s with memory rss %lu/used %lu/avail %d/free %lu/ inactive %lu/max %lu\n", id, name, rssmemory/1048576, usedmemory/1048576, 0, freememory/1048576, inactive_file/1048576, maxmemory);
 }
 
 void libvirt_cpu(virDomainPtr d, char* id, char *name) {
