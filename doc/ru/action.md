@@ -50,8 +50,7 @@ action {
 Пример запуска nginx, если порт не слушается:
 ```
 query {
-    expr 'count by (src_port, process) (socket_stat{process="nginx", src_port="80"}) == 0';
-    make nginx_exists;
+    expr 'count by (src_port, process) (socket_listening{process="nginx", src_port="80"}) == 0';    make nginx_exists;
     datasource internal;
     action no_nginx;
 

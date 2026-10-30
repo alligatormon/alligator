@@ -39,7 +39,7 @@ To match several names, use PromQL `__name__=~` / `__name__!~` (PCRE, unanchored
 ```
 expr '{__name__=~"^x509_cert_"}';
 expr '{__name__!~"^cpu_"}';
-expr 'count({__name__=~"^socket_stat"})';
+expr 'count({__name__=~"^socket_listening"})';
 ```
 
 Label `=~` / `!~` on keys other than `__name__` is ignored. `x509_cert_.*` as a bare identifier is a literal name, not a regex.

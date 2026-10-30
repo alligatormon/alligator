@@ -578,14 +578,14 @@ void smbios_decode_struct(void *smbios_v, uint16_t *processor_idx) {
 		}
 		metric_add_labels2("processor_status", &okval, DATATYPE_UINT, ac->system_carg, "socket", processor_str, "status", get_processor_status_by_id(smbios->u.processor.status));
 
-		val = smbios->u.processor.external_clock;
-		metric_add_labels("processor_external_clock", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		val = (uint64_t)smbios->u.processor.external_clock * 1000000ULL;
+		metric_add_labels("processor_external_clock_hertz", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		val = smbios->u.processor.max_speed;
-		metric_add_labels("processor_max_speed", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		val = (uint64_t)smbios->u.processor.max_speed * 1000000ULL;
+		metric_add_labels("processor_max_frequency_hertz", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
-		val = smbios->u.processor.current_speed;
-		metric_add_labels("processor_current_speed", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
+		val = (uint64_t)smbios->u.processor.current_speed * 1000000ULL;
+		metric_add_labels("processor_current_frequency_hertz", &val, DATATYPE_UINT, ac->system_carg, "socket", processor_str);
 
 		if (smbios_processor_count_get(smbios, &smbios->u.processor.core_count,
 				&smbios->u.processor.core_count_2, &val))
@@ -635,7 +635,7 @@ void smbios_decode_struct(void *smbios_v, uint16_t *processor_idx) {
 		);
 
 		val = smbios->u.memory.speed;
-		metric_add_labels8("memory_module_speed", &val, DATATYPE_UINT, ac->system_carg,
+		metric_add_labels8("memory_module_speed_mts", &val, DATATYPE_UINT, ac->system_carg,
 			"device_locator", smbios->u.memory.device_locator ? trim_whitespaces(str[smbios->u.memory.device_locator-1]) : "",
 			"bank_locator", smbios->u.memory.bank_locator ? trim_whitespaces(str[smbios->u.memory.bank_locator-1]) : "",
 			"manufacturer", smbios->u.memory.manufacturer ? trim_whitespaces(str[smbios->u.memory.manufacturer-1]) : "",

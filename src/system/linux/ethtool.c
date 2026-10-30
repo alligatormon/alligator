@@ -220,7 +220,7 @@ static void ethtool_emit_std(const char *ifname, const char *group, const char *
 
 	if (!ifname || !group || !stat || val == ETHTOOL_STAT_NOT_SET_LOCAL)
 		return;
-	metric_add_labels3("ethtool_std_stat", &val, DATATYPE_UINT, ac->system_carg,
+	metric_add_labels3("ethtool_std_stat_total", &val, DATATYPE_UINT, ac->system_carg,
 		"ifname", iface, "group", grp, "stat", st);
 }
 
@@ -231,7 +231,7 @@ static void ethtool_emit_driver(const char *ifname, const char *stat, uint64_t v
 
 	if (!ifname || !stat || !stat[0])
 		return;
-	metric_add_labels2("ethtool_stat", &val, DATATYPE_UINT, ac->system_carg,
+	metric_add_labels2("ethtool_driver_stat_total", &val, DATATYPE_UINT, ac->system_carg,
 		"ifname", iface, "stat", st);
 }
 
@@ -246,7 +246,7 @@ static void ethtool_emit_rmon_hist(const char *ifname, const char *direction,
 		return;
 	snprintf(lowbuf, sizeof(lowbuf), "%u", low);
 	snprintf(highbuf, sizeof(highbuf), "%u", high);
-	metric_add_labels4("ethtool_rmon_hist", &val, DATATYPE_UINT, ac->system_carg,
+	metric_add_labels4("ethtool_rmon_bucket_packets_total", &val, DATATYPE_UINT, ac->system_carg,
 		"ifname", iface, "direction", dir, "bucket_low", lowbuf, "bucket_hi", highbuf);
 }
 

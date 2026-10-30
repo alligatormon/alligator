@@ -273,7 +273,7 @@ void disk_io_stats(void)
 	}
 	IOObjectRelease(iter);
 
-	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("disk_devices", &disks_num, DATATYPE_UINT, ac->system_carg);
 }
 
 void disks_info(void)

@@ -113,40 +113,40 @@ int nvme_smart_get(char *dev, char *controller, char *disk) {
 	metric_add_labels3("nvme_failing_endurance_group", &status_crit_endurance_group, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
 
 	uint64_t data_read = to_uint64(data+32) * 1000 * 512;
-	metric_add_labels4("nvme_data_transferred", &data_read, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "read");
+	metric_add_labels4("nvme_data_transferred_bytes_total", &data_read, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "read");
 
 	uint64_t data_written = to_uint64(data+48) * 1000 * 512;
-	metric_add_labels4("nvme_data_transferred", &data_written, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "write");
+	metric_add_labels4("nvme_data_transferred_bytes_total", &data_written, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "write");
 
 	uint64_t cmds_read = to_uint64(data+64);
-	metric_add_labels4("nvme_commands", &cmds_read, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "read");
+	metric_add_labels4("nvme_commands_total", &cmds_read, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "read");
 
 	uint64_t cmds_write = to_uint64(data+80);
-	metric_add_labels4("nvme_commands", &cmds_write, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "write");
+	metric_add_labels4("nvme_commands_total", &cmds_write, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "dir", "write");
 
-	uint64_t controller_busy_time = to_uint64(data+96);
-	metric_add_labels3("nvme_controller_busy_time_minutes", &controller_busy_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
+	uint64_t controller_busy_time = to_uint64(data+96) * 60;
+	metric_add_labels3("nvme_controller_busy_seconds_total", &controller_busy_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
 
 	uint64_t power_cycles = to_uint64(data+112);
-	metric_add_labels3("nvme_power_cycles", &power_cycles, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
+	metric_add_labels3("nvme_power_cycles_total", &power_cycles, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
 
-	uint64_t power_on_hours = to_uint64(data+128);
-	metric_add_labels3("nvme_power_on_hours", &power_on_hours, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
+	uint64_t power_on_seconds = to_uint64(data+128) * 3600;
+	metric_add_labels3("nvme_power_on_seconds_total", &power_on_seconds, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
 
 	uint64_t power_cycles_unsafe = to_uint64(data+144);
-	metric_add_labels3("nvme_power_cycles_unsafe", &power_cycles_unsafe, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
+	metric_add_labels3("nvme_power_cycles_unsafe_total", &power_cycles_unsafe, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid);
 
 	uint64_t data_errors = to_uint64(data+160);
-	metric_add_labels4("nvme_errors", &data_errors, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "data");
+	metric_add_labels4("nvme_errors_total", &data_errors, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "data");
 
 	uint64_t total_errors = to_uint64(data+176);
-	metric_add_labels4("nvme_errors", &total_errors, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "total");
+	metric_add_labels4("nvme_errors_total", &total_errors, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "total");
 
-	uint64_t temp_warn_time = to_uint32(data+192);
-	metric_add_labels4("nvme_temperature_over_threshold_minutes", &temp_warn_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "warning");
+	uint64_t temp_warn_time = (uint64_t)to_uint32(data+192) * 60;
+	metric_add_labels4("nvme_temperature_over_threshold_seconds_total", &temp_warn_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "warning");
 
-	uint64_t temp_crit_time = to_uint32(data+196);
-	metric_add_labels4("nvme_temperature_over_threshold_minutes", &temp_crit_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "critical");
+	uint64_t temp_crit_time = (uint64_t)to_uint32(data+196) * 60;
+	metric_add_labels4("nvme_temperature_over_threshold_seconds_total", &temp_crit_time, DATATYPE_UINT, ac->system_carg, "disk", disk, "controller", controller, "nsid", nsid, "kind", "critical");
 
 	uint64_t temps[8];
 	memset(&temps, 0, sizeof(temps));
@@ -254,6 +254,6 @@ void disks_info() {
 	uint64_t disks_num = 0;
 	disks_num += block_info();
 	disks_num += nvme_info();
-	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("disk_devices", &disks_num, DATATYPE_UINT, ac->system_carg);
 }
 #endif

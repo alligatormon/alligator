@@ -31,7 +31,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{process="squid", src_port="3128"})';
+    expr 'count by (src_port, process) (socket_listening{process="squid", src_port="3128"})';
     make socket_match;
     datasource internal;
 }

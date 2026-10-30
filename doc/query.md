@@ -32,8 +32,8 @@ A bare metric identifier is an exact name. To match a family of names, use `{__n
 
 ```
 query {
-	expr 'count({__name__=~"^socket_stat"})';
-	make socket_stat_series;
+	expr 'count({__name__=~"^socket_listening"})';
+	make socket_listening_series;
 	datasource internal;
 }
 ```
@@ -104,12 +104,12 @@ This configuration will check the existance of process 'dockerd' on ports 8085 a
 ```
 query_period 20s;
 query {
-	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8085"})';
+	expr 'count by (src_port, process) (socket_listening{process="dockerd", src_port="8085"})';
 	make socket_match;
 	datasource internal;
 }
 query {
-	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8080"})';
+	expr 'count by (src_port, process) (socket_listening{process="dockerd", src_port="8080"})';
 	make socket_match;
 	datasource internal;
 }
@@ -136,8 +136,8 @@ Attaches extra labels to series produced by this query. Parser-provided labels (
 
 ```
 query {
-    expr 'count({__name__=~"^socket_stat"})';
-    make socket_stat_series;
+    expr 'count({__name__=~"^socket_listening"})';
+    make socket_listening_series;
     datasource internal;
     add_label source:query;
 }

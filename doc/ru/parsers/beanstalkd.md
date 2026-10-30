@@ -31,7 +31,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{process="beanstalkd", src_port="11300"})';
+    expr 'count by (src_port, process) (socket_listening{process="beanstalkd", src_port="11300"})';
     make socket_match;
     datasource internal;
 }

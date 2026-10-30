@@ -113,7 +113,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "cores_num{instance=~\"$server\"}",
+          "expr": "cpu_cores{instance=~\"$server\"}",
           "format": "time_series",
           "instant": true,
           "intervalFactor": 2,
@@ -1995,14 +1995,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rate(memory_stat {instance=~\"$server\"}[$interval])",
+          "expr": "rate(memory_swap_in_total{instance=~\"$server\"}[$interval])",
           "legendFormat": "{{ instance }} - Swap Transport In",
           "range": true,
           "refId": "E"
         },
         {
           "editorMode": "code",
-          "expr": "rate(memory_stat {instance=~\"$server\"}[$interval])",
+          "expr": "rate(memory_swap_out_total{instance=~\"$server\"}[$interval])",
           "legendFormat": "{{ instance }} - Swap Transport Out",
           "range": true,
           "refId": "F"
@@ -2521,7 +2521,7 @@
         {
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(if_stat {type=\"transmit_bytes\", instance=~\"$server\"}[$interval])*8",
+          "expr": "rate(if_transmit_bytes_total{instance=~\"$server\"}[$interval])*8",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2533,7 +2533,7 @@
         },
         {
           "editorMode": "code",
-          "expr": "rate(if_stat {type=\"received_bytes\", instance=~\"$server\"}[$interval])*8",
+          "expr": "rate(if_receive_bytes_total{instance=~\"$server\"}[$interval])*8",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -2634,7 +2634,7 @@
         {
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(if_stat {type=\"transmit_packets\", instance=~\"$server\"}[$interval])",
+          "expr": "rate(if_transmit_packets_total{instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2647,7 +2647,7 @@
         {
           "editorMode": "code",
           "exemplar": true,
-          "expr": "rate(if_stat {type=\"received_packets\", instance=~\"$server\"}[$interval])",
+          "expr": "rate(if_receive_packets_total{instance=~\"$server\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2754,7 +2754,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "socket_stat_receive_queue_length{instance=~\"$server\", proto=~\"tcp|tcp6\"}/socket_stat_receive_queue_limit{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
+          "expr": "socket_receive_queue_length{instance=~\"$server\", proto=~\"tcp|tcp6\"}/socket_receive_queue_limit{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ instance }} - {{proto}}:{{src_port}}",
@@ -2876,7 +2876,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "socket_stat_receive_queue_length{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
+          "expr": "socket_receive_queue_length{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ instance }} - {{src_port}}",
@@ -2890,7 +2890,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "socket_stat_receive_queue_limit{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
+          "expr": "socket_receive_queue_limit{instance=~\"$server\", proto=~\"tcp|tcp6\"}",
           "hide": false,
           "legendFormat": "limit - {{instance}} - {{src_port}}",
           "range": true,
@@ -3530,7 +3530,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "open_files{instance=~\"$server\"}",
+          "expr": "file_descriptors{instance=~\"$server\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ instance }} - File descriptor statistics: allocated",
@@ -3540,7 +3540,7 @@
         },
         {
           "editorMode": "code",
-          "expr": "open_sockets{instance=~\"$server\"}",
+          "expr": "file_sockets{instance=~\"$server\"}",
           "legendFormat": "{{ instance }} - Socket descriptor statistics: allocated",
           "range": true,
           "refId": "A"
@@ -3968,13 +3968,13 @@
           "type": "prometheus",
           "uid": "000000001"
         },
-        "definition": "label_values(cores_num,instance)",
+        "definition": "label_values(cpu_cores,instance)",
         "includeAll": false,
         "name": "server",
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(cores_num,instance)",
+          "query": "label_values(cpu_cores,instance)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

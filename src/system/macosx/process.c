@@ -153,15 +153,15 @@ static void macosx_emit_fd_breakdown(const char *name, const char *pidstr, const
 	int64_t val;
 
 	val = fds->files;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_files", "pid", (char *)pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "file", "pid", (char *)pidstr);
 	val = fds->sockets;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_sockets", "pid", (char *)pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "socket", "pid", (char *)pidstr);
 	val = fds->pipes;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_pipes", "pid", (char *)pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "pipe", "pid", (char *)pidstr);
 	val = fds->vnodes;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_vnodes", "pid", (char *)pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "vnode", "pid", (char *)pidstr);
 	val = fds->other;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "open_other", "pid", (char *)pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", (char *)name, "type", "other", "pid", (char *)pidstr);
 }
 
 static void macosx_emit_page_faults(const struct proc_taskinfo *task, const char *name, const char *pidstr)
@@ -407,13 +407,13 @@ static void macosx_emit_proc_metrics(pid_t pid, const struct proc_bsdinfo *proc,
 	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "rss", "pid", pidstr);
 
 	val = task->pti_threadnum;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "threads", "pid", pidstr);
+	metric_add_labels2("process_threads", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "pid", pidstr);
 	val = proc->pbi_status;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "status", "pid", pidstr);
+	metric_add_labels2("process_status", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "pid", pidstr);
 	val = task->pti_cow_faults;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "COWfaults", "pid", pidstr);
+	metric_add_labels2("process_cow_faults_total", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "pid", pidstr);
 	val = (int64_t)(uint32_t)task->pti_csw;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "ctx_switches", "pid", pidstr);
+	metric_add_labels3("process_context_switches_total", &val, DATATYPE_INT, ac->system_carg, "name", (char *)proc->pbi_name, "type", "total", "pid", pidstr);
 
 	if (!full)
 		return;
@@ -616,9 +616,9 @@ void get_proc_info(int8_t lightweight)
 		}
 	}
 
-	metric_add_auto("open_files_process", &open_files_process, DATATYPE_INT, ac->system_carg);
-	/* Host open_sockets/max_sockets come from get_vmstat() via sysctl (FreeBSD parity). */
-	metric_add_auto("open_pipes", &open_pipes, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("process_open_fds_sum", &open_files_process, DATATYPE_INT, ac->system_carg);
+	/* Host file_sockets/max_sockets come from get_vmstat() via sysctl (FreeBSD parity). */
+	metric_add_auto("file_pipes", &open_pipes, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 
 	{

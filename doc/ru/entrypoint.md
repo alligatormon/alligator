@@ -395,9 +395,9 @@ system {
 ```
 $ curl --unix-socket /tmp/alligator.sock localhost/metrics
 context_switches_total 339451
-cores_num 1
-cores_num_cgroup 0
-cores_num_hw 1
+cpu_cores 1
+cpu_cores_cgroup 0
+cpu_cores_hw 1
 cpu_usage_calc_delta_seconds 18446744073.591579
 cpu_usage_time {type="idle"} 2053.710000
 cpu_usage_time {type="iowait"} 16.770000
@@ -407,7 +407,7 @@ cpu_usage_time {type="user"} 83.900000
 forks_total 4625
 interrupts_total 135704
 softirq 180882
-time_now 1724141426
+time_seconds 1724141426
 $
 ```
 

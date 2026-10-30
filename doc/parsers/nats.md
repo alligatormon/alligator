@@ -34,7 +34,7 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="nats-server", src_port="4222"})';
+	expr 'count by (src_port, process) (socket_listening{process="nats-server", src_port="4222"})';
 	make socket_match;
 	datasource internal;
 }

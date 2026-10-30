@@ -90,25 +90,25 @@ void get_cpu(int8_t platform)
 		ac->scs->cores = calloc(1, sizeof(system_cpu_cores_stats)*num_cpus);
 
 
-	metric_add_auto("cores_num_hw", &num_cpus, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("cores_num_cgroup", &num_cpus_cgroup, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("cores_num", &effective_cores, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("cpu_cores_hw", &num_cpus, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("cpu_cores_cgroup", &num_cpus_cgroup, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("cpu_cores", &effective_cores, DATATYPE_INT, ac->system_carg);
 
 	char temp[LINUXFS_LINE_LENGTH];
 	uint64_t core_num = 0;
 	system_cpu_cores_stats *sccs;
 
-	char cpu_usage_core_name[30];
+	char cpu_usage_core_name[40];
 	char cpu_usage_time_name[30];
 
 	if (!is_cgroup)
 	{
-		strlcpy(cpu_usage_core_name, "cpu_usage_core", 15);
+		strlcpy(cpu_usage_core_name, "cpu_usage_core_seconds_total", sizeof(cpu_usage_core_name));
 		strlcpy(cpu_usage_time_name, "cpu_usage_time", 15);
 	}
 	else
 	{
-		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core", 18);
+		strlcpy(cpu_usage_core_name, "cpu_usage_hw_core_seconds_total", sizeof(cpu_usage_core_name));
 		strlcpy(cpu_usage_time_name, "cpu_usage_hw_seconds_total", sizeof(cpu_usage_time_name));
 	}
 
@@ -156,66 +156,23 @@ void get_cpu(int8_t platform)
 			int had_prev = sccs->total != 0;
 			uint64_t tdelta = tsum - sccs->total;
 			sccs->total = tsum;
-			if (!tdelta)
-				continue;
 
 			int64_t du_user = t1 - (int64_t)sccs->user;
 			sccs->user = t1;
-			int64_t du_nice = t2 - (int64_t)sccs->nice;
 			sccs->nice = t2;
 			int64_t du_system = t3 - (int64_t)sccs->system;
 			sccs->system = t3;
-			int64_t du_idle = t4 - (int64_t)sccs->idle;
 			sccs->idle = t4;
-			int64_t du_iowait = t5 - (int64_t)sccs->iowait;
 			sccs->iowait = t5;
-			int64_t du_irq = t6 - (int64_t)sccs->irq;
 			sccs->irq = t6;
-			int64_t du_softirq = t7 - (int64_t)sccs->softirq;
 			sccs->softirq = t7;
-			int64_t du_steal = t8 - (int64_t)sccs->steal;
 			sccs->steal = t8;
-			int64_t du_guest = (t9 + t10) - (int64_t)(sccs->guest + sccs->guest_nice);
 			sccs->guest = t9;
 			sccs->guest_nice = t10;
 
-			double usage = ((du_user + du_system)*100.0/tdelta);
-			if (usage<0)
-				usage = 0;
-			double user = ((du_user)*100.0/tdelta);
-			if (user<0)
-				user = 0;
-			double nice = ((du_nice)*100.0/tdelta);
-			if (nice<0)
-				nice = 0;
-			double system = ((du_system)*100.0/tdelta);
-			if (system<0)
-				system = 0;
-			double idle = ((du_idle)*100.0/tdelta);
-			if (idle<0)
-				idle = 0;
-			double iowait = ((du_iowait)*100.0/tdelta);
-			if (iowait<0)
-				iowait = 0;
-			double irq = ((du_irq)*100.0/tdelta);
-			if (irq<0)
-				irq = 0;
-			double softirq = ((du_softirq)*100.0/tdelta);
-			if (softirq<0)
-				softirq = 0;
-			double steal = ((du_steal)*100.0/tdelta);
-			if (steal<0)
-				steal = 0;
-			double guest = ((du_guest)*100.0/tdelta);
-			if (guest<0)
-				guest = 0;
-
 			if (!strcmp(cpuname, "cpu"))
 			{
-				if (had_prev) {
-					ac->system_cpu_system_percent = system;
-					ac->system_cpu_system_percent_valid = 1;
-				}
+				/* Absolute cumulative seconds always emit; percent/avg need a delta. */
 				metric_add_labels(cpu_usage_time_name, &tuser, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
 				metric_add_labels(cpu_usage_time_name, &tnice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
 				metric_add_labels(cpu_usage_time_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
@@ -225,22 +182,32 @@ void get_cpu(int8_t platform)
 				metric_add_labels(cpu_usage_time_name, &tsoftirq, DATATYPE_DOUBLE, ac->system_carg, "type", "softirq");
 				metric_add_labels(cpu_usage_time_name, &tsteal, DATATYPE_DOUBLE, ac->system_carg, "type", "steal");
 				metric_add_labels(cpu_usage_time_name, &tguest, DATATYPE_DOUBLE, ac->system_carg, "type", "guest");
-				if (!is_cgroup && ac->system_cpuavg)
-				{
-					cpu_avg_push(usage);
+				if (tdelta) {
+					double usage = ((du_user + du_system)*100.0/tdelta);
+					if (usage<0)
+						usage = 0;
+					double system = ((du_system)*100.0/tdelta);
+					if (system<0)
+						system = 0;
+					if (had_prev) {
+						ac->system_cpu_system_percent = system;
+						ac->system_cpu_system_percent_valid = 1;
+					}
+					if (!is_cgroup && ac->system_cpuavg)
+						cpu_avg_push(usage);
 				}
 			}
 			else
 			{
-				metric_add_labels2(cpu_usage_core_name, &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &iowait, DATATYPE_DOUBLE, ac->system_carg, "type", "iowait", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &irq, DATATYPE_DOUBLE, ac->system_carg, "type", "irq", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &softirq, DATATYPE_DOUBLE, ac->system_carg, "type", "softirq", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &steal, DATATYPE_DOUBLE, ac->system_carg, "type", "steal", "cpu", cpuname);
-				metric_add_labels2(cpu_usage_core_name, &guest, DATATYPE_DOUBLE, ac->system_carg, "type", "guest", "cpu", cpuname);
+				metric_add_labels2(cpu_usage_core_name, &tuser, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
+				metric_add_labels2(cpu_usage_core_name, &tsystem, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
+				metric_add_labels2(cpu_usage_core_name, &tnice, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
+				metric_add_labels2(cpu_usage_core_name, &tidle, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
+				metric_add_labels2(cpu_usage_core_name, &tiowait, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "iowait");
+				metric_add_labels2(cpu_usage_core_name, &tirq, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "irq");
+				metric_add_labels2(cpu_usage_core_name, &tsoftirq, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "softirq");
+				metric_add_labels2(cpu_usage_core_name, &tsteal, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "steal");
+				metric_add_labels2(cpu_usage_core_name, &tguest, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "guest");
 			}
 		}
 		else if ( !strncmp(temp, "processes", 9) )
@@ -368,7 +335,7 @@ void get_cpu(int8_t platform)
 	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
 
 	uint64_t sec = ts_end.sec;
-	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("time_seconds", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
 void cpu_note_system_percent(void)

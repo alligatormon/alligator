@@ -21,19 +21,19 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="3888"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="3888"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="2181"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="2181"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="2888"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="2888"})';
 	make socket_match;
 	datasource internal;
 }

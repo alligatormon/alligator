@@ -24,25 +24,25 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="clickhouse-serv", src_port="8123"})';
+	expr 'count by (src_port, process) (socket_listening{process="clickhouse-serv", src_port="8123"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="clickhouse-serv", src_port="8443"})';
+	expr 'count by (src_port, process) (socket_listening{process="clickhouse-serv", src_port="8443"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="clickhouse-serv", src_port="9000"})';
+	expr 'count by (src_port, process) (socket_listening{process="clickhouse-serv", src_port="9000"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="clickhouse-serv", src_port="9440"})';
+	expr 'count by (src_port, process) (socket_listening{process="clickhouse-serv", src_port="9440"})';
 	make socket_match;
 	datasource internal;
 }

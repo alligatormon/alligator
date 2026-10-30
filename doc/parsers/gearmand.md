@@ -31,7 +31,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{process="gearmand", src_port="4730"})';
+    expr 'count by (src_port, process) (socket_listening{process="gearmand", src_port="4730"})';
     make socket_match;
     datasource internal;
 }

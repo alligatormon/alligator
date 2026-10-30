@@ -1041,8 +1041,8 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "pressure_stalled_seconds_total{resource=\"irq\"}", "pressure_stalled_seconds_total", 555555555 / 1000000.0);
     metric_test_run(CMP_EQUAL, "pressure_stalled_avg_percent{resource=\"irq\",window=\"60\"}", "pressure_stalled_avg_percent", 8);
     metric_test_run(CMP_EQUAL, "vmstat_pages{stat=\"nr_free_pages\"}", "vmstat_pages", 310331);
-    metric_test_run(CMP_EQUAL, "vmstat_stat_total{stat=\"thp_fault_alloc\"}", "vmstat_stat_total", 33);
-    metric_test_run(CMP_EQUAL, "vmstat_stat_total{stat=\"pgfault\"}", "vmstat_stat_total", 67152638);
+    metric_test_run(CMP_EQUAL, "vmstat_total{stat=\"thp_fault_alloc\"}", "vmstat_total", 33);
+    metric_test_run(CMP_EQUAL, "vmstat_total{stat=\"pgfault\"}", "vmstat_total", 67152638);
     metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"inode_nr\"}", "sysctl_fs", 35952);
     metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"dentry_nr\"}", "sysctl_fs", 64340);
     metric_test_run(CMP_EQUAL, "sysctl_fs{stat=\"aio_nr\"}", "sysctl_fs", 12);
@@ -1053,7 +1053,7 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_unshared\"}", "ksm", 40);
     metric_test_run(CMP_EQUAL, "ksm{stat=\"pages_volatile\"}", "ksm", 10);
     metric_test_run(CMP_EQUAL, "ksm{stat=\"run\"}", "ksm", 1);
-    metric_test_run(CMP_EQUAL, "ksm{stat=\"sleep_millisecs\"}", "ksm", 20);
+    metric_test_run(CMP_EQUAL, "ksm_sleep_seconds", "ksm_sleep_seconds", 0.02);
     metric_test_run(CMP_EQUAL, "ksm{stat=\"general_profit\"}", "ksm", -4096);
     metric_test_run(CMP_EQUAL, "ksm_stat_total{stat=\"full_scans\"}", "ksm_stat_total", 42);
     metric_test_run(CMP_EQUAL, "ksm_stat_total{stat=\"pages_scanned\"}", "ksm_stat_total", 999);
@@ -1082,7 +1082,7 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "zram_stat{device=\"zram1\",stat=\"initstate\"}", "zram_stat", 0);
     metric_test_run(CMP_EQUAL, "zram_stat_total{device=\"zram1\",stat=\"failed_reads\"}", "zram_stat_total", 0);
     metric_test_run(CMP_EQUAL, "zram_comp_algorithm{device=\"zram1\",algorithm=\"lzo-rle\"}", "zram_comp_algorithm", 1);
-    metric_test_run(CMP_EQUAL, "open_files_system", "open_files_system", 800);
+    metric_test_run(CMP_EQUAL, "system_open_files", "system_open_files", 800);
     metric_test_run(CMP_EQUAL, "max_files", "max_files", 524288);
     metric_test_run(CMP_EQUAL, "softnet_processed_total{cpu=\"0\"}", "softnet_processed_total", 0x123);
     metric_test_run(CMP_EQUAL, "sockstat_sockets_used", "sockstat_sockets_used", 42);
@@ -1154,6 +1154,8 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool2\",state=\"degraded\"}", "zfs_zpool_state", 1);
     metric_test_run(CMP_EQUAL, "zfs_zpool_state{pool=\"pool2\",state=\"online\"}", "zfs_zpool_state", 0);
     metric_test_run(CMP_EQUAL, "swap_device_bytes{device=\"/dev/dm-1\",type=\"size\"}", "swap_device_bytes", 1048572ULL * 1024);
+    metric_test_run(CMP_EQUAL, "schedstat_run_seconds_total{cpu=\"0\"}", "schedstat_run_seconds_total", 1.0);
+    metric_test_run(CMP_EQUAL, "schedstat_runqueue_seconds_total{cpu=\"0\"}", "schedstat_runqueue_seconds_total", 0.2);
     metric_test_run(CMP_EQUAL, "schedstat_run_periods_total{cpu=\"0\"}", "schedstat_run_periods_total", 3000);
     metric_test_run(CMP_EQUAL, "slabinfo_objects{slab=\"kmalloc-64\",type=\"active\"}", "slabinfo_objects", 100);
     metric_test_run(CMP_EQUAL, "softirq_stat_total{cpu=\"0\",type=\"hi\"}", "softirq_stat_total", 1);
@@ -1227,7 +1229,7 @@ void system_test(char *binary) {
     metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"user\"}", "cpu_usage_time", 0);
     metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"softirq\"}", "cpu_usage_time", 0);
     metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"idle\"}", "cpu_usage_time", 0);
-    metric_test_run(CMP_GREATER, "cores_num", "cores_num", 0);
+    metric_test_run(CMP_GREATER, "cpu_cores", "cpu_cores", 0);
 
     metric_test_run(CMP_EQUAL, "amdgpu_gpu_count", "amdgpu_gpu_count", 1);
     metric_test_run(CMP_EQUAL,

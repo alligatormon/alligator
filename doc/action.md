@@ -47,7 +47,7 @@ Several schedulers may point at the same action. Each run’s aggregator key inc
 An example of using it to run nginx if the port doesn't listen:
 ```
 query {
-    expr 'count by (src_port, process) (socket_stat{process="nginx", src_port="80"}) == 0';
+    expr 'count by (src_port, process) (socket_listening{process="nginx", src_port="80"}) == 0';
     make nginx_exists;
     datasource internal;
     action no_nginx;

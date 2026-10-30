@@ -16,18 +16,18 @@ system {
 
 }
 query {
-	expr 'count by (src_port, process) (socket_stat{process="pdns_server", src_port="8081"})';
+	expr 'count by (src_port, process) (socket_listening{process="pdns_server", src_port="8081"})';
 	make socket_match;
 	datasource internal;
 }
 query {
-	expr 'count by (src_port, process) (socket_stat{process="pdns_server", src_port="53", proto="tcp"})';
+	expr 'count by (src_port, process) (socket_listening{process="pdns_server", src_port="53", proto="tcp"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="pdns_server", src_port="53", proto="udp"})';
+	expr 'count by (src_port, process) (socket_listening{process="pdns_server", src_port="53", proto="udp"})';
 	make socket_match;
 	datasource internal;
 }

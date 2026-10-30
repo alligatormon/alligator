@@ -30,7 +30,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{src_port="8098"})';
+    expr 'count by (src_port, process) (socket_listening{src_port="8098"})';
     make socket_match;
     datasource internal;
 }

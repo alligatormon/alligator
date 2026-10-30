@@ -56,7 +56,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{process="java", src_port="9092"})';
+    expr 'count by (src_port, process) (socket_listening{process="java", src_port="9092"})';
     make socket_match;
     datasource internal;
 }

@@ -78,9 +78,11 @@ void get_schedstat_stats(void)
 		char cpu_label[16];
 		snprintf(cpu_label, sizeof(cpu_label), "%d", cpu);
 
-		metric_add_labels("schedstat_run_time_nanoseconds_total", &run_time, DATATYPE_UINT,
+		double run_seconds = (double)run_time / 1000000000.0;
+		double runqueue_seconds = (double)runqueue_time / 1000000000.0;
+		metric_add_labels("schedstat_run_seconds_total", &run_seconds, DATATYPE_DOUBLE,
 			ac->system_carg, "cpu", cpu_label);
-		metric_add_labels("schedstat_runqueue_time_nanoseconds_total", &runqueue_time, DATATYPE_UINT,
+		metric_add_labels("schedstat_runqueue_seconds_total", &runqueue_seconds, DATATYPE_DOUBLE,
 			ac->system_carg, "cpu", cpu_label);
 		metric_add_labels("schedstat_run_periods_total", &run_periods, DATATYPE_UINT,
 			ac->system_carg, "cpu", cpu_label);

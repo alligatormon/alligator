@@ -38,13 +38,13 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="nginx", src_port="80"})';
+	expr 'count by (src_port, process) (socket_listening{process="nginx", src_port="80"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="nginx", src_port="443"})';
+	expr 'count by (src_port, process) (socket_listening{process="nginx", src_port="443"})';
 	make socket_match;
 	datasource internal;
 }

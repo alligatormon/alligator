@@ -18,25 +18,25 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="8888"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="8888"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="8091"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="8091"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="8083"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="8083"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="java", src_port="8082"})';
+	expr 'count by (src_port, process) (socket_listening{process="java", src_port="8082"})';
 	make socket_match;
 	datasource internal;
 }

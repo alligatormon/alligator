@@ -25,7 +25,7 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="memcached", src_port="11211"})';
+	expr 'count by (src_port, process) (socket_listening{process="memcached", src_port="11211"})';
 	make socket_match;
 	datasource internal;
 }

@@ -40,13 +40,13 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="named", src_port="53", proto="tcp"})';
+	expr 'count by (src_port, process) (socket_listening{process="named", src_port="53", proto="tcp"})';
 	make socket_match;
 	datasource internal;
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="named", src_port="53", proto="udp"})';
+	expr 'count by (src_port, process) (socket_listening{process="named", src_port="53", proto="udp"})';
 	make socket_match;
 	datasource internal;
 }

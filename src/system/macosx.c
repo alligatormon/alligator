@@ -138,38 +138,6 @@ static int read_cpu_ticks(mac_cpu_ticks *agg, mac_cpu_ticks **cores, natural_t *
 	return 0;
 }
 
-static void cpu_core_interval_push(system_cpu_cores_stats *sccs, const char *cpuname,
-	const mac_cpu_ticks *now)
-{
-	uint64_t t_total = now->user + now->nice + now->system + now->idle;
-	uint64_t dt_total = t_total - sccs->total;
-
-	if (!dt_total)
-		return;
-
-	{
-		uint64_t d_user = now->user - sccs->user;
-		uint64_t d_nice = now->nice - sccs->nice;
-		uint64_t d_system = now->system - sccs->system;
-		uint64_t d_idle = now->idle - sccs->idle;
-		double user = pct_delta(d_user, dt_total);
-		double nice = pct_delta(d_nice, dt_total);
-		double system = pct_delta(d_system, dt_total);
-		double idle = pct_delta(d_idle, dt_total);
-
-		metric_add_labels2("cpu_usage_core", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user", "cpu", (char *)cpuname);
-		metric_add_labels2("cpu_usage_core", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice", "cpu", (char *)cpuname);
-		metric_add_labels2("cpu_usage_core", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system", "cpu", (char *)cpuname);
-		metric_add_labels2("cpu_usage_core", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle", "cpu", (char *)cpuname);
-	}
-
-	sccs->total = t_total;
-	sccs->user = now->user;
-	sccs->nice = now->nice;
-	sccs->system = now->system;
-	sccs->idle = now->idle;
-}
-
 static void emit_cpu_counters(const mac_cpu_ticks *ticks, const char *cpuname, int per_core)
 {
 	double user = ticks_to_seconds(ticks->user);
@@ -231,16 +199,11 @@ void get_cpu(void)
 	if (read_cpu_ticks(&agg, &cores, &processor_count) != 0)
 		return;
 
-	if (!ac->scs->cores && processor_count > 0)
-		ac->scs->cores = calloc(processor_count, sizeof(system_cpu_cores_stats));
-
 	emit_cpu_counters(&agg, NULL, 0);
 
 	for (i = 0; i < processor_count; i++) {
 		snprintf(cpuname, sizeof(cpuname), "%u", i);
 		emit_cpu_counters(&cores[i], cpuname, 1);
-		if (ac->scs->cores && i < processor_count)
-			cpu_core_interval_push(&ac->scs->cores[i], cpuname, &cores[i]);
 	}
 
 	hw = &ac->scs->hw;
@@ -268,7 +231,7 @@ void get_cpu(void)
 	metric_add_auto("cpu_usage_calc_delta_seconds", &diff_time, DATATYPE_DOUBLE, ac->system_carg);
 
 	sec = ts_end.sec;
-	metric_add_auto("time_now", &sec, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("time_seconds", &sec, DATATYPE_UINT, ac->system_carg);
 }
 
 static int skip_mount(const char *path)
@@ -285,7 +248,7 @@ void get_disk(void)
 	int64_t num_mounts = getmntinfo(&mounts, MNT_WAIT);
 	int i;
 
-	metric_add_auto("mounts_num", &num_mounts, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("filesystem_mounts", &num_mounts, DATATYPE_INT, ac->system_carg);
 	for (i = 0; i < num_mounts; i++) {
 		struct statfs stats;
 		int64_t avail, total, used;
@@ -410,14 +373,14 @@ void get_mem(void)
 		int64_t swapouts = (int64_t)vm_stats.swapouts;
 		/*
 		 * Darwin has no vm.stats.vm.v_io_faults. Keep FreeBSD metric names:
-		 * pageouts → io_faults_total and vmstat_stat_total{stat=pgmajfault}.
+		 * pageouts → io_faults_total and vmstat_total{stat=pgmajfault}.
 		 */
 		uint64_t io_faults = (uint64_t)vm_stats.pageouts;
 
-		metric_add_labels("memory_stat", &pageins, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
-		metric_add_labels("memory_stat", &pageouts, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
-		metric_add_labels("memory_stat", &swapins, DATATYPE_INT, ac->system_carg, "type", "pgswpin");
-		metric_add_labels("memory_stat", &swapouts, DATATYPE_INT, ac->system_carg, "type", "pgswpout");
+		metric_add_auto("memory_pages_in_total", &pageins, DATATYPE_INT, ac->system_carg);
+		metric_add_auto("memory_pages_out_total", &pageouts, DATATYPE_INT, ac->system_carg);
+		metric_add_auto("memory_swap_in_total", &swapins, DATATYPE_INT, ac->system_carg);
+		metric_add_auto("memory_swap_out_total", &swapouts, DATATYPE_INT, ac->system_carg);
 		metric_add_auto("io_faults_total", &io_faults, DATATYPE_UINT, ac->system_carg);
 	}
 	metric_add_auto("vm_faults_total", &vm_faults, DATATYPE_INT, ac->system_carg);
@@ -426,33 +389,33 @@ void get_mem(void)
 		uint64_t u;
 
 		u = (uint64_t)vm_stats.faults;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgfault");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgfault");
 		u = (uint64_t)vm_stats.pageouts;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgmajfault");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgmajfault");
 		u = (uint64_t)vm_stats.cow_faults;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "cow_faults");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "cow_faults");
 		u = (uint64_t)vm_stats.zero_fill_count;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "zero_fills");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "zero_fills");
 		u = (uint64_t)vm_stats.reactivations;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "reactivations");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "reactivations");
 		u = (uint64_t)vm_stats.purges;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "purges");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "purges");
 		u = (uint64_t)vm_stats.compressions;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "compressions");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "compressions");
 		u = (uint64_t)vm_stats.decompressions;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "decompressions");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "decompressions");
 		u = (uint64_t)vm_stats.lookups;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "lookups");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "lookups");
 		u = (uint64_t)vm_stats.hits;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "hits");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "hits");
 		u = (uint64_t)vm_stats.pageins;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgin");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgin");
 		u = (uint64_t)vm_stats.pageouts;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgout");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pgpgout");
 		u = (uint64_t)vm_stats.swapins;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpin");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpin");
 		u = (uint64_t)vm_stats.swapouts;
-		metric_add_labels("vmstat_stat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpout");
+		metric_add_labels("vmstat_total", &u, DATATYPE_UINT, ac->system_carg, "stat", "pswpout");
 	}
 
 	if (sysctlbyname("vm.loadavg", &load, &load_len, NULL, 0) == 0) {
@@ -464,7 +427,7 @@ void get_mem(void)
 		metric_add_labels("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15");
 	}
 
-	metric_add_auto("cores_num", &num_cpu, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("cpu_cores", &num_cpu, DATATYPE_INT, ac->system_carg);
 }
 
 /* Darwin sysctls are often 4-byte; never read into an oversized uint64_t. */
@@ -508,7 +471,7 @@ static void get_sysctl_stat_u64(const char *ctlname, const char *mapping)
 
 static void get_vmstat(void)
 {
-	get_sysctl_stat_u64("kern.num_files", "open_files");
+	get_sysctl_stat_u64("kern.num_files", "file_descriptors");
 	get_sysctl_stat_u64("kern.maxfiles", "max_files");
 	get_sysctl_stat_u64("kern.maxfilesperproc", "max_files_per_proc");
 	get_sysctl_stat_u64("kern.maxproc", "processes_max");
@@ -517,7 +480,7 @@ static void get_vmstat(void)
 	get_sysctl_stat_u64("vm.stats.vm.v_forks", "forks_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_syscall", "system_calls_total");
 	get_sysctl_stat_u64("vm.stats.sys.v_intr", "interrupts_total");
-	get_sysctl_stat_u64("kern.ipc.numopensockets", "open_sockets");
+	get_sysctl_stat_u64("kern.ipc.numopensockets", "file_sockets");
 	get_sysctl_stat_u64("kern.ipc.maxsockets", "max_sockets");
 }
 
@@ -565,18 +528,18 @@ void get_iface_statistics(void)
 		noproto = ifd->ifi_noproto;
 		collisions = ifd->ifi_collisions;
 
-		metric_add_labels2("if_stat", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_bytes");
-		metric_add_labels2("if_stat", &obytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_bytes");
-		metric_add_labels2("if_stat", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_packets");
-		metric_add_labels2("if_stat", &opackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_packets");
-		metric_add_labels2("if_stat", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_err");
-		metric_add_labels2("if_stat", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_err");
-		metric_add_labels2("if_stat", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_drop");
-		metric_add_labels2("if_stat", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_drop");
-		metric_add_labels2("if_stat", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "received_multicast");
-		metric_add_labels2("if_stat", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_multicast");
-		metric_add_labels2("if_stat", &collisions, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "transmit_colls");
-		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "noproto");
+		metric_add_labels("if_receive_bytes_total", &ibytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_bytes_total", &obytes, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_receive_packets_total", &ipackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_packets_total", &opackets, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_receive_errs_total", &ierrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_errs_total", &oerrors, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_receive_drop_total", &iqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_drop_total", &oqdrops, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_receive_multicast_total", &imcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_multicast_total", &omcasts, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_transmit_collisions_total", &collisions, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
+		metric_add_labels("if_noproto_total", &noproto, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name);
 
 		if (ifd->ifi_baudrate > 0) {
 			int64_t speed = (int64_t)(ifd->ifi_baudrate / 8); /* bit/s → bytes/s */

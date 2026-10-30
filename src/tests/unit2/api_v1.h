@@ -12,7 +12,7 @@ void api_test_query_1() {
     query_ds* qds;
     query_node *qn;
 	char *config = "{\"query\": [ \
-			{ \"make\": \"socket_match\", \"expr\": \"count by (src_port, process) (socket_stat{process=\\\"nginx\\\", src_port=\\\"80\\\"})\", \"datasource\": \"internal\", \"action\": \"run-test\", \"ns\": \"default\"}, \
+			{ \"make\": \"socket_match\", \"expr\": \"count by (src_port, process) (socket_listening{process=\\\"nginx\\\", src_port=\\\"80\\\"})\", \"datasource\": \"internal\", \"action\": \"run-test\", \"ns\": \"default\"}, \
 			{ \"make\": \"external-sql\", \"expr\": \"SELECT now() - pg_last_xact_replay_timestamp() AS replication_delay\", \"datasource\": \"pg\", \"fields\": [\"replication_delay\"], \"ns\": \"postgres\"}, \
 			{ \"make\": \"external-kv\", \"expr\": \"MGET veigieMu ohThozoo ahPhouca\", \"datasource\": \"redis\", \"ns\": \"0\"} \
 		] \
@@ -247,7 +247,7 @@ void api_test_scheduler_1() {
     scheduler_node* sn;
 	char *config = "{\"scheduler\": [ \
 			{ \"name\": \"timer-action\", \"action\": \"run-something\", \"datasource\": \"internal\", \"expr\": \"count(cpu_usage_time)\", \"period\": \"156s\"}, \
-			{ \"name\": \"timer-lang\", \"lang\": \"call-something\", \"datasource\": \"internal\", \"expr\": \"count(cores_num)\", \"period\": \"1d\"} \
+			{ \"name\": \"timer-lang\", \"lang\": \"call-something\", \"datasource\": \"internal\", \"expr\": \"count(cpu_cores)\", \"period\": \"1d\"} \
 		] \
 	}\
 	";
@@ -262,7 +262,7 @@ void api_test_scheduler_1() {
 
     sn = scheduler_get("timer-lang");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sn);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "count(cores_num)", sn->expr->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "count(cpu_cores)", sn->expr->s);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "call-something", sn->lang);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 86400000, sn->period);
 }

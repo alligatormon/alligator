@@ -246,15 +246,15 @@ static void freebsd_emit_fd_breakdown(char *name, char *pidstr, const freebsd_fd
 	int64_t val;
 
 	val = fds->files;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_files", "pid", pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "file", "pid", pidstr);
 	val = fds->sockets;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_sockets", "pid", pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "socket", "pid", pidstr);
 	val = fds->pipes;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_pipes", "pid", pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "pipe", "pid", pidstr);
 	val = fds->vnodes;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_vnodes", "pid", pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "vnode", "pid", pidstr);
 	val = fds->other;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "open_other", "pid", pidstr);
+	metric_add_labels3("process_open_fds", &val, DATATYPE_INT, ac->system_carg, "name", name, "type", "other", "pid", pidstr);
 }
 
 static void freebsd_emit_page_faults(struct kinfo_proc *proc, char *name, char *pidstr)
@@ -324,9 +324,9 @@ static void freebsd_emit_proc_metrics(struct kinfo_proc *proc, int8_t full)
 	val = (int64_t)proc->ki_rssize * (int64_t)getpagesize();
 	metric_add_labels3("process_memory_bytes", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "rss", "pid", pidstr);
 	val = proc->ki_cow;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "COWfaults", "pid", pidstr);
+	metric_add_labels2("process_cow_faults_total", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "pid", pidstr);
 	val = proc->ki_numthreads;
-	metric_add_labels3("process_stats", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "type", "threads", "pid", pidstr);
+	metric_add_labels2("process_threads", &val, DATATYPE_INT, ac->system_carg, "name", proc->ki_comm, "pid", pidstr);
 
 	if (!full)
 		return;
@@ -563,8 +563,8 @@ void get_proc_info(int8_t lightweight)
 		}
 	}
 
-	metric_add_auto("open_files_process", &open_files_process, DATATYPE_INT, ac->system_carg);
-	metric_add_auto("open_pipes", &open_pipes, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("process_open_fds_sum", &open_files_process, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("file_pipes", &open_pipes, DATATYPE_UINT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 
 	sz = sizeof(threads_max);

@@ -16,12 +16,12 @@ static void system_register_metric_families(context_arg *carg)
 		return;
 
 	/* Core host/system families. */
-	namespace_metric_family_set(NULL, carg, "iface_num", METRIC_TYPE_GAUGE, "Number of network interfaces discovered.");
+	namespace_metric_family_set(NULL, carg, "network_interfaces", METRIC_TYPE_GAUGE, "Number of network interfaces discovered.");
 	namespace_metric_family_set(NULL, carg, "interface_address", METRIC_TYPE_GAUGE, "Interface address presence with interface/address labels.");
 	namespace_metric_family_set(NULL, carg, "cpu_model", METRIC_TYPE_GAUGE, "CPU model info as labels.");
 	namespace_metric_family_set(NULL, carg, "machine_arch", METRIC_TYPE_GAUGE, "Machine architecture info as labels.");
 	namespace_metric_family_set(NULL, carg, "system_uptime_seconds", METRIC_TYPE_GAUGE, "System uptime in seconds.");
-	namespace_metric_family_set(NULL, carg, "mounts_num", METRIC_TYPE_GAUGE, "Number of mounted filesystems.");
+	namespace_metric_family_set(NULL, carg, "filesystem_mounts", METRIC_TYPE_GAUGE, "Number of mounted filesystems.");
 
 	/* Disk/filesystem families. */
 	namespace_metric_family_set(NULL, carg, "disk_usage_bytes", METRIC_TYPE_GAUGE, "Filesystem space usage in bytes by mountpoint and type.");
@@ -47,7 +47,22 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "disk_model", METRIC_TYPE_GAUGE, "Disk model information as labels.");
 	namespace_metric_family_set(NULL, carg, "disk_size_bytes", METRIC_TYPE_GAUGE, "Block device size in bytes.");
 	namespace_metric_family_set(NULL, carg, "disk_unallocated_bytes", METRIC_TYPE_GAUGE, "Unallocated block device capacity in bytes.");
-	namespace_metric_family_set(NULL, carg, "disk_num", METRIC_TYPE_GAUGE, "Number of block devices discovered.");
+	namespace_metric_family_set(NULL, carg, "disk_devices", METRIC_TYPE_GAUGE, "Number of block devices discovered.");
+	namespace_metric_family_set(NULL, carg, "nvme_data_transferred_bytes_total", METRIC_TYPE_COUNTER, "NVMe SMART data units transferred in bytes by direction.");
+	namespace_metric_family_set(NULL, carg, "nvme_commands_total", METRIC_TYPE_COUNTER, "NVMe SMART host read/write command counts by direction.");
+	namespace_metric_family_set(NULL, carg, "nvme_controller_busy_seconds_total", METRIC_TYPE_COUNTER, "NVMe SMART controller busy time in seconds.");
+	namespace_metric_family_set(NULL, carg, "nvme_power_cycles_total", METRIC_TYPE_COUNTER, "NVMe SMART power cycle count.");
+	namespace_metric_family_set(NULL, carg, "nvme_power_on_seconds_total", METRIC_TYPE_COUNTER, "NVMe SMART power-on time in seconds.");
+	namespace_metric_family_set(NULL, carg, "nvme_power_cycles_unsafe_total", METRIC_TYPE_COUNTER, "NVMe SMART unsafe shutdown count.");
+	namespace_metric_family_set(NULL, carg, "nvme_errors_total", METRIC_TYPE_COUNTER, "NVMe SMART media and integrity error counts by kind.");
+	namespace_metric_family_set(NULL, carg, "nvme_temperature_over_threshold_seconds_total", METRIC_TYPE_COUNTER, "NVMe SMART time over temperature threshold in seconds by kind.");
+	namespace_metric_family_set(NULL, carg, "nvme_temperature_celsius", METRIC_TYPE_GAUGE, "NVMe SMART temperature in Celsius by sensor.");
+	namespace_metric_family_set(NULL, carg, "nvme_temperature_threshold_celsius", METRIC_TYPE_GAUGE, "NVMe temperature threshold in Celsius by kind.");
+	namespace_metric_family_set(NULL, carg, "nvme_spare_available_percent", METRIC_TYPE_GAUGE, "NVMe available spare capacity percent.");
+	namespace_metric_family_set(NULL, carg, "nvme_spare_threshold_percent", METRIC_TYPE_GAUGE, "NVMe available spare threshold percent.");
+	namespace_metric_family_set(NULL, carg, "nvme_lifetime_wear_percent", METRIC_TYPE_GAUGE, "NVMe percentage used (lifetime wear).");
+	namespace_metric_family_set(NULL, carg, "nvme_failing_endurance_group", METRIC_TYPE_GAUGE, "NVMe critical warning endurance group failing flag.");
+	namespace_metric_family_set(NULL, carg, "nvme_total_namespace_count", METRIC_TYPE_GAUGE, "NVMe controller number of namespaces.");
 
 	/* Memory/CPU/process families. */
 	namespace_metric_family_set(NULL, carg, "memory_usage_bytes", METRIC_TYPE_GAUGE, "Memory usage in bytes by memory component type.");
@@ -56,18 +71,23 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "memory_usage_percent", METRIC_TYPE_GAUGE, "Memory usage percentage by type.");
 	namespace_metric_family_set(NULL, carg, "memory_dimm_size_bytes", METRIC_TYPE_GAUGE, "Per-DIMM memory size in bytes by EDAC controller/channel/slot labels.");
 	namespace_metric_family_set(NULL, carg, "memory_errors", METRIC_TYPE_GAUGE, "Per-DIMM memory error counters by EDAC labels and error type.");
-	namespace_metric_family_set(NULL, carg, "memory_stat", METRIC_TYPE_GAUGE, "Memory paging and swap statistics by type.");
+	namespace_metric_family_set(NULL, carg, "memory_pages_in_total", METRIC_TYPE_COUNTER, "Cumulative pages paged in from disk (pgpgin).");
+	namespace_metric_family_set(NULL, carg, "memory_pages_out_total", METRIC_TYPE_COUNTER, "Cumulative pages paged out to disk (pgpgout).");
+	namespace_metric_family_set(NULL, carg, "memory_swap_in_total", METRIC_TYPE_COUNTER, "Cumulative pages swapped in (Linux pswpin / BSD pgswpin).");
+	namespace_metric_family_set(NULL, carg, "memory_swap_out_total", METRIC_TYPE_COUNTER, "Cumulative pages swapped out (Linux pswpout / BSD pgswpout).");
+	namespace_metric_family_set(NULL, carg, "memory_page_faults_total", METRIC_TYPE_COUNTER, "Cumulative host page faults by type (minor, major).");
+	namespace_metric_family_set(NULL, carg, "memory_shmem_bytes", METRIC_TYPE_GAUGE, "Shared memory (shmem) size in bytes.");
 	namespace_metric_family_set(NULL, carg, "load_average", METRIC_TYPE_GAUGE, "System load averages by period label.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_average_percent", METRIC_TYPE_GAUGE, "Rolling average CPU usage percentage.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by core and mode.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_time", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by mode (from /proc/stat).");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_hw_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host CPU time in seconds by mode when scraped from a cgroup.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_core", METRIC_TYPE_GAUGE, "Per-core CPU usage percentage by mode.");
+	namespace_metric_family_set(NULL, carg, "cpu_usage_hw_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host per-core CPU time in seconds by mode when scraped from a cgroup.");
 	namespace_metric_family_set(NULL, carg, "cpu_current_frequency_hertz", METRIC_TYPE_GAUGE, "Current CPU frequency in hertz by core.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_calc_delta_seconds", METRIC_TYPE_GAUGE, "Elapsed wall-clock time between CPU usage calculations in seconds.");
-	namespace_metric_family_set(NULL, carg, "cores_num", METRIC_TYPE_GAUGE, "Effective number of CPU cores available to alligator.");
-	namespace_metric_family_set(NULL, carg, "cores_num_cgroup", METRIC_TYPE_GAUGE, "Number of CPU cores available by cgroup quota.");
-	namespace_metric_family_set(NULL, carg, "cores_num_hw", METRIC_TYPE_GAUGE, "Number of online hardware CPU cores.");
+	namespace_metric_family_set(NULL, carg, "cpu_cores", METRIC_TYPE_GAUGE, "Effective number of CPU cores available to alligator.");
+	namespace_metric_family_set(NULL, carg, "cpu_cores_cgroup", METRIC_TYPE_GAUGE, "Number of CPU cores available by cgroup quota.");
+	namespace_metric_family_set(NULL, carg, "cpu_cores_hw", METRIC_TYPE_GAUGE, "Number of online hardware CPU cores.");
 	namespace_metric_family_set(NULL, carg, "forks_total", METRIC_TYPE_COUNTER, "Total number of forks since boot.");
 	namespace_metric_family_set(NULL, carg, "context_switches_total", METRIC_TYPE_COUNTER, "Total number of context switches since boot.");
 	namespace_metric_family_set(NULL, carg, "process_context_switches", METRIC_TYPE_GAUGE, "Darwin only: sum of pti_csw across all currently visible processes (ignores process_match). Gauge, not a boot counter — may drop when processes exit. type=sum|processes.");
@@ -87,9 +107,10 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "perf_kernel_sampling", METRIC_TYPE_GAUGE, "1 while the kernel function sampler is open, 0 otherwise.");
 	namespace_metric_family_set(NULL, carg, "memory_bandwidth_bytes_total", METRIC_TYPE_COUNTER, "Intel resctrl MBM byte counters by node and scope (total or local).");
 	namespace_metric_family_set(NULL, carg, "vmstat_pages", METRIC_TYPE_GAUGE, "Current VM page counts from /proc/vmstat (nr_* and *_threshold keys).");
-	namespace_metric_family_set(NULL, carg, "vmstat_stat_total", METRIC_TYPE_COUNTER, "Cumulative VM event counters from /proc/vmstat by stat name.");
+	namespace_metric_family_set(NULL, carg, "vmstat_total", METRIC_TYPE_COUNTER, "Cumulative VM event counters from /proc/vmstat by stat name.");
 	namespace_metric_family_set(NULL, carg, "sysctl_fs", METRIC_TYPE_GAUGE, "Kernel filesystem sysctl values from /proc/sys/fs (inode, dentry, aio, dquot, super).");
 	namespace_metric_family_set(NULL, carg, "ksm", METRIC_TYPE_GAUGE, "Kernel Samepage Merging gauges and tunables from /sys/kernel/mm/ksm by stat name.");
+	namespace_metric_family_set(NULL, carg, "ksm_sleep_seconds", METRIC_TYPE_GAUGE, "KSM scan sleep interval in seconds from /sys/kernel/mm/ksm/sleep_millisecs.");
 	namespace_metric_family_set(NULL, carg, "ksm_stat_total", METRIC_TYPE_COUNTER, "Cumulative KSM counters from /sys/kernel/mm/ksm (full_scans, pages_scanned).");
 	namespace_metric_family_set(NULL, carg, "zram_bytes", METRIC_TYPE_GAUGE, "zram device sizes in bytes from /sys/block/zram* (disksize, orig/compr data, mem used, backing device).");
 	namespace_metric_family_set(NULL, carg, "zram_stat", METRIC_TYPE_GAUGE, "zram device gauges from /sys/block/zram* (same_pages, huge_pages, initstate).");
@@ -97,21 +118,25 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "zram_comp_algorithm", METRIC_TYPE_GAUGE, "Active zram compression algorithm (value 1) from /sys/block/zram*/comp_algorithm.");
 	namespace_metric_family_set(NULL, carg, "swap_device_bytes", METRIC_TYPE_GAUGE, "Swap device space in bytes by device and type (size, used, free).");
 	namespace_metric_family_set(NULL, carg, "swap_device_priority", METRIC_TYPE_GAUGE, "Swap device priority from /proc/swaps.");
-	namespace_metric_family_set(NULL, carg, "schedstat_run_time_nanoseconds_total", METRIC_TYPE_COUNTER, "Host scheduler run time in nanoseconds per CPU from /proc/schedstat.");
-	namespace_metric_family_set(NULL, carg, "schedstat_runqueue_time_nanoseconds_total", METRIC_TYPE_COUNTER, "Host scheduler runqueue wait time in nanoseconds per CPU from /proc/schedstat.");
+	namespace_metric_family_set(NULL, carg, "schedstat_run_seconds_total", METRIC_TYPE_COUNTER, "Host scheduler run time in seconds per CPU from /proc/schedstat.");
+	namespace_metric_family_set(NULL, carg, "schedstat_runqueue_seconds_total", METRIC_TYPE_COUNTER, "Host scheduler runqueue wait time in seconds per CPU from /proc/schedstat.");
 	namespace_metric_family_set(NULL, carg, "schedstat_run_periods_total", METRIC_TYPE_COUNTER, "Host scheduler run periods (timeslices) per CPU from /proc/schedstat.");
 	namespace_metric_family_set(NULL, carg, "slabinfo_objects", METRIC_TYPE_GAUGE, "Slab cache object counts by slab name and type (active, total).");
 	namespace_metric_family_set(NULL, carg, "slabinfo_object_size_bytes", METRIC_TYPE_GAUGE, "Slab cache object size in bytes by slab name.");
 
-	namespace_metric_family_set(NULL, carg, "process_stats", METRIC_TYPE_GAUGE, "Process statistics by process labels and stat type.");
-	namespace_metric_family_set(NULL, carg, "process_memory_bytes", METRIC_TYPE_GAUGE, "Process memory in bytes by type (vsz, rss).");
+	namespace_metric_family_set(NULL, carg, "process_threads", METRIC_TYPE_GAUGE, "Number of threads in a process.");
+	namespace_metric_family_set(NULL, carg, "process_context_switches_total", METRIC_TYPE_COUNTER, "Per-process context switches by type (total, voluntary, nonvoluntary).");
+	namespace_metric_family_set(NULL, carg, "process_memory_bytes", METRIC_TYPE_GAUGE, "Process memory in bytes by type (vsz, rss, swap, lib, executable, stack, data, lock, anon, file, shmem).");
+	namespace_metric_family_set(NULL, carg, "process_open_fds", METRIC_TYPE_GAUGE, "Open file descriptors per process by type (file, socket, pipe, vnode, other).");
+	namespace_metric_family_set(NULL, carg, "process_cow_faults_total", METRIC_TYPE_COUNTER, "Per-process copy-on-write fault counter.");
+	namespace_metric_family_set(NULL, carg, "process_status", METRIC_TYPE_GAUGE, "Process status code (platform-specific) with name and pid labels.");
 	namespace_metric_family_set(NULL, carg, "process_io_bytes_total", METRIC_TYPE_COUNTER, "Per-process I/O byte counters by process and operation labels.");
 	namespace_metric_family_set(NULL, carg, "process_io_chars_total", METRIC_TYPE_COUNTER, "Per-process I/O character counters by process and operation labels.");
 	namespace_metric_family_set(NULL, carg, "process_io_syscalls_total", METRIC_TYPE_COUNTER, "Per-process I/O syscall counters by process and operation labels.");
 	namespace_metric_family_set(NULL, carg, "process_page_faults_total", METRIC_TYPE_COUNTER, "Per-process page fault counters by process and fault type.");
 	namespace_metric_family_set(NULL, carg, "process_schedstat_run_periods_total", METRIC_TYPE_COUNTER, "Per-process scheduler run period counters.");
-	namespace_metric_family_set(NULL, carg, "process_schedstat_run_time_nanoseconds_total", METRIC_TYPE_COUNTER, "Per-process scheduler run time in nanoseconds.");
-	namespace_metric_family_set(NULL, carg, "process_schedstat_runqueue_time_nanoseconds_total", METRIC_TYPE_COUNTER, "Per-process scheduler runqueue time in nanoseconds.");
+	namespace_metric_family_set(NULL, carg, "process_schedstat_run_seconds_total", METRIC_TYPE_COUNTER, "Per-process scheduler run time in seconds.");
+	namespace_metric_family_set(NULL, carg, "process_schedstat_runqueue_seconds_total", METRIC_TYPE_COUNTER, "Per-process scheduler runqueue time in seconds.");
 	namespace_metric_family_set(NULL, carg, "process_vmap_count", METRIC_TYPE_GAUGE, "Per-process virtual memory map count.");
 	namespace_metric_family_set(NULL, carg, "process_match", METRIC_TYPE_GAUGE, "Process match flag by process selector.");
 	namespace_metric_family_set(NULL, carg, "process_uptime_seconds", METRIC_TYPE_GAUGE, "Per-process uptime in seconds.");
@@ -128,17 +153,18 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "processes", METRIC_TYPE_GAUGE, "Total number of processes.");
 	namespace_metric_family_set(NULL, carg, "processes_max", METRIC_TYPE_GAUGE, "Maximum number of processes allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "processes_usage", METRIC_TYPE_GAUGE, "PID limit usage percentage.");
-	namespace_metric_family_set(NULL, carg, "open_files", METRIC_TYPE_GAUGE, "Total number of open file descriptors on the host.");
-	namespace_metric_family_set(NULL, carg, "open_files_process", METRIC_TYPE_GAUGE, "Total number of open file descriptors used by processes.");
-	namespace_metric_family_set(NULL, carg, "open_files_system", METRIC_TYPE_GAUGE, "Total number of open file descriptors used by the system.");
-	namespace_metric_family_set(NULL, carg, "open_pipes", METRIC_TYPE_GAUGE, "Total number of open pipes on the host.");
-	namespace_metric_family_set(NULL, carg, "open_sockets", METRIC_TYPE_GAUGE, "Total number of open sockets on the host.");
+	namespace_metric_family_set(NULL, carg, "file_descriptors", METRIC_TYPE_GAUGE, "Total number of open file descriptors on the host.");
+	namespace_metric_family_set(NULL, carg, "process_open_fds_sum", METRIC_TYPE_GAUGE, "Sum of open file descriptors across processes.");
+	namespace_metric_family_set(NULL, carg, "system_open_files", METRIC_TYPE_GAUGE, "Allocated file handles from /proc/sys/fs/file-nr.");
+	namespace_metric_family_set(NULL, carg, "file_pipes", METRIC_TYPE_GAUGE, "Total number of open pipes on the host.");
+	namespace_metric_family_set(NULL, carg, "file_sockets", METRIC_TYPE_GAUGE, "Total number of open sockets on the host.");
+	namespace_metric_family_set(NULL, carg, "oom_kills_total", METRIC_TYPE_COUNTER, "Cumulative OOM killer invocations (Linux).");
 	namespace_metric_family_set(NULL, carg, "max_files", METRIC_TYPE_GAUGE, "Maximum number of file descriptors allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "max_files_per_proc", METRIC_TYPE_GAUGE, "Maximum open files per process.");
 	namespace_metric_family_set(NULL, carg, "max_sockets", METRIC_TYPE_GAUGE, "Maximum number of sockets allowed by the kernel.");
 	namespace_metric_family_set(NULL, carg, "swap_usage", METRIC_TYPE_GAUGE, "Swap space in kilobytes by usage type.");
 	namespace_metric_family_set(NULL, carg, "vm_faults_total", METRIC_TYPE_COUNTER, "Total VM page faults since boot. FreeBSD: vm.stats.vm.v_vm_faults. Linux: /proc/vmstat pgfault. Darwin: host_statistics64 faults.");
-	namespace_metric_family_set(NULL, carg, "io_faults_total", METRIC_TYPE_COUNTER, "Total VM I/O faults since boot. FreeBSD: vm.stats.vm.v_io_faults. Linux: /proc/vmstat pgmajfault. Darwin: host pageouts used as proxy (no v_io_faults OID); same value also labeled vmstat_stat_total{stat=pgmajfault}.");
+	namespace_metric_family_set(NULL, carg, "io_faults_total", METRIC_TYPE_COUNTER, "Total VM I/O faults since boot. FreeBSD: vm.stats.vm.v_io_faults. Linux: /proc/vmstat pgmajfault. Darwin: host pageouts used as proxy (no v_io_faults OID); same value also labeled vmstat_total{stat=pgmajfault}.");
 	namespace_metric_family_set(NULL, carg, "vforks_total", METRIC_TYPE_COUNTER, "Total vfork operations since boot.");
 	namespace_metric_family_set(NULL, carg, "rforks_total", METRIC_TYPE_COUNTER, "Total rfork operations since boot.");
 	namespace_metric_family_set(NULL, carg, "system_calls_total", METRIC_TYPE_COUNTER, "Total system calls since boot.");
@@ -151,7 +177,24 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "pgsteal_total", METRIC_TYPE_COUNTER, "Total page steal events from vmstat by steal type.");
 
 	/* Network families. */
-	namespace_metric_family_set(NULL, carg, "if_stat", METRIC_TYPE_GAUGE, "Network interface statistics by interface and stat type.");
+	namespace_metric_family_set(NULL, carg, "if_receive_bytes_total", METRIC_TYPE_COUNTER, "Total bytes received by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_packets_total", METRIC_TYPE_COUNTER, "Total packets received by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_errs_total", METRIC_TYPE_COUNTER, "Total receive errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_drop_total", METRIC_TYPE_COUNTER, "Total receive drops by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_fifo_total", METRIC_TYPE_COUNTER, "Total receive FIFO errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_frame_total", METRIC_TYPE_COUNTER, "Total receive frame errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_compressed_total", METRIC_TYPE_COUNTER, "Total compressed packets received by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_receive_multicast_total", METRIC_TYPE_COUNTER, "Total multicast packets received by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_bytes_total", METRIC_TYPE_COUNTER, "Total bytes transmitted by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_packets_total", METRIC_TYPE_COUNTER, "Total packets transmitted by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_errs_total", METRIC_TYPE_COUNTER, "Total transmit errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_drop_total", METRIC_TYPE_COUNTER, "Total transmit drops by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_fifo_total", METRIC_TYPE_COUNTER, "Total transmit FIFO errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_collisions_total", METRIC_TYPE_COUNTER, "Total transmit collisions by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_carrier_total", METRIC_TYPE_COUNTER, "Total transmit carrier errors by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_compressed_total", METRIC_TYPE_COUNTER, "Total compressed packets transmitted by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_transmit_multicast_total", METRIC_TYPE_COUNTER, "Total multicast packets transmitted by network interface.");
+	namespace_metric_family_set(NULL, carg, "if_noproto_total", METRIC_TYPE_COUNTER, "Total packets dropped for unknown protocol by network interface.");
 	namespace_metric_family_set(NULL, carg, "interface_stats", METRIC_TYPE_GAUGE, "Network interface statistics by interface and stat type.");
 	namespace_metric_family_set(NULL, carg, "network_stat_total", METRIC_TYPE_COUNTER, "Total network stack statistics from /proc/net/netstat by protocol and stat labels.");
 	namespace_metric_family_set(NULL, carg, "softnet_processed_total", METRIC_TYPE_COUNTER, "Softnet processed packets per CPU from /proc/net/softnet_stat.");
@@ -226,9 +269,9 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "infiniband_port_state", METRIC_TYPE_GAUGE, "InfiniBand port logical state from sysfs state (integer before colon).");
 	namespace_metric_family_set(NULL, carg, "infiniband_port_phys_state", METRIC_TYPE_GAUGE, "InfiniBand port physical state from sysfs phys_state (integer before colon).");
 	namespace_metric_family_set(NULL, carg, "fibrechannel_stat_total", METRIC_TYPE_COUNTER, "Fibre Channel host statistics from sysfs.");
-	namespace_metric_family_set(NULL, carg, "ethtool_std_stat", METRIC_TYPE_COUNTER, "Standard IEEE/RMON NIC statistics from ethtool genetlink (Linux 5.8+).");
-	namespace_metric_family_set(NULL, carg, "ethtool_rmon_hist", METRIC_TYPE_COUNTER, "RMON packet-size histogram buckets from ethtool genetlink.");
-	namespace_metric_family_set(NULL, carg, "ethtool_stat", METRIC_TYPE_COUNTER, "Driver-defined NIC statistics from ethtool ioctl (ethtool -S).");
+	namespace_metric_family_set(NULL, carg, "ethtool_std_stat_total", METRIC_TYPE_COUNTER, "Standard IEEE/RMON NIC statistics from ethtool genetlink (Linux 5.8+).");
+	namespace_metric_family_set(NULL, carg, "ethtool_rmon_bucket_packets_total", METRIC_TYPE_COUNTER, "RMON packet-size histogram bucket packet counts from ethtool genetlink.");
+	namespace_metric_family_set(NULL, carg, "ethtool_driver_stat_total", METRIC_TYPE_COUNTER, "Driver-defined NIC statistics from ethtool ioctl (ethtool -S).");
 	namespace_metric_family_set(NULL, carg, "nfs_mount_age_seconds", METRIC_TYPE_GAUGE, "Age of an NFS mount in seconds from /proc/self/mountstats.");
 	namespace_metric_family_set(NULL, carg, "nfs_mount_info", METRIC_TYPE_GAUGE, "NFS mount presence (value 1) with export, mountpoint, and protocol labels.");
 	namespace_metric_family_set(NULL, carg, "nfs_mount_bytes_total", METRIC_TYPE_COUNTER, "NFS mount byte and page counters from mountstats bytes: by type.");
@@ -260,7 +303,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "zoneinfo_stat_total", METRIC_TYPE_GAUGE, "NUMA zone memory statistics from /proc/zoneinfo.");
 	namespace_metric_family_set(NULL, carg, "numa_meminfo_bytes", METRIC_TYPE_GAUGE, "Per-NUMA-node meminfo values in bytes.");
 	namespace_metric_family_set(NULL, carg, "numa_node_stat_total", METRIC_TYPE_COUNTER, "Per-NUMA-node statistics from numastat.");
-	namespace_metric_family_set(NULL, carg, "time_now", METRIC_TYPE_GAUGE, "Current Unix timestamp.");
+	namespace_metric_family_set(NULL, carg, "time_seconds", METRIC_TYPE_GAUGE, "Current Unix timestamp in seconds.");
 	namespace_metric_family_set(NULL, carg, "core_temperature_celsius", METRIC_TYPE_GAUGE, "Core/component temperature in degrees Celsius by sensor labels.");
 	namespace_metric_family_set(NULL, carg, "firewall_packets_total", METRIC_TYPE_COUNTER, "Total firewall packets by chain/rule labels.");
 	namespace_metric_family_set(NULL, carg, "firewall_bytes_total", METRIC_TYPE_COUNTER, "Total firewall bytes by chain/rule labels.");
@@ -290,13 +333,13 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "chassis_serial", METRIC_TYPE_GAUGE, "Chassis serial number information as labels.");
 	namespace_metric_family_set(NULL, carg, "chassis_asset_tag", METRIC_TYPE_GAUGE, "Chassis asset tag information as labels.");
 	namespace_metric_family_set(NULL, carg, "memory_module_size_bytes", METRIC_TYPE_GAUGE, "Memory module size in bytes by module/device labels.");
-	namespace_metric_family_set(NULL, carg, "memory_module_speed", METRIC_TYPE_GAUGE, "Memory module speed by module/device labels.");
+	namespace_metric_family_set(NULL, carg, "memory_module_speed_mts", METRIC_TYPE_GAUGE, "Memory module speed in MT/s by module/device labels.");
 	namespace_metric_family_set(NULL, carg, "processor_core_count", METRIC_TYPE_GAUGE, "Processor core count by processor labels.");
 	namespace_metric_family_set(NULL, carg, "processor_core_enabled", METRIC_TYPE_GAUGE, "Processor enabled core count by processor labels.");
-	namespace_metric_family_set(NULL, carg, "processor_current_speed", METRIC_TYPE_GAUGE, "Processor current speed by processor labels.");
-	namespace_metric_family_set(NULL, carg, "processor_external_clock", METRIC_TYPE_GAUGE, "Processor external clock by processor labels.");
+	namespace_metric_family_set(NULL, carg, "processor_current_frequency_hertz", METRIC_TYPE_GAUGE, "Processor current frequency in hertz by processor labels.");
+	namespace_metric_family_set(NULL, carg, "processor_external_clock_hertz", METRIC_TYPE_GAUGE, "Processor external clock in hertz by processor labels.");
 	namespace_metric_family_set(NULL, carg, "processor_manufacturer", METRIC_TYPE_GAUGE, "Processor manufacturer information as labels.");
-	namespace_metric_family_set(NULL, carg, "processor_max_speed", METRIC_TYPE_GAUGE, "Processor maximum speed by processor labels.");
+	namespace_metric_family_set(NULL, carg, "processor_max_frequency_hertz", METRIC_TYPE_GAUGE, "Processor maximum frequency in hertz by processor labels.");
 	namespace_metric_family_set(NULL, carg, "processor_status", METRIC_TYPE_GAUGE, "Processor status marker by processor labels.");
 	namespace_metric_family_set(NULL, carg, "processor_thread_count", METRIC_TYPE_GAUGE, "Processor thread count by processor labels.");
 	namespace_metric_family_set(NULL, carg, "processor_version", METRIC_TYPE_GAUGE, "Processor version information as labels.");
@@ -308,9 +351,9 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "sysctl_data", METRIC_TYPE_GAUGE, "Kernel sysctl value by sysctl name label.");
 	namespace_metric_family_set(NULL, carg, "socket_counters", METRIC_TYPE_GAUGE, "Socket counters by protocol/state labels.");
 	namespace_metric_family_set(NULL, carg, "socket_match", METRIC_TYPE_GAUGE, "Socket match flag by selector labels.");
-	namespace_metric_family_set(NULL, carg, "socket_stat", METRIC_TYPE_GAUGE, "Socket statistics by protocol/state labels.");
-	namespace_metric_family_set(NULL, carg, "socket_stat_receive_queue_length", METRIC_TYPE_GAUGE, "Socket receive queue current length by socket labels.");
-	namespace_metric_family_set(NULL, carg, "socket_stat_receive_queue_limit", METRIC_TYPE_GAUGE, "Socket receive queue limit by socket labels.");
+	namespace_metric_family_set(NULL, carg, "socket_listening", METRIC_TYPE_GAUGE, "Listening socket presence (value 1) by protocol/address/process labels.");
+	namespace_metric_family_set(NULL, carg, "socket_receive_queue_length", METRIC_TYPE_GAUGE, "Socket receive queue current length by socket labels.");
+	namespace_metric_family_set(NULL, carg, "socket_receive_queue_limit", METRIC_TYPE_GAUGE, "Socket receive queue limit by socket labels.");
 
 	/* IPMI families. */
 	namespace_metric_family_set(NULL, carg, "ipmi_last_power_event", METRIC_TYPE_GAUGE, "IPMI chassis last power event state marker.");
@@ -360,7 +403,7 @@ void ipaddr_info() {
 	i = count;
 
 	int64_t count64 = count;
-	metric_add_auto("iface_num", &count64, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("network_interfaces", &count64, DATATYPE_INT, ac->system_carg);
 	while (i--) {
 		uv_interface_address_t interface = info[i];
 

@@ -210,7 +210,7 @@ void only_calculate_threads(char *file, uint64_t *threads, char *name, char *pid
 		if  ( !strncmp(key, "Threads", 7) )
 		{
 			if (match > 0)
-				metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
+				metric_add_labels2("process_threads", &ival, DATATYPE_INT, ac->system_carg, "name", name, "pid", pid);
 			if (threads)
 				*threads += (uint64_t)ival;
 		}
@@ -252,7 +252,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 
 		if  ( !strncmp(key, "Threads", 7) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "threads", "name", name, "pid", pid);
+			metric_add_labels2("process_threads", &ival, DATATYPE_INT, ac->system_carg, "name", name, "pid", pid);
 			if (threads)
 				*threads += (uint64_t)ival;
 		}
@@ -261,36 +261,36 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 			if ( ctxt_switches != 0 )
 			{
 				ctxt_switches += ival;
-				metric_add_labels3("process_stats", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "ctx_switches", "name", name, "pid", pid);
+				metric_add_labels3("process_context_switches_total", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "total", "name", name, "pid", pid);
 			}
 			else
 			{
 				ctxt_switches += ival;
 			}
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "voluntary_ctx_switches", "name", name, "pid", pid);
+			metric_add_labels3("process_context_switches_total", &ival, DATATYPE_INT, ac->system_carg, "type", "voluntary", "name", name, "pid", pid);
 		}
 		else if (!strncmp(key, "nonvoluntary_ctxt_switches", 26))
 		{
 			if ( ctxt_switches != 0 )
 			{
 				ctxt_switches += ival;
-				metric_add_labels3("process_stats", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "ctx_switches", "name", name, "pid", pid);
+				metric_add_labels3("process_context_switches_total", &ctxt_switches, DATATYPE_INT, ac->system_carg, "type", "total", "name", name, "pid", pid);
 			}
 			else
 			{
 				ctxt_switches += ival;
 			}
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "nonvoluntary_ctx_switches", "name", name, "pid", pid);
+			metric_add_labels3("process_context_switches_total", &ival, DATATYPE_INT, ac->system_carg, "type", "nonvoluntary", "name", name, "pid", pid);
 		}
 		else if ( !strncmp(key, "VmSwap", 6) )
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "swap_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "swap", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmLib", 5) )
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "lib_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "lib", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmExe", 5) )
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "executable_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "executable", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmStk", 5) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "stack_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "stack", "name", name, "pid", pid);
 			if (ups && ups->stacksize)
 			{
 				metric_add_labels3("process_rlimit", &ups->stacksize, DATATYPE_UINT, ac->system_carg, "type", "stack_bytes", "name", name, "pid", pid);
@@ -300,7 +300,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		}
 		else if ( !strncmp(key, "VmData", 6) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "data_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "data", "name", name, "pid", pid);
 			if (ups && ups->datasize)
 			{
 				metric_add_labels3("process_rlimit", &ups->datasize, DATATYPE_UINT, ac->system_carg, "type", "data_bytes", "name", name, "pid", pid);
@@ -310,7 +310,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		}
 		else if ( !strncmp(key, "VmLck", 5) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "lock_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "lock", "name", name, "pid", pid);
 			if (ups && ups->lockedsize)
 			{
 				metric_add_labels3("process_rlimit", &ups->lockedsize, DATATYPE_UINT, ac->system_carg, "type", "lock_bytes", "name", name, "pid", pid);
@@ -319,9 +319,9 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 			}
 		}
 		else if ( !strncmp(key, "RssAnon", 7) )
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "anon_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "anon", "name", name, "pid", pid);
 		else if ( !strncmp(key, "RssFile", 7) )
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "file_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "file", "name", name, "pid", pid);
 		else if ( !strncmp(key, "VmRSS", 5) )
 		{
 			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "rss", "name", name, "pid", pid);
@@ -344,7 +344,7 @@ void get_process_extra_info(char *file, char *name, char *pid, ulimit_pid_stat* 
 		}
 		else if ( !strncmp(key, "RssShmem", 8) )
 		{
-			metric_add_labels3("process_stats", &ival, DATATYPE_INT, ac->system_carg, "type", "shmem_bytes", "name", name, "pid", pid);
+			metric_add_labels3("process_memory_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", "shmem", "name", name, "pid", pid);
 			double usage = ival * 1.0 / shm_max;
 			metric_add_labels3("process_rlimit_usage", &usage, DATATYPE_DOUBLE, ac->system_carg, "type", "shmem_bytes", "name", name, "pid", pid);
 		}
@@ -690,8 +690,10 @@ void schedstat_process_info(char *pid, char *name)
 	tmp += strspn(tmp, " \t");
 	uint64_t run_periods = strtoull(tmp, &tmp, 10);
 
-	metric_add_labels2("process_schedstat_run_time_nanoseconds_total", &run_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
-	metric_add_labels2("process_schedstat_runqueue_time_nanoseconds_total", &runqueue_time, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
+	double run_seconds = (double)run_time / 1000000000.0;
+	double runqueue_seconds = (double)runqueue_time / 1000000000.0;
+	metric_add_labels2("process_schedstat_run_seconds_total", &run_seconds, DATATYPE_DOUBLE, ac->system_carg, "name", name, "pid", pid);
+	metric_add_labels2("process_schedstat_runqueue_seconds_total", &runqueue_seconds, DATATYPE_DOUBLE, ac->system_carg, "name", name, "pid", pid);
 	metric_add_labels2("process_schedstat_run_periods_total", &run_periods, DATATYPE_UINT, ac->system_carg, "name", name, "pid", pid);
 }
 
@@ -789,9 +791,9 @@ int get_pid_info(char *pid, int64_t *allfilesnum, int8_t lightweight, process_st
 	int64_t filesnum = get_fd_info_process(dir, procname, files, &socketsnum, &pipesnum);
 	if (match && filesnum && !lightweight)
 	{
-		metric_add_labels3("process_stats", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_files", "pid", pid);
-		metric_add_labels3("process_stats", &socketsnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_sockets", "pid", pid);
-		metric_add_labels3("process_stats", &pipesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "open_pipes", "pid", pid);
+		metric_add_labels3("process_open_fds", &filesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "file", "pid", pid);
+		metric_add_labels3("process_open_fds", &socketsnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "socket", "pid", pid);
+		metric_add_labels3("process_open_fds", &pipesnum, DATATYPE_INT, ac->system_carg, "name", procname, "type", "pipe", "pid", pid);
 	}
 	*allfilesnum += filesnum;
 
@@ -1138,9 +1140,9 @@ void find_pid(int8_t lightweight)
 	alligator_ht_foreach_arg(files_open, files_fd_free, &sum);
 	alligator_ht_done(files_open);
 	free(files_open);
-	metric_add_auto("open_files", &sum.files, DATATYPE_UINT, ac->system_carg);
-	metric_add_auto("open_sockets", &sum.sockets, DATATYPE_UINT, ac->system_carg);
-	metric_add_auto("open_pipes", &sum.pipes, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("file_descriptors", &sum.files, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("file_sockets", &sum.sockets, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("file_pipes", &sum.pipes, DATATYPE_UINT, ac->system_carg);
 
 	metric_add_labels("process_states", &states->running, DATATYPE_UINT, ac->system_carg, "state", "running");
 	metric_add_labels("process_states", &states->sleeping, DATATYPE_UINT, ac->system_carg, "state", "sleeping");
@@ -1153,7 +1155,7 @@ void find_pid(int8_t lightweight)
 	metric_add_labels("task_states", &task_states->zombie, DATATYPE_UINT, ac->system_carg, "state", "zombie");
 	metric_add_labels("task_states", &task_states->stopped, DATATYPE_UINT, ac->system_carg, "state", "stopped");
 	metric_add_labels("task_states", &task_states->idle, DATATYPE_UINT, ac->system_carg, "state", "idle");
-	metric_add_auto("open_files_process", &allfilesnum, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("process_open_fds_sum", &allfilesnum, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("tasks_total", &tasks, DATATYPE_UINT, ac->system_carg);
 
 	char threadmax[255];

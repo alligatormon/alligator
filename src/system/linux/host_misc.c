@@ -202,7 +202,10 @@ void get_ksm_stats(void)
 		if (ksm_is_counter(ent->d_name))
 			metric_add_labels("ksm_stat_total", &val, DATATYPE_INT, ac->system_carg,
 				"stat", ent->d_name);
-		else
+		else if (!strcmp(ent->d_name, "sleep_millisecs")) {
+			double sleep_seconds = (double)val / 1000.0;
+			metric_add_auto("ksm_sleep_seconds", &sleep_seconds, DATATYPE_DOUBLE, ac->system_carg);
+		} else
 			metric_add_labels("ksm", &val, DATATYPE_INT, ac->system_carg,
 				"stat", ent->d_name);
 	}

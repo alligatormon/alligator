@@ -92,22 +92,22 @@ void network_if_stats_emit_system(const network_if_stats *st, context_arg *carg)
 
 	ifname = (char *)st->ifname;
 
-	v = (int64_t)st->rx_bytes; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_bytes");
-	v = (int64_t)st->rx_packets; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_packets");
-	v = (int64_t)st->rx_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_err");
-	v = (int64_t)st->rx_dropped; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_drop");
-	v = (int64_t)st->rx_fifo_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_fifo");
-	v = (int64_t)st->rx_frame_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_frame");
-	v = (int64_t)st->rx_compressed; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_compressed");
-	v = (int64_t)st->multicast; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "received_multicast");
-	v = (int64_t)st->tx_bytes; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_bytes");
-	v = (int64_t)st->tx_packets; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_packets");
-	v = (int64_t)st->tx_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_err");
-	v = (int64_t)st->tx_dropped; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_drop");
-	v = (int64_t)st->tx_fifo_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_fifo");
-	v = (int64_t)st->collisions; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_colls");
-	v = (int64_t)st->tx_carrier_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_carrier");
-	v = (int64_t)st->tx_compressed; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_compressed");
+	v = (int64_t)st->rx_bytes; metric_add_labels("if_receive_bytes_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_packets; metric_add_labels("if_receive_packets_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_errors; metric_add_labels("if_receive_errs_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_dropped; metric_add_labels("if_receive_drop_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_fifo_errors; metric_add_labels("if_receive_fifo_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_frame_errors; metric_add_labels("if_receive_frame_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->rx_compressed; metric_add_labels("if_receive_compressed_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->multicast; metric_add_labels("if_receive_multicast_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_bytes; metric_add_labels("if_transmit_bytes_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_packets; metric_add_labels("if_transmit_packets_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_errors; metric_add_labels("if_transmit_errs_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_dropped; metric_add_labels("if_transmit_drop_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_fifo_errors; metric_add_labels("if_transmit_fifo_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->collisions; metric_add_labels("if_transmit_collisions_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_carrier_errors; metric_add_labels("if_transmit_carrier_total", &v, DATATYPE_INT, carg, "ifname", ifname);
+	v = (int64_t)st->tx_compressed; metric_add_labels("if_transmit_compressed_total", &v, DATATYPE_INT, carg, "ifname", ifname);
 
 	/* st->speed is Mbps (IFLA_SPEED or sysfs class/net/<if>/speed). */
 	if (st->speed > 0) {

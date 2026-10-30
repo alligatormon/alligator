@@ -56,18 +56,31 @@ system {
 
 `irq` — Linux 6.1+ (`/proc/pressure/irq`, обычно только **full**). Отсутствующие PSI-файлы пропускаются.
 
-Из `/proc/vmstat` (полный dump; существующие `memory_stat` / `pgscan_total` / `pgsteal_total` сохраняются):
+Из `/proc/vmstat` (полный dump; существующие `pgscan_total` / `pgsteal_total` сохраняются; `memory_stat` разбит на отдельные метрики):
 
 - `vmstat_pages{stat}` — текущие page counts (`nr_*` и `*_threshold`)
-- `vmstat_stat_total{stat}` — накопительные VM events (pgfault, THP, compact, balloon, workingset, …)
+- `vmstat_total{stat}` — накопительные VM events (pgfault, THP, compact, balloon, workingset, …)
 
-Из `/proc/sys/fs` (вместе с `open_files_system` / `max_files` из `file-nr`):
+
+Отдельные метрики paging (вместо `memory_stat`):
+
+- `memory_pages_in_total` / `memory_pages_out_total` — pgpgin / pgpgout
+- `memory_swap_in_total` / `memory_swap_out_total` — Linux pswpin/pswpout (и BSD pgswpin/pgswpout)
+- `memory_page_faults_total{type="minor|major"}` — pgfault / pgmajfault
+- `memory_shmem_bytes` — gauge shmem
+
+Счётчики: `cpu_cores` / `cpu_cores_cgroup` / `cpu_cores_hw`, `filesystem_mounts`, `disk_devices`, `network_interfaces`.
+FD на хосте: `file_descriptors`, `process_open_fds_sum`, `system_open_files`, `file_pipes`, `file_sockets`.
+`oom_kills_total` (Linux), `time_seconds` (Unix timestamp).
+
+Из `/proc/sys/fs` (вместе с `system_open_files` / `max_files` из `file-nr`):
 
 - `sysctl_fs{stat}` — `inode_nr`, `inode_free_nr`, `inode_preshrink_nr`, `dentry_nr`, `dentry_unused_nr`, `dentry_age_limit`, `dentry_want_pages`, `aio_nr`, `aio_max_nr`, `dquot_nr`, `dquot_max`, `super_nr`, `super_max`
 
 Из `/sys/kernel/mm/ksm` (пропускается, если KSM не собран в ядре; нечисловые файлы вроде `advisor_mode` игнорируются):
 
-- `ksm{stat}` — gauges и tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `sleep_millisecs`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm{stat}` — gauges и tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm_sleep_seconds` — интервал сна сканера из `sleep_millisecs` (мс → секунды)
 - `ksm_stat_total{stat}` — накопительные counters (`full_scans`, `pages_scanned`)
 
 Из `/sys/block/zram*` (нет устройств — skip; нет per-device файла вроде `bd_stat` — skip):
@@ -87,6 +100,7 @@ zram_bytes{stat="compr_data_size"}
 
 Дополнительно из `base`:
 
+- `schedstat_run_seconds_total{cpu}`, `schedstat_runqueue_seconds_total{cpu}`, `schedstat_run_periods_total{cpu}` — `/proc/schedstat` (время ns→s)
 - `cpu_frequency_hertz{cpu,type}` — `scaling_cur|scaling_min|scaling_max|cpuinfo_max` из sysfs cpufreq (kHz → Hz)
 - `cpu_throttle_count{cpu}`, `cpu_throttle_seconds_total{cpu}` — thermal throttle, если есть
 - `cpu_cstate_seconds_total{cpu,state}`, `cpu_cstate_usage_total{cpu,state}`, `cpu_cstate_disabled{cpu,state}` — C-state'ы Linux cpuidle из `/sys/devices/system/cpu/cpuN/cpuidle/stateM/` (`time` мкс → секунды, `usage`, `disable`). Нет каталога `cpuidle` (часто VM/контейнер) — skip. Драйвер/governor: `cpu_cstate_driver{driver}`, `cpu_cstate_governor{governor}`
@@ -96,13 +110,13 @@ zram_bytes{stat="compr_data_size"}
 
 - Метрика uptime хоста — `system_uptime_seconds`.
 - Семейства IPMI-метрик экспортируются в lowercase snake_case (`ipmi_*`) для согласованности с Prometheus naming.
-- `interface_address` пропускает интерфейсы, чьё имя начинается с `veth` (тот же 4-символьный префикс, что у `if_stat` / `link_status`). Это снижает churn series Docker container veth. `iface_num` по-прежнему считает все интерфейсы, возвращаемые ОС.
+- `interface_address` пропускает интерфейсы, чьё имя начинается с `veth` (тот же 4-символьный префикс, что у `if_receive_*` / `if_transmit_*` / `link_status`). Это снижает churn series Docker container veth. `network_interfaces` по-прежнему считает все интерфейсы, возвращаемые ОС.
 
 
 ## disk
 Включает мониторинг disk-метрик, включая статистику файловых систем и I/O блочных устройств.
 
-Из scrape `disk`: `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM volume'ы (`/sys/block/dm-*/dm/uuid` начинается с `LVM-`). `disk_usage_bytes` включает mount'ы с fstype `zfs`.
+Из scrape `disk`: `lvm_lv_size_bytes{vg,lv,device}`, `lvm_lv_suspended{vg,lv,device}` — LVM volume'ы (`/sys/block/dm-*/dm/uuid` начинается с `LVM-`). NVMe SMART (время в секундах): `nvme_data_transferred_bytes_total`, `nvme_commands_total`, `nvme_controller_busy_seconds_total`, `nvme_power_on_seconds_total`, `nvme_power_cycles_total`, `nvme_power_cycles_unsafe_total`, `nvme_errors_total`, `nvme_temperature_over_threshold_seconds_total` и temperature/spare gauges. `disk_usage_bytes` включает mount'ы с fstype `zfs`.
 
 
 ## nfs
@@ -162,10 +176,18 @@ system {
 Качество WEXT остаётся в `wireless_*` при `network`. В режиме AP cardinality растёт с числом клиентов (cap 256 станций на iface). Тестовый dump: `{procfs}/net/nl80211_dump`.
 
 
+## ethtool
+Опциональная статистика NIC (высокая кардинальность — не через `network`):
+
+- `ethtool_std_stat_total{ifname,group,stat}` — IEEE/RMON через genetlink
+- `ethtool_rmon_bucket_packets_total{ifname,direction,bucket_low,bucket_hi}`
+- `ethtool_driver_stat_total{ifname,stat}` — driver counters (`ethtool -S`)
+
+
 ## network
 Включает мониторинг сетевых интерфейсов и статистики сокетов.
 
-`socket_stat` включает и собственные listen-сокеты alligator. Для aggregate `udp://` без `bind_address` ОС выдаёт эфемерные source ports, и кардинальность растёт с каждым scrape. Лучше задавать явный порт (например `bind_address=1112`); см. [aggregate — bind_address](aggregate.md#bind_address).
+`socket_listening` включает и собственные listen-сокеты alligator. Для aggregate `udp://` без `bind_address` ОС выдаёт эфемерные source ports, и кардинальность растёт с каждым scrape. Лучше задавать явный порт (например `bind_address=1112`); см. [aggregate — bind_address](aggregate.md#bind_address). Глубина accept-очереди — `socket_receive_queue_length` / `socket_receive_queue_limit`.
 
 Из scrape `network`:
 
@@ -174,9 +196,9 @@ system {
 - `synproxy_stat_total{stat}` — `/proc/net/stat/synproxy`
 - `wireguard_device_listen_port{device}`, `wireguard_device_peers{device}`
 - `wireguard_peer_rx_bytes` / `wireguard_peer_tx_bytes` / `wireguard_peer_last_handshake_seconds` — Generic Netlink `WG_CMD_GET_DEVICE`
-- `wireless_quality{ifname,type}` / `wireless_discarded_total{ifname,type}` — `/proc/net/wireless` (WEXT; нет файла — skip). Трафик интерфейса остаётся в `if_stat`. SSID/bitrate/RSSI станций — опциональный [`wifi`](#wifi) (nl80211).
+- `wireless_quality{ifname,type}` / `wireless_discarded_total{ifname,type}` — `/proc/net/wireless` (WEXT; нет файла — skip). Трафик интерфейса остаётся в `if_receive_*_total` / `if_transmit_*_total`. SSID/bitrate/RSSI станций — опциональный [`wifi`](#wifi) (nl80211).
 
-`if_stat`, `if_speed_bytes` и `link_status` пропускают интерфейсы, чьё имя начинается с `veth` (эфемерные пары Docker/LXC). Тот же skip по префиксу применяется к `interface_address` из `base`. Другие имена, случайно начинающиеся с `veth` (например `vethernet`), тоже пропускаются. `if_speed_bytes` — скорость линка в байтах в секунду (на Linux Mbps из sysfs/IFLA переводятся; на macOS/FreeBSD — из `ifi_baudrate` bit/s).
+`if_receive_*_total`, `if_transmit_*_total`, `if_speed_bytes` и `link_status` пропускают интерфейсы, чьё имя начинается с `veth` (эфемерные пары Docker/LXC). Тот же skip по префиксу применяется к `interface_address` из `base`. Другие имена, случайно начинающиеся с `veth` (например `vethernet`), тоже пропускаются. `if_speed_bytes` — скорость линка в байтах в секунду (на Linux Mbps из sysfs/IFLA переводятся; на macOS/FreeBSD — из `ifi_baudrate` bit/s).
 
 
 ## process

@@ -63,6 +63,6 @@ void disks_info(void)
 	}
 
 	geom_deletetree(&mesh);
-	metric_add_auto("disk_num", &disks_num, DATATYPE_UINT, ac->system_carg);
+	metric_add_auto("disk_devices", &disks_num, DATATYPE_UINT, ac->system_carg);
 }
 #endif

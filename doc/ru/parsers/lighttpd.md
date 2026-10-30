@@ -28,7 +28,7 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="lighttpd", src_port="80"})';
+	expr 'count by (src_port, process) (socket_listening{process="lighttpd", src_port="80"})';
 	make socket_match;
 	datasource internal;
 }

@@ -57,18 +57,31 @@ When the kernel exposes PSI (`/proc/pressure/*`, Linux 4.20+), Alligator exports
 
 `irq` is Linux 6.1+ (`/proc/pressure/irq`, typically **full** only). Missing PSI files are skipped silently.
 
-From `/proc/vmstat` (full dump; existing `memory_stat` / `pgscan_total` / `pgsteal_total` stay):
+From `/proc/vmstat` (full dump; existing `pgscan_total` / `pgsteal_total` stay; `memory_stat` split into dedicated metrics):
 
 - `vmstat_pages{stat}` — current page counts (`nr_*` and `*_threshold`)
-- `vmstat_stat_total{stat}` — cumulative VM events (pgfault, THP, compact, balloon, workingset, …)
+- `vmstat_total{stat}` — cumulative VM events (pgfault, THP, compact, balloon, workingset, …)
 
-From `/proc/sys/fs` (with `open_files_system` / `max_files` from `file-nr`):
+
+Dedicated memory paging metrics (replacing `memory_stat`):
+
+- `memory_pages_in_total` / `memory_pages_out_total` — pgpgin / pgpgout
+- `memory_swap_in_total` / `memory_swap_out_total` — Linux pswpin/pswpout (and BSD pgswpin/pgswpout)
+- `memory_page_faults_total{type="minor|major"}` — pgfault / pgmajfault
+- `memory_shmem_bytes` — shmem gauge
+
+Count metrics: `cpu_cores` / `cpu_cores_cgroup` / `cpu_cores_hw`, `filesystem_mounts`, `disk_devices`, `network_interfaces`.
+Host FD metrics: `file_descriptors`, `process_open_fds_sum`, `system_open_files`, `file_pipes`, `file_sockets`.
+`oom_kills_total` (Linux), `time_seconds` (Unix timestamp).
+
+From `/proc/sys/fs` (with `system_open_files` / `max_files` from `file-nr`):
 
 - `sysctl_fs{stat}` — `inode_nr`, `inode_free_nr`, `inode_preshrink_nr`, `dentry_nr`, `dentry_unused_nr`, `dentry_age_limit`, `dentry_want_pages`, `aio_nr`, `aio_max_nr`, `dquot_nr`, `dquot_max`, `super_nr`, `super_max`
 
 From `/sys/kernel/mm/ksm` (skipped if KSM is not compiled in; non-numeric files such as `advisor_mode` are ignored):
 
-- `ksm{stat}` — gauges and tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `sleep_millisecs`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm{stat}` — gauges and tunables (`pages_shared`, `pages_sharing`, `pages_unshared`, `pages_volatile`, `run`, `pages_to_scan`, `max_page_sharing`, `merge_across_nodes`, `use_zero_pages`, `stable_node_chains`, `stable_node_dups`, `general_profit`, …)
+- `ksm_sleep_seconds` — scan sleep interval from `sleep_millisecs` (ms → seconds)
 - `ksm_stat_total{stat}` — cumulative counters (`full_scans`, `pages_scanned`)
 
 From `/sys/block/zram*` (skipped if no zram devices; missing per-device files such as `bd_stat` are skipped):
@@ -86,17 +99,17 @@ zram_bytes{stat="orig_data_size"}
 zram_bytes{stat="compr_data_size"}
 ```
 
-CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core`.
+CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core_seconds_total`.
 
 From `/proc/swaps` (per swap device):
 
 - `swap_device_bytes{device,type="size|used|free"}` — bytes
 - `swap_device_priority{device}`
 
-From `/proc/schedstat` (per CPU, host scheduler):
+From `/proc/schedstat` (per CPU, host scheduler; times converted from nanoseconds):
 
-- `schedstat_run_time_nanoseconds_total{cpu}`
-- `schedstat_runqueue_time_nanoseconds_total{cpu}`
+- `schedstat_run_seconds_total{cpu}`
+- `schedstat_runqueue_seconds_total{cpu}`
 - `schedstat_run_periods_total{cpu}`
 
 Also from `base` (fast scrape):
@@ -131,7 +144,7 @@ Metric naming notes:
 
 - Host uptime metric is `system_uptime_seconds`.
 - IPMI metric families are exposed in lowercase snake_case (`ipmi_*`) for Prometheus naming consistency.
-- `interface_address` omits interfaces whose name starts with `veth` (same 4-character prefix as `if_stat` / `link_status`). This avoids high-churn Docker container veth series. `iface_num` still counts all interfaces returned by the OS.
+- `interface_address` omits interfaces whose name starts with `veth` (same 4-character prefix as `if_receive_*` / `if_transmit_*` / `link_status`). This avoids high-churn Docker container veth series. `network_interfaces` still counts all interfaces returned by the OS.
 
 
 ## interrupts
@@ -163,13 +176,15 @@ From `disk` scrape:
 
 Slow scrape (`disk`): runtime stats when present — `xfs_stat_total{device,stat}`, `btrfs_stat_total{uuid,stat}`, `bcache_stat_total{uuid,stat}`, `tape_stat_total{device,stat}`.
 
+NVMe SMART (ioctl; times converted to seconds): `nvme_data_transferred_bytes_total`, `nvme_commands_total`, `nvme_controller_busy_seconds_total`, `nvme_power_on_seconds_total`, `nvme_power_cycles_total`, `nvme_power_cycles_unsafe_total`, `nvme_errors_total`, `nvme_temperature_over_threshold_seconds_total`, plus temperature/spare gauges (`nvme_temperature_celsius`, …).
+
 `disk_usage_bytes` / `disk_inodes` include ZFS mounts (`fstype` `zfs`) along with ext*, xfs, btrfs, and tmpfs. ARC and pool health are opt-in `system { zfs; }`.
 
 
 ## network
 Enables the monitoring of the network interfaces and sockets statistics.
 
-`socket_stat` includes alligator’s own listen sockets. For `udp://` aggregates without `bind_address`, the OS assigns ephemeral source ports, so cardinality can grow with every scrape. Prefer an explicit port (for example `bind_address=1112`); see [aggregate — bind_address](aggregate.md#bind_address).
+`socket_listening` includes alligator’s own listen sockets. For `udp://` aggregates without `bind_address`, the OS assigns ephemeral source ports, so cardinality can grow with every scrape. Prefer an explicit port (for example `bind_address=1112`); see [aggregate — bind_address](aggregate.md#bind_address). Listen accept-queue depth is `socket_receive_queue_length` / `socket_receive_queue_limit`.
 
 From `network` scrape:
 
@@ -200,9 +215,9 @@ From `/proc/net/wireless` (when present; missing file is skipped):
 - `wireless_quality{ifname,type}` — gauges: `status` (hex from the kernel, exported as int), `link`, `level` (dBm), `noise` (dBm; `-256` means the driver did not report noise)
 - `wireless_discarded_total{ifname,type}` — counters: `nwid`, `crypt`, `frag`, `retry`, `misc`, `beacon`
 
-This is Wireless Extensions (`iwconfig` / Telegraf `inputs.wireless` / Netdata `proc_net_wireless`). Interface traffic remains in `if_stat`. For SSID / bitrate / per-station RSSI see opt-in [`wifi`](#wifi) (nl80211).
+This is Wireless Extensions (`iwconfig` / Telegraf `inputs.wireless` / Netdata `proc_net_wireless`). Interface traffic remains in `if_receive_*_total` / `if_transmit_*_total`. For SSID / bitrate / per-station RSSI see opt-in [`wifi`](#wifi) (nl80211).
 
-`if_stat`, `if_speed_bytes`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted. `if_speed_bytes` is interface link speed in bytes per second (Linux sysfs/IFLA Mbps converted; macOS/FreeBSD `ifi_baudrate` bit/s converted).
+`if_receive_*_total`, `if_transmit_*_total`, `if_speed_bytes`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted. `if_speed_bytes` is interface link speed in bytes per second (Linux sysfs/IFLA Mbps converted; macOS/FreeBSD `ifi_baudrate` bit/s converted).
 
 
 ## ethtool
@@ -216,9 +231,9 @@ system {
 
 Slow scrape collects (skips `lo` and `veth*`):
 
-- `ethtool_std_stat{ifname,group,stat}` — IEEE / RMON / MAC-control groups via genetlink family `ethtool` (`ETHTOOL_MSG_STATS_GET`, Linux ~5.8+). Groups: `eth_phy`, `eth_mac`, `eth_ctrl`, `rmon`.
-- `ethtool_rmon_hist{ifname,direction,bucket_low,bucket_hi}` — RMON size histograms from the same genetlink reply.
-- `ethtool_stat{ifname,stat}` — driver-defined counters (`ethtool -S` / node_exporter `node_ethtool_*`) via classic `SIOCETHTOOL` (`ETHTOOL_GSTRINGS` + `ETHTOOL_GSTATS`). Cap 512 keys per iface.
+- `ethtool_std_stat_total{ifname,group,stat}` — IEEE / RMON / MAC-control groups via genetlink family `ethtool` (`ETHTOOL_MSG_STATS_GET`, Linux ~5.8+). Groups: `eth_phy`, `eth_mac`, `eth_ctrl`, `rmon`.
+- `ethtool_rmon_bucket_packets_total{ifname,direction,bucket_low,bucket_hi}` — RMON size histogram packet counts from the same genetlink reply.
+- `ethtool_driver_stat_total{ifname,stat}` — driver-defined counters (`ethtool -S` / node_exporter `node_ethtool_*`) via classic `SIOCETHTOOL` (`ETHTOOL_GSTRINGS` + `ETHTOOL_GSTATS`). Cap 512 keys per iface.
 
 Note: genetlink `STATS_GET` is **not** a reimplementation of ioctl `ETHTOOL_GSTATS`; both paths are collected when `ethtool` is enabled. On NICs like igb/ixgbe expect hundreds–thousands of series (per-queue / VEB / TC counters).
 

@@ -35,7 +35,7 @@ system {
 }
 
 query {
-    expr 'count by (src_port, process) (socket_stat{process="xinetd", src_port="69"})';
+    expr 'count by (src_port, process) (socket_listening{process="xinetd", src_port="69"})';
     make socket_match;
     datasource internal;
 }

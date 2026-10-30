@@ -34,8 +34,8 @@ query_period 20s;
 
 ```
 query {
-	expr 'count({__name__=~"^socket_stat"})';
-	make socket_stat_series;
+	expr 'count({__name__=~"^socket_listening"})';
+	make socket_listening_series;
 	datasource internal;
 }
 ```
@@ -106,12 +106,12 @@ query {
 ```
 query_period 20s;
 query {
-	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8085"})';
+	expr 'count by (src_port, process) (socket_listening{process="dockerd", src_port="8085"})';
 	make socket_match;
 	datasource internal;
 }
 query {
-	expr 'count by (src_port, process) (socket_stat{process="dockerd", src_port="8080"})';
+	expr 'count by (src_port, process) (socket_listening{process="dockerd", src_port="8080"})';
 	make socket_match;
 	datasource internal;
 }
@@ -138,8 +138,8 @@ query {
 
 ```
 query {
-    expr 'count({__name__=~"^socket_stat"})';
-    make socket_stat_series;
+    expr 'count({__name__=~"^socket_listening"})';
+    make socket_listening_series;
     datasource internal;
     add_label source:query;
 }

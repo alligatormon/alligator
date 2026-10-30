@@ -214,17 +214,17 @@ static void socket_recv_queue_stat_free_cb(void *funcarg, void *arg)
 		return;
 
 	if (sq->has_process) {
-		metric_add_labels7("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg,
+		metric_add_labels7("socket_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg,
 			"src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port,
 			"state", "LISTEN", "proto", sq->proto, "process", sq->process);
-		metric_add_labels7("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg,
+		metric_add_labels7("socket_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg,
 			"src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port,
 			"state", "LISTEN", "proto", sq->proto, "process", sq->process);
 	} else {
-		metric_add_labels6("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg,
+		metric_add_labels6("socket_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg,
 			"src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port,
 			"state", "LISTEN", "proto", sq->proto);
-		metric_add_labels6("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg,
+		metric_add_labels6("socket_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg,
 			"src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port,
 			"state", "LISTEN", "proto", sq->proto);
 	}
@@ -350,10 +350,10 @@ static void parse_netstat(char *proto, uint8_t pproto, alligator_ht *addr_port_u
 		if ((pproto == IPPROTO_TCP && state_id == 10) || (pproto == IPPROTO_UDP && state_id == 7)) {
 			uint64_t val = 1;
 			if (process)
-				metric_add_labels7("socket_stat", &val, DATATYPE_UINT, ac->system_carg,
+				metric_add_labels7("socket_listening", &val, DATATYPE_UINT, ac->system_carg,
 					"src", src, "src_port", srcp, "dst", dst, "dst_port", dstp, "state", "LISTEN", "proto", proto, "process", process);
 			else
-				metric_add_labels6("socket_stat", &val, DATATYPE_UINT, ac->system_carg,
+				metric_add_labels6("socket_listening", &val, DATATYPE_UINT, ac->system_carg,
 					"src", src, "src_port", srcp, "dst", dst, "dst_port", dstp, "state", "LISTEN", "proto", proto);
 
 			if (pproto == IPPROTO_TCP && state_id == 10) {

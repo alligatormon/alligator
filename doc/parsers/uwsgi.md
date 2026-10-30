@@ -45,7 +45,7 @@ system {
 }
 
 query {
-	expr 'count by (src_port, process) (socket_stat{process="uwsgi", src_port="9090"})';
+	expr 'count by (src_port, process) (socket_listening{process="uwsgi", src_port="9090"})';
 	make socket_match;
 	datasource internal;
 }

@@ -414,7 +414,7 @@ void get_mem(int8_t platform)
 		if (!strncmp(key, "nr_", 3) || strstr(key, "_threshold"))
 			metric_add_labels("vmstat_pages", &ival, DATATYPE_INT, ac->system_carg, "stat", key);
 		else
-			metric_add_labels("vmstat_stat_total", &ival, DATATYPE_INT, ac->system_carg, "stat", key);
+			metric_add_labels("vmstat_total", &ival, DATATYPE_INT, ac->system_carg, "stat", key);
 
 		if (!strcmp(key, "pgpgin"))
 			pgpgin = ival;
@@ -427,9 +427,9 @@ void get_mem(int8_t platform)
 		else if (!strcmp(key, "oom_kill"))
 			oom_kill = ival;
 		else if (is_bm_vm && !strcmp(key, "pswpin"))
-			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpin");
+			metric_add_auto("memory_swap_in_total", &ival, DATATYPE_INT, ac->system_carg);
 		else if (is_bm_vm && !strcmp(key, "pswpout"))
-			metric_add_labels("memory_stat", &ival, DATATYPE_INT, ac->system_carg, "type", "pswpout");
+			metric_add_auto("memory_swap_out_total", &ival, DATATYPE_INT, ac->system_carg);
 		else if (is_bm_vm && !strncmp(key, "numa_", 5))
 			metric_add_labels("numa_stat", &ival, DATATYPE_INT, ac->system_carg, "type", key+5);
 		else if (is_bm_vm && !strncmp(key, "pgscan_", 7))
@@ -538,13 +538,13 @@ void get_mem(int8_t platform)
 	metric_add_labels("memory_usage_bytes", &active_anon, DATATYPE_INT, ac->system_carg, "type", "active_anon");
 	metric_add_labels("memory_usage_bytes", &active_file, DATATYPE_INT, ac->system_carg, "type", "active_file");
 	metric_add_labels("memory_usage_bytes", &inactive_file, DATATYPE_INT, ac->system_carg, "type", "inactive_file");
-	metric_add_labels("memory_stat", &pgpgin, DATATYPE_INT, ac->system_carg, "type", "pgpgin");
-	metric_add_labels("memory_stat", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", "pgmajfault");
-	metric_add_labels("memory_stat", &pgfault, DATATYPE_INT, ac->system_carg, "type", "pgfault");
+	metric_add_auto("memory_pages_in_total", &pgpgin, DATATYPE_INT, ac->system_carg);
+	metric_add_auto("memory_pages_out_total", &pgpgout, DATATYPE_INT, ac->system_carg);
+	metric_add_labels("memory_page_faults_total", &pgfault, DATATYPE_INT, ac->system_carg, "type", "minor");
+	metric_add_labels("memory_page_faults_total", &pgmajfault, DATATYPE_INT, ac->system_carg, "type", "major");
 	metric_add_auto("vm_faults_total", &pgfault, DATATYPE_INT, ac->system_carg);
 	metric_add_auto("io_faults_total", &pgmajfault, DATATYPE_INT, ac->system_carg);
-	metric_add_labels("memory_stat", &pgpgout, DATATYPE_INT, ac->system_carg, "type", "pgpgout");
-	metric_add_labels("memory_stat", &shmem, DATATYPE_INT, ac->system_carg, "type", "shmem");
+	metric_add_auto("memory_shmem_bytes", &shmem, DATATYPE_INT, ac->system_carg);
 
 	inactive = inactive_file+inactive_anon;
 	active = active_file+active_anon;
@@ -574,7 +574,7 @@ void get_mem(int8_t platform)
 				oom_kill = strtoll(tmp2, NULL, 10);
 			}
 		}
-		metric_add_auto("oom_kill", &oom_kill, DATATYPE_INT, ac->system_carg);
+		metric_add_auto("oom_kills_total", &oom_kill, DATATYPE_INT, ac->system_carg);
 
 		fclose(fd);
 	}
@@ -735,7 +735,7 @@ void get_nofile_stat()
 		system_scrape_fopen_fail(filenr, 0);
 	} else {
 		if (n >= 1)
-			metric_add_auto("open_files_system", &fields[0], DATATYPE_INT, ac->system_carg);
+			metric_add_auto("system_open_files", &fields[0], DATATYPE_INT, ac->system_carg);
 		if (n >= 3)
 			metric_add_auto("max_files", &fields[2], DATATYPE_INT, ac->system_carg);
 	}

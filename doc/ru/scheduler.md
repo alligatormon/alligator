@@ -41,7 +41,7 @@ scheduler {
 ```
 expr '{__name__=~"^x509_cert_"}';
 expr '{__name__!~"^cpu_"}';
-expr 'count({__name__=~"^socket_stat"})';
+expr 'count({__name__=~"^socket_listening"})';
 ```
 
 Метки `=~` / `!~` для ключей, отличных от `__name__`, игнорируются. `x509_cert_.*` как голый идентификатор — это буквальное имя, а не regex.
