@@ -351,7 +351,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "sysctl_data", METRIC_TYPE_GAUGE, "Kernel sysctl value by sysctl name label.");
 	namespace_metric_family_set(NULL, carg, "socket_counters", METRIC_TYPE_GAUGE, "Socket counters by protocol/state labels.");
 	namespace_metric_family_set(NULL, carg, "socket_match", METRIC_TYPE_GAUGE, "Socket match flag by selector labels.");
-	namespace_metric_family_set(NULL, carg, "socket_listening", METRIC_TYPE_GAUGE, "Listening socket presence (value 1) by protocol/address/process labels.");
+	namespace_metric_family_set(NULL, carg, "socket_stat", METRIC_TYPE_GAUGE, "Listening socket presence (value 1) by protocol/address/process labels.");
 	namespace_metric_family_set(NULL, carg, "socket_receive_queue_length", METRIC_TYPE_GAUGE, "Socket receive queue current length by socket labels.");
 	namespace_metric_family_set(NULL, carg, "socket_receive_queue_limit", METRIC_TYPE_GAUGE, "Socket receive queue limit by socket labels.");
 

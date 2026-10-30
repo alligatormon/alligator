@@ -2237,10 +2237,10 @@ static void test_promql_name_regex_parser(void)
     assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
     query_context_free(mqc);
 
-    mqc = promql_parser(NULL, "count({__name__=~\"^socket_listening\"})", strlen("count({__name__=~\"^socket_listening\"})"));
+    mqc = promql_parser(NULL, "count({__name__=~\"^socket_stat\"})", strlen("count({__name__=~\"^socket_stat\"})"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, QUERY_FUNC_COUNT, mqc->func);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^socket_listening", mqc->name_regex);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^socket_stat", mqc->name_regex);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->name_re);
     query_context_free(mqc);
 

@@ -2,12 +2,12 @@
 #include "query/promql.h"
 #include "common/selector.h"
 
-#define QUERY_STR_TEST_1 " sum      (socket_listening {state=\"listen\", proto=\"tcp\", src=\"0.0.0.0\", process=\"alligator\", src_port=\"1111\", dst=\"0.0.0.0\"})"
-#define QUERY_EXPECT_TEST_1 "socket_listening"
+#define QUERY_STR_TEST_1 " sum      (socket_stat {state=\"listen\", proto=\"tcp\", src=\"0.0.0.0\", process=\"alligator\", src_port=\"1111\", dst=\"0.0.0.0\"})"
+#define QUERY_EXPECT_TEST_1 "socket_stat"
 #define QUERY_FUNC_TEST_1 QUERY_FUNC_SUM
 
-#define QUERY_STR_TEST_2 "sum(socket_listening {state=\"listen\", proto=\"tcp\", src=\"0.0.0.0\", process=\"alligator\", src_port=\"1111\", dst=\"0.0.0.0\"})"
-#define QUERY_EXPECT_TEST_2 "socket_listening"
+#define QUERY_STR_TEST_2 "sum(socket_stat {state=\"listen\", proto=\"tcp\", src=\"0.0.0.0\", process=\"alligator\", src_port=\"1111\", dst=\"0.0.0.0\"})"
+#define QUERY_EXPECT_TEST_2 "socket_stat"
 #define QUERY_FUNC_TEST_2 QUERY_FUNC_SUM
 
 #define QUERY_STR_TEST_3 "count( 	  metric_name	 {  state=\"listen\", proto=\"tcp\", src=\"0.0.0.0\", process=\"alligator\", src_port=\"1111\", dst=\"0.0.0.0\"})"
@@ -18,16 +18,16 @@
 #define QUERY_EXPECT_TEST_4 "metric_name"
 #define QUERY_FUNC_TEST_4 QUERY_FUNC_COUNT
 
-#define QUERY_STR_TEST_5 "sum by (src_port) (socket_listening)"
-#define QUERY_EXPECT_TEST_5 "socket_listening"
+#define QUERY_STR_TEST_5 "sum by (src_port) (socket_stat)"
+#define QUERY_EXPECT_TEST_5 "socket_stat"
 #define QUERY_FUNC_TEST_5 QUERY_FUNC_SUM
 
-#define QUERY_STR_TEST_6 "avg by (src_port) (socket_listening)"
-#define QUERY_EXPECT_TEST_6 "socket_listening"
+#define QUERY_STR_TEST_6 "avg by (src_port) (socket_stat)"
+#define QUERY_EXPECT_TEST_6 "socket_stat"
 #define QUERY_FUNC_TEST_6 QUERY_FUNC_AVG
 
-#define QUERY_STR_TEST_7 "present(socket_listening)"
-#define QUERY_EXPECT_TEST_7 "socket_listening"
+#define QUERY_STR_TEST_7 "present(socket_stat)"
+#define QUERY_EXPECT_TEST_7 "socket_stat"
 #define QUERY_FUNC_TEST_7 QUERY_FUNC_PRESENT
 
 #define QUERY_STR_TEST_8 "sum (network_stat_total) by (proto)"

@@ -12,7 +12,7 @@ void api_test_query_1() {
     query_ds* qds;
     query_node *qn;
 	char *config = "{\"query\": [ \
-			{ \"make\": \"socket_match\", \"expr\": \"count by (src_port, process) (socket_listening{process=\\\"nginx\\\", src_port=\\\"80\\\"})\", \"datasource\": \"internal\", \"action\": \"run-test\", \"ns\": \"default\"}, \
+			{ \"make\": \"socket_match\", \"expr\": \"count by (src_port, process) (socket_stat{process=\\\"nginx\\\", src_port=\\\"80\\\"})\", \"datasource\": \"internal\", \"action\": \"run-test\", \"ns\": \"default\"}, \
 			{ \"make\": \"external-sql\", \"expr\": \"SELECT now() - pg_last_xact_replay_timestamp() AS replication_delay\", \"datasource\": \"pg\", \"fields\": [\"replication_delay\"], \"ns\": \"postgres\"}, \
 			{ \"make\": \"external-kv\", \"expr\": \"MGET veigieMu ohThozoo ahPhouca\", \"datasource\": \"redis\", \"ns\": \"0\"} \
 		] \
