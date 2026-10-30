@@ -238,7 +238,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "nfs_mount_transport_max_slots", METRIC_TYPE_GAUGE, "Maximum simultaneous NFS RPC slots used on a mount transport.");
 	namespace_metric_family_set(NULL, carg, "nfs_mount_ops_total", METRIC_TYPE_COUNTER, "NFS per-operation request/transmission/byte/error counters from mountstats.");
 	namespace_metric_family_set(NULL, carg, "nfs_mount_ops_seconds_total", METRIC_TYPE_COUNTER, "NFS per-operation cumulative queue/RTT/execute time in seconds from mountstats.");
-	namespace_metric_family_set(NULL, carg, "if_speed", METRIC_TYPE_GAUGE, "Network interface speed.");
+	namespace_metric_family_set(NULL, carg, "if_speed_bytes", METRIC_TYPE_GAUGE, "Network interface speed in bytes per second.");
 	namespace_metric_family_set(NULL, carg, "if_up", METRIC_TYPE_GAUGE, "Network interface administrative state.");
 	namespace_metric_family_set(NULL, carg, "if_duplex", METRIC_TYPE_GAUGE, "Network interface duplex mode marker.");
 	namespace_metric_family_set(NULL, carg, "link_status", METRIC_TYPE_GAUGE, "Network interface link state.");

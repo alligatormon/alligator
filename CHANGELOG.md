@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- `if_speed` renamed to `if_speed_bytes` (bytes/s on all platforms): Linux Mbps from IFLA_SPEED/sysfs × 125000; macOS/FreeBSD `ifi_baudrate` bit/s ÷ 8. Zero/unknown speeds are omitted.
 - Linux: export every `/proc/meminfo` field as `memory_usage_bytes` / `memory_usage_hw_bytes` `type` (snake_case; stable aliases keep `total`/`free`/`available`/`cache`/`active_anon`/…/`kreclaimable`/`pagetables`). Derived `usage` / `swap_usage` unchanged. Fix `Active(file)` / `Inactive(file)` hw labels. Dedicated `hugepages_*` / `anon_hugepages_bytes` metrics remain.
 - Fix: `cluster_sync_handler` / `str_get_next` no longer burn 100% CPU on multi‑MB `/oplog` bodies. OpenBSD-style `strlcpy` rescanned the whole buffer after every field; parsing now uses `memcpy`. Oversized lines (`>=4096`) are skipped instead of applying a truncated type/value.
 - Cluster oplog sync: each `/oplog` shift/get returns at most 1 MiB; leftover entries stay for the next sync so the peer uv loop is not stuck applying a full `size=1e5` ring in one shot.

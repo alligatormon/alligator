@@ -579,8 +579,8 @@ void get_iface_statistics(void)
 		metric_add_labels2("if_stat", &noproto, DATATYPE_INT, ac->system_carg, "ifname", (char *)ifa->ifa_name, "type", "noproto");
 
 		if (ifd->ifi_baudrate > 0) {
-			int64_t speed = (int64_t)ifd->ifi_baudrate;
-			metric_add_labels("if_speed", &speed, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
+			int64_t speed = (int64_t)(ifd->ifi_baudrate / 8); /* bit/s → bytes/s */
+			metric_add_labels("if_speed_bytes", &speed, DATATYPE_INT, ac->system_carg, "ifname", ifa->ifa_name);
 		}
 	}
 	freeifaddrs(ifap);

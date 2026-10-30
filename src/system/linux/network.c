@@ -109,8 +109,11 @@ void network_if_stats_emit_system(const network_if_stats *st, context_arg *carg)
 	v = (int64_t)st->tx_carrier_errors; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_carrier");
 	v = (int64_t)st->tx_compressed; metric_add_labels2("if_stat", &v, DATATYPE_INT, carg, "ifname", ifname, "type", "transmit_compressed");
 
-	v = st->speed;
-	metric_add_labels("if_speed", &v, DATATYPE_INT, carg, "ifname", ifname);
+	/* st->speed is Mbps (IFLA_SPEED or sysfs class/net/<if>/speed). */
+	if (st->speed > 0) {
+		v = st->speed * 125000LL; /* Mbps → bytes/s */
+		metric_add_labels("if_speed_bytes", &v, DATATYPE_INT, carg, "ifname", ifname);
+	}
 }
 
 typedef struct network_netlink_ctx {

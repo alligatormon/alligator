@@ -202,7 +202,7 @@ From `/proc/net/wireless` (when present; missing file is skipped):
 
 This is Wireless Extensions (`iwconfig` / Telegraf `inputs.wireless` / Netdata `proc_net_wireless`). Interface traffic remains in `if_stat`. For SSID / bitrate / per-station RSSI see opt-in [`wifi`](#wifi) (nl80211).
 
-`if_stat`, `if_speed`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted.
+`if_stat`, `if_speed_bytes`, and `link_status` omit interfaces whose name starts with `veth` (Docker/LXC ephemeral pairs). The same prefix skip is applied to `interface_address` from `base`. Other names that happen to start with `veth` (for example `vethernet`) are also omitted. `if_speed_bytes` is interface link speed in bytes per second (Linux sysfs/IFLA Mbps converted; macOS/FreeBSD `ifi_baudrate` bit/s converted).
 
 
 ## ethtool

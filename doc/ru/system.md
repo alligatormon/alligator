@@ -176,7 +176,7 @@ system {
 - `wireguard_peer_rx_bytes` / `wireguard_peer_tx_bytes` / `wireguard_peer_last_handshake_seconds` — Generic Netlink `WG_CMD_GET_DEVICE`
 - `wireless_quality{ifname,type}` / `wireless_discarded_total{ifname,type}` — `/proc/net/wireless` (WEXT; нет файла — skip). Трафик интерфейса остаётся в `if_stat`. SSID/bitrate/RSSI станций — опциональный [`wifi`](#wifi) (nl80211).
 
-`if_stat`, `if_speed` и `link_status` пропускают интерфейсы, чьё имя начинается с `veth` (эфемерные пары Docker/LXC). Тот же skip по префиксу применяется к `interface_address` из `base`. Другие имена, случайно начинающиеся с `veth` (например `vethernet`), тоже пропускаются.
+`if_stat`, `if_speed_bytes` и `link_status` пропускают интерфейсы, чьё имя начинается с `veth` (эфемерные пары Docker/LXC). Тот же skip по префиксу применяется к `interface_address` из `base`. Другие имена, случайно начинающиеся с `veth` (например `vethernet`), тоже пропускаются. `if_speed_bytes` — скорость линка в байтах в секунду (на Linux Mbps из sysfs/IFLA переводятся; на macOS/FreeBSD — из `ifi_baudrate` bit/s).
 
 
 ## process
