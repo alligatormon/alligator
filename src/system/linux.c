@@ -193,6 +193,71 @@ static int linux_proc_kv_split(char *tmp, char *key, size_t keysz, char *val, si
 	return 1;
 }
 
+/* Map /proc/meminfo key → memory_usage_* type label. Keep stable aliases for
+ * names already scraped in the wild; everything else becomes snake_case. */
+static void meminfo_key_to_type(const char *key, char *out, size_t outsz)
+{
+	static const struct { const char *from; const char *to; } aliases[] = {
+		{ "MemTotal", "total" },
+		{ "MemFree", "free" },
+		{ "MemAvailable", "available" },
+		{ "Cached", "cache" },
+		{ "SwapTotal", "swap_total" },
+		{ "SwapFree", "swap_free" },
+		{ "Active(anon)", "active_anon" },
+		{ "Inactive(anon)", "inactive_anon" },
+		{ "Active(file)", "active_file" },
+		{ "Inactive(file)", "inactive_file" },
+		{ "KReclaimable", "kreclaimable" },
+		{ "SReclaimable", "sreclaimable" },
+		{ "SUnreclaim", "sunreclaim" },
+		{ "KernelStack", "kernel_stack" },
+		{ "PageTables", "pagetables" },
+		{ "AnonHugePages", "anon_hugepages" },
+		{ "Hugepagesize", "hugepagesize" },
+		{ NULL, NULL }
+	};
+	size_t i;
+
+	for (i = 0; aliases[i].from; i++) {
+		if (!strcmp(key, aliases[i].from)) {
+			strlcpy(out, aliases[i].to, outsz);
+			return;
+		}
+	}
+
+	size_t oi = 0;
+	for (i = 0; key[i] && oi + 1 < outsz; i++) {
+		unsigned char c = (unsigned char)key[i];
+		if (c == '(') {
+			if (oi && out[oi - 1] != '_')
+				out[oi++] = '_';
+			continue;
+		}
+		if (c == ')')
+			continue;
+		if (c == '_') {
+			if (oi && out[oi - 1] != '_')
+				out[oi++] = '_';
+			continue;
+		}
+		if (isupper(c)) {
+			if (oi && out[oi - 1] != '_') {
+				unsigned char prev = (unsigned char)key[i - 1];
+				unsigned char next = (unsigned char)key[i + 1];
+				if (islower(prev) || isdigit(prev) || (isupper(prev) && next && islower(next)))
+					out[oi++] = '_';
+			}
+			if (oi + 1 >= outsz)
+				break;
+			out[oi++] = (char)tolower(c);
+		} else {
+			out[oi++] = (char)c;
+		}
+	}
+	out[oi] = 0;
+}
+
 
 void get_mem(int8_t platform)
 {
@@ -218,7 +283,6 @@ void get_mem(int8_t platform)
 	int64_t totalswap = 1;
 	int64_t freeswap = 1;
 	int64_t memtotal = 0;
-	//int64_t memfree = 0;
 	int64_t memavailable = 0;
 	int64_t inactive_anon = 0;
 	int64_t active_anon = 0;
@@ -244,102 +308,61 @@ void get_mem(int8_t platform)
 		if (strstr(tmp, "kB"))
 			ival *= 1024;
 
-		if	( !strcmp(key, "MemTotal") ) {
-			strlcpy(key_map, "total", 6);
+		meminfo_key_to_type(key, key_map, sizeof(key_map));
+		if (!key_map[0])
+			continue;
+
+		if (!strcmp(key, "MemTotal"))
 			memtotal = ival;
-		}
-		//else if ( !strcmp(key, "MemFree") ) {
-		//	strlcpy(key_map, "free", 5);
-		//	memfree = ival;
-		//}
-		else if ( !strcmp(key, "MemAvailable") ) {
-			strlcpy(key_map, "available", sizeof(key_map));
+		else if (!strcmp(key, "MemAvailable"))
 			memavailable = ival;
-		}
-		else if ( !strcmp(key, "Inactive") ) {
-			strlcpy(key_map, "inactive", sizeof(key_map));
+		else if (!strcmp(key, "Inactive"))
 			inactive = ival;
-		}
-		else if ( !strcmp(key, "Active") ) {
-			strlcpy(key_map, "active", sizeof(key_map));
+		else if (!strcmp(key, "Active"))
 			active = ival;
-		}
-		else if ( !strcmp(key, "Inactive(anon)") ) {
-			strlcpy(key_map, "inactive_anon", sizeof(key_map));
+		else if (!strcmp(key, "Inactive(anon)"))
 			inactive_anon = ival;
-		}
-		else if ( !strcmp(key, "Active(anon)") ) {
-			strlcpy(key_map, "active_anon", sizeof(key_map));
+		else if (!strcmp(key, "Active(anon)"))
 			active_anon = ival;
-		}
-		else if ( !strcmp(key, "Inactive(file)") ) {
-			strlcpy(key_map, "inactive_anon", sizeof(key_map));
+		else if (!strcmp(key, "Inactive(file)"))
 			inactive_file = ival;
-		}
-		else if ( !strcmp(key, "Active(file)") ) {
-			strlcpy(key_map, "active_anon", sizeof(key_map));
+		else if (!strcmp(key, "Active(file)"))
 			active_file = ival;
-		}
-		else if ( !strcmp(key, "SwapTotal") ) {
-			strlcpy(key_map, "swap_total", sizeof(key_map));
+		else if (!strcmp(key, "SwapTotal"))
 			totalswap = ival;
-		}
-		else if ( !strcmp(key, "SwapFree") ) {
-			strlcpy(key_map, "swap_free", sizeof(key_map));
+		else if (!strcmp(key, "SwapFree"))
 			freeswap = ival;
-		}
-		else if ( !strcmp(key, "Buffers") ) {
-			strlcpy(key_map, "buffers", sizeof(key_map));
-		}
-		else if ( !strcmp(key, "Cached") ) {
-			strlcpy(key_map, "cache", sizeof(key_map));
+		else if (!strcmp(key, "Cached"))
 			cache = ival;
-		}
-		else if ( !strcmp(key, "Mapped") ) {
-			strlcpy(key_map, "mapped", sizeof(key_map));
+		else if (!strcmp(key, "Mapped"))
 			mapped = ival;
-		}
-		else if ( !strcmp(key, "Unevictable") ) {
-			strlcpy(key_map, "unevictable", sizeof(key_map));
+		else if (!strcmp(key, "Unevictable"))
 			unevictable = ival;
-		}
-		else if ( !strcmp(key, "Shmem") ) {
-			strlcpy(key_map, "shmem", sizeof(key_map));
+		else if (!strcmp(key, "Shmem"))
 			shmem = ival;
-		}
-		else if ( !strcmp(key, "HugePages_Total") ) {
+		else if (!strcmp(key, "Dirty"))
+			dirty = ival;
+		else if (!strcmp(key, "HugePages_Total"))
 			metric_add_auto("hugepages_total", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else if ( !strcmp(key, "HugePages_Free") ) {
+		else if (!strcmp(key, "HugePages_Free"))
 			metric_add_auto("hugepages_free", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else if ( !strcmp(key, "HugePages_Rsvd") ) {
+		else if (!strcmp(key, "HugePages_Rsvd"))
 			metric_add_auto("hugepages_rsvd", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else if ( !strcmp(key, "HugePages_Surp") ) {
+		else if (!strcmp(key, "HugePages_Surp"))
 			metric_add_auto("hugepages_surp", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else if ( !strcmp(key, "Hugepagesize") ) {
+		else if (!strcmp(key, "Hugepagesize"))
 			metric_add_auto("hugepages_size_bytes", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else if ( !strcmp(key, "AnonHugePages") ) {
+		else if (!strcmp(key, "AnonHugePages"))
 			metric_add_auto("anon_hugepages_bytes", &ival, DATATYPE_INT, ac->system_carg);
-			continue;
-		}
-		else	continue;
 
 		metric_add_labels("memory_usage_hw_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
+		metric_add_labels("memory_usage_bytes", &ival, DATATYPE_INT, ac->system_carg, "type", key_map);
 	}
 	int64_t usageswap = totalswap - freeswap;
 	int64_t usagemem = memtotal - memavailable;
 	metric_add_labels("memory_usage_hw_bytes", &usageswap, DATATYPE_INT, ac->system_carg, "type", "swap_usage");
 	metric_add_labels("memory_usage_hw_bytes", &usagemem, DATATYPE_INT, ac->system_carg, "type", "usage");
-	
+
 	fclose(fd);
 
 	{
@@ -506,6 +529,7 @@ void get_mem(int8_t platform)
 	}
 	fclose(fd);
 
+	/* Re-emit fields that cgroup may override; others already came from meminfo. */
 	metric_add_labels("memory_usage_bytes", &cache, DATATYPE_INT, ac->system_carg, "type", "cache");
 	metric_add_labels("memory_usage_bytes", &mapped, DATATYPE_INT, ac->system_carg, "type", "mapped");
 	metric_add_labels("memory_usage_bytes", &dirty, DATATYPE_INT, ac->system_carg, "type", "dirty");

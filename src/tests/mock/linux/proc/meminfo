@@ -14,16 +14,20 @@ Unevictable:           0 kB
 Mlocked:               0 kB
 SwapTotal:       1048572 kB
 SwapFree:         829436 kB
+Zswap:                 0 kB
+Zswapped:              0 kB
 Dirty:                40 kB
 Writeback:             0 kB
 AnonPages:        357316 kB
 Mapped:            77744 kB
 Shmem:               492 kB
+KReclaimable:      48000 kB
 Slab:              81152 kB
 SReclaimable:      47452 kB
 SUnreclaim:        33700 kB
 KernelStack:       10816 kB
 PageTables:         5436 kB
+SecPageTables:         0 kB
 NFS_Unstable:          0 kB
 Bounce:                0 kB
 WritebackTmp:          0 kB
@@ -33,9 +37,15 @@ VmallocTotal:   34359738367 kB
 VmallocUsed:           0 kB
 VmallocChunk:          0 kB
 Percpu:            11008 kB
+HardwareCorrupted:     0 kB
 AnonHugePages:      2048 kB
 ShmemHugePages:        0 kB
 ShmemPmdMapped:        0 kB
+FileHugePages:         0 kB
+FilePmdMapped:         0 kB
+CmaTotal:              0 kB
+CmaFree:               0 kB
+Unaccepted:            0 kB
 HugePages_Total:       8
 HugePages_Free:        6
 HugePages_Rsvd:        1
