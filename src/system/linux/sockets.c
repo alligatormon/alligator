@@ -105,13 +105,13 @@ void socket_recv_queue_stat_free(void *funcarg, void* arg)
 
 	if (sq->has_process)
 	{
-		metric_add_labels7("socket_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
-		metric_add_labels7("socket_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
+		metric_add_labels7("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
+		metric_add_labels7("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto, "process", sq->process);
 	}
 	else
 	{
-		metric_add_labels6("socket_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
-		metric_add_labels6("socket_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
+		metric_add_labels6("socket_stat_receive_queue_length", &sq->recv_queue_length, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
+		metric_add_labels6("socket_stat_receive_queue_limit", &sq->listen_backlog, DATATYPE_UINT, ac->system_carg, "src", sq->src, "src_port", sq->src_port, "dst", sq->dst, "dst_port", sq->dst_port, "state", "LISTEN", "proto", sq->proto);
 	}
 
 	free(sq->key);

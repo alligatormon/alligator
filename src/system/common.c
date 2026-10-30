@@ -352,8 +352,8 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "socket_counters", METRIC_TYPE_GAUGE, "Socket counters by protocol/state labels.");
 	namespace_metric_family_set(NULL, carg, "socket_match", METRIC_TYPE_GAUGE, "Socket match flag by selector labels.");
 	namespace_metric_family_set(NULL, carg, "socket_stat", METRIC_TYPE_GAUGE, "Listening socket presence (value 1) by protocol/address/process labels.");
-	namespace_metric_family_set(NULL, carg, "socket_receive_queue_length", METRIC_TYPE_GAUGE, "Socket receive queue current length by socket labels.");
-	namespace_metric_family_set(NULL, carg, "socket_receive_queue_limit", METRIC_TYPE_GAUGE, "Socket receive queue limit by socket labels.");
+	namespace_metric_family_set(NULL, carg, "socket_stat_receive_queue_length", METRIC_TYPE_GAUGE, "Socket receive queue current length by socket labels.");
+	namespace_metric_family_set(NULL, carg, "socket_stat_receive_queue_limit", METRIC_TYPE_GAUGE, "Socket receive queue limit by socket labels.");
 
 	/* IPMI families. */
 	namespace_metric_family_set(NULL, carg, "ipmi_last_power_event", METRIC_TYPE_GAUGE, "IPMI chassis last power event state marker.");
