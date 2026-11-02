@@ -1227,9 +1227,13 @@ void system_test(char *binary) {
 #else
     metric_test_run(CMP_GREATER, "process_match", "process_match", -1);
 #endif
-    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"user\"}", "cpu_usage_time", 0);
-    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"softirq\"}", "cpu_usage_time", 0);
-    metric_test_run(CMP_GREATER, "cpu_usage_time{type=\"idle\"}", "cpu_usage_time", 0);
+    metric_test_run(CMP_GREATER, "cpu_time_seconds_total{type=\"user\"}", "cpu_time_seconds_total", 0);
+#ifdef __linux__
+    metric_test_run(CMP_GREATER, "cpu_time_seconds_total{type=\"softirq\"}", "cpu_time_seconds_total", 0);
+#endif
+    metric_test_run(CMP_GREATER, "cpu_time_seconds_total{type=\"idle\"}", "cpu_time_seconds_total", 0);
+    metric_test_run(CMP_GREATER, "cpu_time_core_seconds_total{type=\"user\"}", "cpu_time_core_seconds_total", 0);
+    metric_test_run(CMP_GREATER, "cpu_time_core_seconds_total{type=\"idle\"}", "cpu_time_core_seconds_total", 0);
     metric_test_run(CMP_GREATER, "cpu_cores", "cpu_cores", 0);
 
     metric_test_run(CMP_EQUAL, "amdgpu_gpu_count", "amdgpu_gpu_count", 1);

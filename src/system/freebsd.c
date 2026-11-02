@@ -612,11 +612,11 @@ void get_cpu(void)
 			intr_sec = cp_ticks_to_seconds(t_intr);
 			idle_sec = cp_ticks_to_seconds(t_idle);
 
-			metric_add_labels2("cpu_usage_core_seconds_total", &user_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
-			metric_add_labels2("cpu_usage_core_seconds_total", &system_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
-			metric_add_labels2("cpu_usage_core_seconds_total", &nice_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
-			metric_add_labels2("cpu_usage_core_seconds_total", &intr_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "intr");
-			metric_add_labels2("cpu_usage_core_seconds_total", &idle_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
+			metric_add_labels2("cpu_time_core_seconds_total", &user_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "user");
+			metric_add_labels2("cpu_time_core_seconds_total", &system_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "system");
+			metric_add_labels2("cpu_time_core_seconds_total", &nice_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "nice");
+			metric_add_labels2("cpu_time_core_seconds_total", &intr_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "intr");
+			metric_add_labels2("cpu_time_core_seconds_total", &idle_sec, DATATYPE_DOUBLE, ac->system_carg, "cpu", cpuname, "type", "idle");
 
 			total_user += t_user;
 			total_nice += t_nice;
@@ -639,11 +639,11 @@ void get_cpu(void)
 		double agg_intr = cp_ticks_to_seconds(total_intr);
 		double agg_idle = cp_ticks_to_seconds(total_idle);
 
-		metric_add_labels("cpu_usage_time", &agg_user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-		metric_add_labels("cpu_usage_time", &agg_system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-		metric_add_labels("cpu_usage_time", &agg_nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
-		metric_add_labels("cpu_usage_time", &agg_intr, DATATYPE_DOUBLE, ac->system_carg, "type", "intr");
-		metric_add_labels("cpu_usage_time", &agg_idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+		metric_add_labels("cpu_time_seconds_total", &agg_user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_time_seconds_total", &agg_system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_time_seconds_total", &agg_nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+		metric_add_labels("cpu_time_seconds_total", &agg_intr, DATATYPE_DOUBLE, ac->system_carg, "type", "intr");
+		metric_add_labels("cpu_time_seconds_total", &agg_idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 	}
 
 	{

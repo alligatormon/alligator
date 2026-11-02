@@ -99,7 +99,7 @@ zram_bytes{stat="orig_data_size"}
 zram_bytes{stat="compr_data_size"}
 ```
 
-CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_usage_time` / `cpu_usage_core_seconds_total`.
+CPU time from `/proc/stat` includes modes `user`, `nice`, `system`, `idle`, `iowait`, **`irq`**, **`softirq`**, **`steal`**, and **`guest`** (guest + guest_nice merged) in `cpu_time_seconds_total` / `cpu_time_core_seconds_total`.
 
 From `/proc/swaps` (per swap device):
 

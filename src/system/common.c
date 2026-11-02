@@ -79,10 +79,10 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "memory_shmem_bytes", METRIC_TYPE_GAUGE, "Shared memory (shmem) size in bytes.");
 	namespace_metric_family_set(NULL, carg, "load_average", METRIC_TYPE_GAUGE, "System load averages by period label.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_average_percent", METRIC_TYPE_GAUGE, "Rolling average CPU usage percentage.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by core and mode.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_time", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by mode (from /proc/stat).");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_hw_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host CPU time in seconds by mode when scraped from a cgroup.");
-	namespace_metric_family_set(NULL, carg, "cpu_usage_hw_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host per-core CPU time in seconds by mode when scraped from a cgroup.");
+	namespace_metric_family_set(NULL, carg, "cpu_time_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by core and mode.");
+	namespace_metric_family_set(NULL, carg, "cpu_time_seconds_total", METRIC_TYPE_COUNTER, "Cumulative CPU time in seconds by mode.");
+	namespace_metric_family_set(NULL, carg, "cpu_time_hw_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host CPU time in seconds by mode when scraped from a cgroup.");
+	namespace_metric_family_set(NULL, carg, "cpu_time_hw_core_seconds_total", METRIC_TYPE_COUNTER, "Cumulative host per-core CPU time in seconds by mode when scraped from a cgroup.");
 	namespace_metric_family_set(NULL, carg, "cpu_current_frequency_hertz", METRIC_TYPE_GAUGE, "Current CPU frequency in hertz by core.");
 	namespace_metric_family_set(NULL, carg, "cpu_usage_calc_delta_seconds", METRIC_TYPE_GAUGE, "Elapsed wall-clock time between CPU usage calculations in seconds.");
 	namespace_metric_family_set(NULL, carg, "cpu_cores", METRIC_TYPE_GAUGE, "Effective number of CPU cores available to alligator.");

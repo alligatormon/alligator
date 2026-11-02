@@ -246,7 +246,7 @@ void api_test_scheduler_1() {
 	ac->scheduler = alligator_ht_init(NULL);
     scheduler_node* sn;
 	char *config = "{\"scheduler\": [ \
-			{ \"name\": \"timer-action\", \"action\": \"run-something\", \"datasource\": \"internal\", \"expr\": \"count(cpu_usage_time)\", \"period\": \"156s\"}, \
+			{ \"name\": \"timer-action\", \"action\": \"run-something\", \"datasource\": \"internal\", \"expr\": \"count(cpu_time_seconds_total)\", \"period\": \"156s\"}, \
 			{ \"name\": \"timer-lang\", \"lang\": \"call-something\", \"datasource\": \"internal\", \"expr\": \"count(cpu_cores)\", \"period\": \"1d\"} \
 		] \
 	}\
@@ -256,7 +256,7 @@ void api_test_scheduler_1() {
 
     sn = scheduler_get("timer-action");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, sn);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "count(cpu_usage_time)", sn->expr->s);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "count(cpu_time_seconds_total)", sn->expr->s);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "run-something", sn->action);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 156000, sn->period);
 

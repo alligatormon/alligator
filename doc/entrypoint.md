@@ -397,11 +397,11 @@ cpu_cores 1
 cpu_cores_cgroup 0
 cpu_cores_hw 1
 cpu_usage_calc_delta_seconds 18446744073.591579
-cpu_usage_time {type="idle"} 2053.710000
-cpu_usage_time {type="iowait"} 16.770000
-cpu_usage_time {type="nice"} 0.000000
-cpu_usage_time {type="system"} 21.850000
-cpu_usage_time {type="user"} 83.900000
+cpu_time_seconds_total {type="idle"} 2053.710000
+cpu_time_seconds_total {type="iowait"} 16.770000
+cpu_time_seconds_total {type="nice"} 0.000000
+cpu_time_seconds_total {type="system"} 21.850000
+cpu_time_seconds_total {type="user"} 83.900000
 forks_total 4625
 interrupts_total 135704
 softirq 180882

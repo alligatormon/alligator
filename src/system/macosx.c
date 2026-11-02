@@ -146,15 +146,15 @@ static void emit_cpu_counters(const mac_cpu_ticks *ticks, const char *cpuname, i
 	double idle = ticks_to_seconds(ticks->idle);
 
 	if (per_core) {
-		metric_add_labels2("cpu_usage_core_seconds_total", &user, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "user");
-		metric_add_labels2("cpu_usage_core_seconds_total", &nice, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "nice");
-		metric_add_labels2("cpu_usage_core_seconds_total", &system, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "system");
-		metric_add_labels2("cpu_usage_core_seconds_total", &idle, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "idle");
+		metric_add_labels2("cpu_time_core_seconds_total", &user, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "user");
+		metric_add_labels2("cpu_time_core_seconds_total", &nice, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "nice");
+		metric_add_labels2("cpu_time_core_seconds_total", &system, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "system");
+		metric_add_labels2("cpu_time_core_seconds_total", &idle, DATATYPE_DOUBLE, ac->system_carg, "cpu", (char *)cpuname, "type", "idle");
 	} else {
-		metric_add_labels("cpu_usage_time", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
-		metric_add_labels("cpu_usage_time", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
-		metric_add_labels("cpu_usage_time", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
-		metric_add_labels("cpu_usage_time", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
+		metric_add_labels("cpu_time_seconds_total", &user, DATATYPE_DOUBLE, ac->system_carg, "type", "user");
+		metric_add_labels("cpu_time_seconds_total", &nice, DATATYPE_DOUBLE, ac->system_carg, "type", "nice");
+		metric_add_labels("cpu_time_seconds_total", &system, DATATYPE_DOUBLE, ac->system_carg, "type", "system");
+		metric_add_labels("cpu_time_seconds_total", &idle, DATATYPE_DOUBLE, ac->system_carg, "type", "idle");
 	}
 }
 

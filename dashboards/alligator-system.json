@@ -367,7 +367,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum(rate(cpu_usage_time{instance=~\"$server\", type!=\"idle\"}[$interval]))",
+          "expr": "sum(rate(cpu_time_seconds_total{instance=~\"$server\", type!=\"idle\"}[$interval]))",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -823,7 +823,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(cpu_usage_time{instance=~\"$server\", type!=\"idle\"}[$interval]))",
+          "expr": "sum by (instance) (rate(cpu_time_seconds_total{instance=~\"$server\", type!=\"idle\"}[$interval]))",
           "hide": false,
           "interval": "",
           "legendFormat": "{{instance}}",
