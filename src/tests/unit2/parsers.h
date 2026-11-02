@@ -1044,6 +1044,11 @@ void api_test_parser_postfix()
     parser_push_roundtrip("postfix", postfix_parser_push);
 }
 
+void api_test_parser_proxysql()
+{
+    parser_push_roundtrip("proxysql", proxysql_parser_push);
+}
+
 void api_test_parser_openclaw()
 {
     char tmpl[] = "/tmp/alligator-openclaw-XXXXXX";

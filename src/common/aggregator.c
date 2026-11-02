@@ -766,6 +766,7 @@ void aggregate_ctx_init()
 	patroni_parser_push();
 	mysql_parser_push();
 	sphinxsearch_parser_push();
+	proxysql_parser_push();
 	http_parser_push();
 	tcp_parser_push();
 	tftp_parser_push();

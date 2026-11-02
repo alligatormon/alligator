@@ -184,6 +184,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [ipmi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ipmi.md)
 - [keepalived](https://github.com/alligatormon/alligator/blob/master/doc/parsers/keepalived.md)
 - [mysql](https://github.com/alligatormon/alligator/blob/master/doc/parsers/mysql.md)
+- [proxysql](doc/parsers/proxysql.md)
 - [monit](https://github.com/alligatormon/alligator/blob/master/doc/parsers/monit.md)
 - [nginx](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nginx.md)
 - [nsd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nsd.md)

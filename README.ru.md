@@ -184,6 +184,7 @@ aggregate {
 - [ipmi](doc/ru/parsers/ipmi.md)
 - [keepalived](doc/ru/parsers/keepalived.md)
 - [mysql](doc/ru/parsers/mysql.md)
+- [proxysql](doc/ru/parsers/proxysql.md)
 - [monit](doc/ru/parsers/monit.md)
 - [nginx](doc/ru/parsers/nginx.md)
 - [nsd](doc/ru/parsers/nsd.md)

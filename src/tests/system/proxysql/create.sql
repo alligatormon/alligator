@@ -1,3 +1,3 @@
-CREATE TABLE products(title text, price float) morphology='stem_en';
-
-show index products status
+-- Optional seed for ProxySQL admin (system test starts bare proxysql).
+-- Connection-pool series appear only after backends exist; defaults still
+-- assert proxysql_mysql_status_* / proxysql_info / proxysql_up.

@@ -2,7 +2,7 @@
 
 # MySQL, MariaDB
 
-Runs user SQL via the MySQL client protocol (`mysql://`) and turns selected columns into metrics through the `query` context. Also works with related SQL engines that speak MySQL (Manticore, Sphinx, ProxySQL) when the query fits.
+Runs user SQL via the MySQL client protocol (`mysql://`) and turns selected columns into metrics through the `query` context. Also works with related SQL engines that speak MySQL (Manticore, Sphinx, ProxySQL) when the query fits. For built-in ProxySQL admin stats (exporter-compatible names), use [`proxysql`](proxysql.md) instead.
 
 ### Connection URL
 

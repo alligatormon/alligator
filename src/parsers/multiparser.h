@@ -132,6 +132,7 @@ void http_parser_push();
 void process_parser_push();
 void mysql_parser_push();
 void sphinxsearch_parser_push();
+void proxysql_parser_push();
 void named_parser_push();
 void dnsmasq_handler(char *metrics, size_t size, context_arg *carg);
 void dnsmasq_dhcp_handler(char *metrics, size_t size, context_arg *carg);

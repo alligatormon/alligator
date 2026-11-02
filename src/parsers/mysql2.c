@@ -352,6 +352,13 @@ int mysql2_start_connect(mysql_conn_t **pconn, context_arg *carg)
 	if (!carg->loop)
 		carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
 
+	/* After a dead connection the TCP/async/timer handles may already be closed;
+	 * abandon the object (leak until exit) and allocate a fresh one. */
+	if (*pconn && (*pconn)->state == STATE_CONNECT_FAILED) {
+		carglog(carg, L_DEBUG, "mysql2: dropping failed connection for reconnect\n");
+		*pconn = NULL;
+	}
+
 	if (!*pconn) {
 		mysql_conn_t *conn = calloc(1, sizeof(mysql_conn_t));
 		if (!conn) {
@@ -1133,7 +1140,23 @@ void mysql2_on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
 		carglog(conn->carg, L_ERROR, "Read error or connection closed\n");
 		if (conn->state != STATE_QUERY)
 			mysql2_account_connect(conn, 0);
-		uv_close((uv_handle_t*)stream, NULL);
+		/* Mark dead so the next scrape reconnects instead of reusing a closed handle. */
+		conn->state = STATE_CONNECT_FAILED;
+		if (conn->user_data) {
+			query_context_t *ctx = (query_context_t *)conn->user_data;
+			uv_mutex_lock(&ctx->mutex);
+			ctx->done = 1;
+			uv_cond_signal(&ctx->cond);
+			uv_mutex_unlock(&ctx->mutex);
+			conn->user_data = NULL;
+			conn->on_row = NULL;
+		}
+		uv_timer_stop(&conn->query_timer);
+		uv_timer_stop(&conn->connect_timer);
+		uv_close((uv_handle_t *)&conn->query_timer, NULL);
+		uv_close((uv_handle_t *)&conn->connect_timer, NULL);
+		uv_close((uv_handle_t *)&conn->async_query_trigger, NULL);
+		uv_close((uv_handle_t *)stream, NULL);
 		return;
 	}
 
