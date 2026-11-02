@@ -104,7 +104,7 @@ zram_bytes{stat="compr_data_size"}
 - `cpu_frequency_hertz{cpu,type}` — `scaling_cur|scaling_min|scaling_max|cpuinfo_max` из sysfs cpufreq (kHz → Hz)
 - `cpu_throttle_count{cpu}`, `cpu_throttle_seconds_total{cpu}` — thermal throttle, если есть
 - `cpu_cstate_seconds_total{cpu,state}`, `cpu_cstate_usage_total{cpu,state}`, `cpu_cstate_disabled{cpu,state}` — C-state'ы Linux cpuidle из `/sys/devices/system/cpu/cpuN/cpuidle/stateM/` (`time` мкс → секунды, `usage`, `disable`). Нет каталога `cpuidle` (часто VM/контейнер) — skip. Драйвер/governor: `cpu_cstate_driver{driver}`, `cpu_cstate_governor{governor}`
-- на bare-metal: `hwmon_power_watt{name,component,hwmon}`, `hwmon_fan_rpm{name,component,hwmon}` вместе с `core_temperature_celsius`
+- на bare-metal: `hwmon_power_watt{name,component,hwmon}`, `hwmon_fan_rpm{name,component,hwmon}`, `hwmon_voltage_volt{name,component,hwmon}` (`in*_input`, мВ → В) вместе с `core_temperature_celsius`
 
 Заметки по именованию метрик:
 

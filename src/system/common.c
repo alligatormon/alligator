@@ -256,6 +256,7 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "cpu_cstate_governor", METRIC_TYPE_GAUGE, "Active cpuidle governor from /sys/devices/system/cpu/cpuidle/current_governor.");
 	namespace_metric_family_set(NULL, carg, "hwmon_power_watt", METRIC_TYPE_GAUGE, "hwmon power sensor reading in watts.");
 	namespace_metric_family_set(NULL, carg, "hwmon_fan_rpm", METRIC_TYPE_GAUGE, "hwmon fan speed in RPM.");
+	namespace_metric_family_set(NULL, carg, "hwmon_voltage_volt", METRIC_TYPE_GAUGE, "hwmon voltage sensor reading in volts.");
 	namespace_metric_family_set(NULL, carg, "lvm_lv_size_bytes", METRIC_TYPE_GAUGE, "LVM logical volume size in bytes from device-mapper sysfs.");
 	namespace_metric_family_set(NULL, carg, "lvm_lv_suspended", METRIC_TYPE_GAUGE, "Whether an LVM logical volume is suspended.");
 	namespace_metric_family_set(NULL, carg, "wireguard_device_listen_port", METRIC_TYPE_GAUGE, "WireGuard device listen port.");

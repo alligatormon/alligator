@@ -133,10 +133,11 @@ Slow scrape (`base`):
 - `watchdog_stat{device,type}` — `/sys/class/watchdog/*`
 - `rapl_energy_joules_total{name,index}` — `/sys/class/powercap` (bare-metal only)
 
-On bare-metal, `get_thermal()` also exports hwmon power and fans (same walk as `core_temperature_celsius`):
+On bare-metal, `get_thermal()` also exports hwmon power, fans, and voltages (same walk as `core_temperature_celsius`):
 
 - `hwmon_power_watt{name,component,hwmon}` — `power*_input` (microwatts → watts)
 - `hwmon_fan_rpm{name,component,hwmon}` — `fan*_input`
+- `hwmon_voltage_volt{name,component,hwmon}` — `in*_input` (millivolts → volts)
 
 `load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
 

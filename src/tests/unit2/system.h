@@ -1219,6 +1219,7 @@ void system_test(char *binary) {
     metric_test_run(CMP_EQUAL, "cpu_throttle_seconds_total{cpu=\"0\"}", "cpu_throttle_seconds_total", 1.5);
     metric_test_run(CMP_EQUAL, "hwmon_power_watt{name=\"intel5500\",component=\"PKG\",hwmon=\"hwmon0\"}", "hwmon_power_watt", 25.0);
     metric_test_run(CMP_EQUAL, "hwmon_fan_rpm{name=\"intel5500\",component=\"fan1\",hwmon=\"hwmon0\"}", "hwmon_fan_rpm", 1200);
+    metric_test_run(CMP_EQUAL, "hwmon_voltage_volt{name=\"intel5500\",component=\"VCC\",hwmon=\"hwmon0\"}", "hwmon_voltage_volt", 3.38);
     metric_test_run(CMP_EQUAL, "lvm_lv_size_bytes{vg=\"vg0\",lv=\"lvroot\",device=\"dm-10\"}", "lvm_lv_size_bytes", 1048576);
     metric_test_run(CMP_EQUAL, "wireguard_device_listen_port{device=\"wg0\"}", "wireguard_device_listen_port", 51820);
     metric_test_run(CMP_EQUAL, "wireguard_device_peers{device=\"wg0\"}", "wireguard_device_peers", 1);

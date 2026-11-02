@@ -1110,6 +1110,36 @@ int8_t get_platform(int8_t mode)
 }
 
 
+static int hwmon_ends_with_input(const char *name)
+{
+	size_t n = strlen(name);
+	return n >= 6 && !strcmp(name + n - 6, "_input");
+}
+
+/* Read hwmon <prefix>_input with optional <prefix>_label. Returns 1 on success. */
+static int hwmon_read_labeled_input(const char *monname, const char *entry_name,
+	char *component, size_t component_sz, int64_t *raw)
+{
+	char prefix[64];
+	char labelpath[1024];
+	char fpath[1024];
+	uint8_t err = 0;
+	size_t n;
+
+	if (!hwmon_ends_with_input(entry_name))
+		return 0;
+	n = strlen(entry_name) - 6;
+	if (n >= sizeof(prefix))
+		n = sizeof(prefix) - 1;
+	strlcpy(prefix, entry_name, n + 1);
+	snprintf(labelpath, sizeof(labelpath), "%s/%s_label", monname, prefix);
+	if (getkvfile_str(labelpath, component, component_sz) <= 0)
+		strlcpy(component, prefix, component_sz);
+	snprintf(fpath, sizeof(fpath), "%s/%s", monname, entry_name);
+	*raw = getkvfile_ext(fpath, &err);
+	return err == 0;
+}
+
 void get_thermal()
 {
 	char fname[1024];
@@ -1165,6 +1195,7 @@ void get_thermal()
 
 			if ((tmp = strstr(monentry->d_name, "_label")) && !strncmp(monentry->d_name, "temp", 4))
 			{
+				uint8_t err = 0;
 				// get component name
 				snprintf(fname, 1023, "%s/%s", monname, monentry->d_name);
 				FILE *fd = fopen(fname, "r");
@@ -1179,47 +1210,39 @@ void get_thermal()
 				fclose(fd);
 
 				strlcpy(fname+strlen(monname)+(tmp-monentry->d_name)+1, "_input", 7);
-				temp = getkvfile(fname);
+				temp = getkvfile_ext(fname, &err);
+				if (err)
+					continue;
 				/* hwmon temp_input is millidegrees Celsius */
 				int64_t temp_c = temp / 1000;
 				metric_add_labels3("core_temperature_celsius", &temp_c, DATATYPE_INT, ac->system_carg, "name", name, "component", devname, "hwmon", entry->d_name);
 			}
-			else if (!strncmp(monentry->d_name, "power", 5) && strstr(monentry->d_name, "_input"))
+			else if (!strncmp(monentry->d_name, "power", 5) && hwmon_ends_with_input(monentry->d_name))
 			{
 				char component[255];
-				char labelpath[1024];
-				char prefix[64];
-				char *inp = strstr(monentry->d_name, "_input");
-				size_t plen = (size_t)(inp - monentry->d_name);
-				if (plen >= sizeof(prefix))
-					plen = sizeof(prefix) - 1;
-				strlcpy(prefix, monentry->d_name, plen + 1);
-				snprintf(labelpath, sizeof(labelpath), "%s/%s_label", monname, prefix);
-				if (getkvfile_str(labelpath, component, sizeof(component)) <= 0)
-					strlcpy(component, prefix, sizeof(component));
-				snprintf(fname, sizeof(fname), "%s/%s", monname, monentry->d_name);
-				int64_t uw = getkvfile(fname);
-				if (uw >= 0) {
-					double watt = (double)uw / 1000000.0;
-					metric_add_labels3("hwmon_power_watt", &watt, DATATYPE_DOUBLE, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
-				}
+				int64_t uw;
+				if (!hwmon_read_labeled_input(monname, monentry->d_name, component, sizeof(component), &uw))
+					continue;
+				double watt = (double)uw / 1000000.0;
+				metric_add_labels3("hwmon_power_watt", &watt, DATATYPE_DOUBLE, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
 			}
-			else if (!strncmp(monentry->d_name, "fan", 3) && strstr(monentry->d_name, "_input"))
+			else if (!strncmp(monentry->d_name, "fan", 3) && hwmon_ends_with_input(monentry->d_name))
 			{
 				char component[255];
-				char labelpath[1024];
-				char prefix[64];
-				size_t plen = (size_t)(strstr(monentry->d_name, "_input") - monentry->d_name);
-				if (plen >= sizeof(prefix))
-					plen = sizeof(prefix) - 1;
-				strlcpy(prefix, monentry->d_name, plen + 1);
-				snprintf(labelpath, sizeof(labelpath), "%s/%s_label", monname, prefix);
-				if (getkvfile_str(labelpath, component, sizeof(component)) <= 0)
-					strlcpy(component, prefix, sizeof(component));
-				snprintf(fname, sizeof(fname), "%s/%s", monname, monentry->d_name);
-				int64_t rpm = getkvfile(fname);
-				if (rpm >= 0)
-					metric_add_labels3("hwmon_fan_rpm", &rpm, DATATYPE_INT, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
+				int64_t rpm;
+				if (!hwmon_read_labeled_input(monname, monentry->d_name, component, sizeof(component), &rpm))
+					continue;
+				metric_add_labels3("hwmon_fan_rpm", &rpm, DATATYPE_INT, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
+			}
+			else if (!strncmp(monentry->d_name, "in", 2) && isdigit((unsigned char)monentry->d_name[2]) && hwmon_ends_with_input(monentry->d_name))
+			{
+				char component[255];
+				int64_t mv;
+				if (!hwmon_read_labeled_input(monname, monentry->d_name, component, sizeof(component), &mv))
+					continue;
+				/* hwmon in*_input is millivolts */
+				double volts = (double)mv / 1000.0;
+				metric_add_labels3("hwmon_voltage_volt", &volts, DATATYPE_DOUBLE, ac->system_carg, "name", name, "component", component, "hwmon", entry->d_name);
 			}
 		}
 
