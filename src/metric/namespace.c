@@ -1,6 +1,10 @@
 #include "main.h"
 #include "common/logs.h"
 #include "metric/metric_types.h"
+#include "metric/labels.h"
+#include "metric/metrictree.h"
+#include <limits.h>
+#include <stdint.h>
 extern aconf *ac;
 
 int metric_family_metadata_compare(const void *arg, const void *obj)
@@ -340,20 +344,25 @@ int namespace_struct_compare(const void* arg, const void* obj)
         return strcmp(s1, s2);
 }
 
-namespace_struct *insert_namespace(char *key, uint64_t max_emit)
+namespace_struct *insert_namespace(char *key, uint64_t max_emit, uint64_t max_series)
 {
 	if (!key)
 		return NULL;
 
 	uint32_t key_hash = tommy_strhash_u32(0, key);
 	namespace_struct *ns = alligator_ht_search(ac->_namespace, namespace_struct_compare, key, key_hash);
-	if (max_emit)
-		ns->max_emit = max_emit;
-	if (ns)
+	if (ns) {
+		if (max_emit)
+			ns->max_emit = max_emit;
+		if (max_series != UINT64_MAX)
+			ns->max_series = max_series;
 		return ns;
+	}
 
 	ns = calloc(1, sizeof(*ns));
 	ns->key = strdup(key);
+	ns->max_emit = max_emit;
+	ns->max_series = (max_series == UINT64_MAX) ? 0 : max_series;
 	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
 	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)
@@ -392,6 +401,42 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit)
 	glog(L_INFO, "inserted namespace %s\n", key);
 
 	return ns;
+}
+
+static void namespace_series_dropped_flush_one(void *funcarg, void *arg)
+{
+	namespace_struct *ns = arg;
+	alligator_ht *hash;
+	labels_t *labels_list;
+	uint64_t dropped;
+	int64_t ttl = INT64_MAX - UINT32_MAX;
+
+	(void)funcarg;
+	if (!ns || !ns->key || !ns->metrictree || !ns->expiretree)
+		return;
+
+	dropped = __atomic_load_n(&ns->series_dropped, __ATOMIC_RELAXED);
+	if (ns->max_series == 0 && dropped == 0)
+		return;
+
+	hash = alligator_ht_init(NULL);
+	labels_hash_insert(hash, "namespace", ns->key);
+	labels_list = labels_initiate(ac->nsdefault, hash, "alligator_series_dropped_total", 0, 0, 0);
+	if (!labels_list) {
+		labels_hash_free(hash);
+		return;
+	}
+	/* Publish into the default namespace so the counter survives a capped ns.
+	   bypass_max_series=1: internal flush only, never name-based exemption. */
+	metric_upsert(ac->nsdefault->metrictree, labels_list, DATATYPE_UINT, &dropped,
+		ac->nsdefault->expiretree, ttl, 0, ac->nsdefault, 1);
+}
+
+void namespace_series_dropped_flush(void)
+{
+	if (!ac || !ac->_namespace)
+		return;
+	alligator_ht_foreach_arg(ac->_namespace, namespace_series_dropped_flush_one, NULL);
 }
 
 namespace_struct *get_namespace(char *key)

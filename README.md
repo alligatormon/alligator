@@ -57,7 +57,7 @@ Configuration can be overridden or extended with environment variables (`ALLIGAT
 Alligator has many contexts for describing the collection data:
 - **aggregate**: Collects metrics from software using various parsers from software
 - **query**: Generates new metrics internally through PromQL queries or database queries
-- **namespace**: Configures metric namespaces and optional emission limits (`max_emit`)
+- **namespace**: Configures metric namespaces and optional emission / series limits (`max_emit`, `max_series`)
 - **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
 - **lang**: Runs functions and methods from subprograms
 - **x509**: Obtains metrics from PEM, JKS or PKCS certificate formats

@@ -195,8 +195,11 @@ int metric_delete (metric_tree *tree, labels_t *labels, struct expire_tree *expi
 /* Caller holds both the metric tree and the expire tree write locks. */
 int metric_delete_locked (metric_tree *tree, labels_t *labels, struct expire_tree *expiretree);
 /* Find-or-insert under one write lock. add=1 accumulates (counter), add=0 replaces.
-   On update, labels is freed. On insert, the tree takes ownership of labels. */
-metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, struct expire_tree *expiretree, int64_t ttl, int add);
+   On update, labels is freed. On insert, the tree takes ownership of labels.
+   ns may be NULL (no series cap). When ns->max_series > 0, new series past the
+   cap are refused (labels freed, NULL returned) unless bypass_max_series is set
+   (internal flush only — never based on metric name). */
+metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, struct expire_tree *expiretree, int64_t ttl, int add, struct namespace_struct *ns, int bypass_max_series);
 metric_node* metric_find(metric_tree *tree, labels_t* labels);
 int64_t metric_get_double(void *value, int8_t type);
 void metrictree_get(metric_node *x, labels_t* labels, string *str);

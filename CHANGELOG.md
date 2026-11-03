@@ -1,6 +1,34 @@
 Changelog
 
 ## [unreleased]
+
+Host metric renames in this release (old name is gone):
+
+- `cpu_usage_time` → `cpu_time_seconds_total`
+- `cpu_usage_core_seconds_total` → `cpu_time_core_seconds_total`
+- `cpu_usage_hw_seconds_total` → `cpu_time_hw_seconds_total`
+- `cpu_usage_hw_core_seconds_total` → `cpu_time_hw_core_seconds_total`
+- `cpu_usage_core`, `cpu_usage_hw_core`, `cpu_usage_core_time` removed; use the `cpu_time_*_core_seconds_total` counters
+- `cores_num` / `cores_num_cgroup` / `cores_num_hw` → `cpu_cores` / `cpu_cores_cgroup` / `cpu_cores_hw`
+- `if_stat{type}` → `if_receive_*_total`, `if_transmit_*_total`, `if_noproto_total` (label `ifname` only)
+- `if_speed` (Mbps) → `if_speed_bytes` (bytes/s)
+- `disk_usage` / `disk_size` / `disk_unallocated` → `disk_usage_bytes` / `disk_size_bytes` / `disk_unallocated_bytes`
+- `disk_io` → `disk_io_bytes_total{dev,op}` and `disk_io_transfers_total{dev,op}`; `disk_busy` → `disk_busy_seconds_total`
+- `memory_usage` / `memory_usage_hw` / `memory_usage_cgroup` → `*_bytes`; `memory_stat` → `memory_pages_{in,out}_total`, `memory_swap_{in,out}_total`, `memory_page_faults_total{type}`, `memory_shmem_bytes`
+- `memory_module_size` (KiB) → `memory_module_size_bytes`
+- `vmstat_stat_total` → `vmstat_total`
+- `process_stats` → `process_threads`, `process_context_switches_total`, `process_memory_bytes`, `process_open_fds`, `process_cow_faults_total`, `process_status`
+- `process_uptime` → `process_uptime_seconds`
+- `oom_kill` → `oom_kills_total`; `time_now` → `time_seconds`
+- `mounts_num` / `disk_num` / `iface_num` → `filesystem_mounts` / `disk_devices` / `network_interfaces`
+- `open_files` / `open_files_process` / `open_files_system` / `open_pipes` / `open_sockets` → `file_descriptors` / `process_open_fds_sum` / `system_open_files` / `file_pipes` / `file_sockets`
+
+- Event loop: `alligator_loop_delay_seconds` (last tick lateness vs the 1s general timer) and `alligator_loop_delay_seconds_total` (sum of lateness) from `general_loop_cb`.
+- Namespace: optional `max_series` (default 0 = unlimited). New series past the cap are refused; `alligator_series_dropped_total{namespace}` counts refusals. Separate from `max_emit` (query emission count). See `doc/namespace.md`.
+- systemd (libsystemd ≥221): `service_state{service,username}` encodes `ActiveState` as an int (`0=inactive` `1=active` `2=activating` `3=deactivating` `4=failed` `5=reloading` `6=maintenance`, `-1=unknown`); `service_restarts_total{service,username}` from `NRestarts` on `.service` units. Cgroup-only builds keep `service_running` only.
+- Linux `base`: `timex_offset_seconds`, `timex_maxerror_seconds`, `timex_sync_status` from `adjtimex` (skipped on failure).
+- LXC: keep host `load_average{type}`; also emit `load_average{type,scope="pidns"}` as an EWMA of runnable+uninterruptible threads in the current PID namespace.
+
 - FRR parser: scrape FRR VTY Unix sockets like frr_exporter (`aggregate { frr unix:///var/run/frr; }`). Default collectors status/BGP/BFD/OSPF/route; optional `env=collect.bgp6:1` and `collect.<name>:0` to disable. Metric names match the exporter (`frr_bgp_*`, `frr_bfd_*`, `frr_ospf_*`, `frr_route_*`, `frr_status_up`, `frr_collector_up`). See `doc/parsers/frr.md`.
 - LDAP / OpenLDAP parser: minimal BER client scrapes `cn=Monitor` (`aggregate { ldap …; }`) with openldap_exporter-compatible gauges (`openldap_monitor_counter_object`, `openldap_monitored_object`, `openldap_monitor_operation`, `openldap_up`). Bind DN/password from URL user/pass; LDAPS via `tls://` (+ optional `tls_ca` / client cert); `unix://` for ldapi. Unset `tls_verify` with `tls_ca` or a password enables peer verify. `openldap_up` requires LDAP success on both bind and search. See `doc/parsers/ldap.md`.
 - ProxySQL parser: built-in admin scrape over `mysql://` (`aggregate { proxysql …; }`) with Percona proxysql_exporter-compatible defaults (`proxysql_mysql_status_*`, `proxysql_connection_pool_*`, processlist by client, `proxysql_info`, `proxysql_up`). Optional collectors via `env=collect.detailed_processlist:1` (alias `collect.detailed.stats_mysql_processlist`), `collect.runtime_mysql_servers:1`, `collect.stats_memory_metrics:1`. Default admin port `6032` when omitted. Per-target MySQL connection state (also for `mysql` / `sphinxsearch`). See `doc/parsers/proxysql.md`.

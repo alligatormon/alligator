@@ -1,5 +1,6 @@
 #include "main.h"
 #include "common/selector.h"
+#include "common/ewma.h"
 #include "alligator_version.h"
 #include "metric/metric_dump.h"
 #include "metric/metric_types.h"
@@ -8,6 +9,9 @@
 #include "cluster/type.h"
 
 extern aconf *ac;
+
+static uint64_t general_loop_last_hrtime;
+static double alligator_loop_delay_sum;
 
 static void register_alligator_metric_families(void)
 {
@@ -84,16 +88,31 @@ static void register_alligator_metric_families(void)
 	namespace_metric_family_set(NULL, NULL, "alligator_push_split_duration_seconds", METRIC_TYPE_GAUGE, "Time spent splitting push payload into lines in seconds.");
 	namespace_metric_family_set(NULL, NULL, "alligator_expire_backptr_violations", METRIC_TYPE_GAUGE, "Expire entries whose metric does not point back at them.");
 	namespace_metric_family_set(NULL, NULL, "alligator_sortplan_entries", METRIC_TYPE_GAUGE, "Number of label names in the namespace sort plan.");
+	namespace_metric_family_set(NULL, NULL, "alligator_loop_delay_seconds", METRIC_TYPE_GAUGE, "Lateness of the last 1s general-loop tick in seconds (0 when on time).");
+	namespace_metric_family_set(NULL, NULL, "alligator_loop_delay_seconds_total", METRIC_TYPE_COUNTER, "Cumulative lateness of the 1s general-loop timer in seconds.");
+	namespace_metric_family_set(NULL, NULL, "alligator_series_dropped_total", METRIC_TYPE_COUNTER, "New series refused because a namespace hit max_series.");
 }
 
 void general_loop_cb(uv_timer_t* handle)
 {
 	uint64_t val = 1;
+	uint64_t now = uv_hrtime();
+	double delay = 0.0;
+
+	(void)handle;
+	if (general_loop_last_hrtime)
+		delay = loop_delay_seconds(now - general_loop_last_hrtime, 1000000000ULL);
+	general_loop_last_hrtime = now;
+	alligator_loop_delay_sum += delay;
+
 	metric_add_labels("alligator_version", &val, DATATYPE_UINT, NULL, "version", ALLIGATOR_VERSION);
 	metric_add_auto("alligator_metric_cache_hits_total", &ac->metric_cache_hits, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_allocates_total", &ac->metric_allocates, DATATYPE_UINT, NULL);
 	metric_add_auto("alligator_metric_free_total", &ac->metric_freed, DATATYPE_UINT, NULL);
+	metric_add_auto("alligator_loop_delay_seconds", &delay, DATATYPE_DOUBLE, NULL);
+	metric_add_auto("alligator_loop_delay_seconds_total", &alligator_loop_delay_sum, DATATYPE_DOUBLE, NULL);
 	cluster_oplog_stats_flush();
+	namespace_series_dropped_flush();
 }
 
 void namespaces_expire_foreach(void *funcarg, void* arg)

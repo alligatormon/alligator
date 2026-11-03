@@ -2,7 +2,8 @@
 #ifdef __linux__
 #include <stdint.h>
 
-void find_pid(int8_t lightweight);
+/* When runnable_out is non-NULL, stores running+uninterruptible task count (for LXC load). */
+void find_pid(int8_t lightweight, uint64_t *runnable_out);
 void get_pidfile_stats();
 void get_userprocess_stats();
 void cgroup_procs_scrape(char *cgroup_path);

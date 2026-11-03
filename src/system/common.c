@@ -347,8 +347,13 @@ static void system_register_metric_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "server_platform", METRIC_TYPE_GAUGE, "Detected server platform marker by platform labels.");
 	namespace_metric_family_set(NULL, carg, "service_enabled", METRIC_TYPE_GAUGE, "Systemd service enabled state by service labels.");
 	namespace_metric_family_set(NULL, carg, "service_running", METRIC_TYPE_GAUGE, "Systemd service running state by service labels.");
+	namespace_metric_family_set(NULL, carg, "service_state", METRIC_TYPE_GAUGE, "Systemd unit ActiveState as int: 0=inactive 1=active 2=activating 3=deactivating 4=failed 5=reloading 6=maintenance (-1=unknown).");
+	namespace_metric_family_set(NULL, carg, "service_restarts_total", METRIC_TYPE_COUNTER, "Systemd NRestarts for .service units by service labels.");
 	namespace_metric_family_set(NULL, carg, "service_match", METRIC_TYPE_GAUGE, "Systemd service match flag by service labels.");
 	namespace_metric_family_set(NULL, carg, "service_tasks_count", METRIC_TYPE_GAUGE, "Systemd service task counters by service and type labels.");
+	namespace_metric_family_set(NULL, carg, "timex_offset_seconds", METRIC_TYPE_GAUGE, "Kernel clock offset from adjtimex in seconds.");
+	namespace_metric_family_set(NULL, carg, "timex_maxerror_seconds", METRIC_TYPE_GAUGE, "Kernel maximum error estimate from adjtimex in seconds.");
+	namespace_metric_family_set(NULL, carg, "timex_sync_status", METRIC_TYPE_GAUGE, "1 when STA_UNSYNC is clear in adjtimex status.");
 	namespace_metric_family_set(NULL, carg, "sysctl_data", METRIC_TYPE_GAUGE, "Kernel sysctl value by sysctl name label.");
 	namespace_metric_family_set(NULL, carg, "socket_counters", METRIC_TYPE_GAUGE, "Socket counters by protocol/state labels.");
 	namespace_metric_family_set(NULL, carg, "socket_match", METRIC_TYPE_GAUGE, "Socket match flag by selector labels.");

@@ -139,7 +139,20 @@ On bare-metal, `get_thermal()` also exports hwmon power, fans, and voltages (sam
 - `hwmon_fan_rpm{name,component,hwmon}` — `fan*_input`
 - `hwmon_voltage_volt{name,component,hwmon}` — `in*_input` (millivolts → volts)
 
-`load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. Overlay spikes with `task_states`, which counts threads from `/proc/<pid>/task/*/stat` in the **current PID namespace**. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
+`load_average` (`type=load1/5/15`) is the kernel 1/5/15-minute EWMA. On LXC it often reflects the **host**. On LXC, alligator also emits `load_average{type,scope="pidns"}`: an EWMA (τ = 1/5/15 min) of runnable + uninterruptible threads counted from `/proc/<pid>/task/*/stat` in the **current PID namespace** (same input as `task_states`). Host / KVM / Docker builds do not add the `scope` label. Do not use `process_states{state="running"}` as a loadavg proxy: that series is thread-group leaders from `/proc` readdir only.
+
+With `base`, Linux also exports clock state from `adjtimex` (skipped if the call fails):
+
+- `timex_offset_seconds` — kernel offset (µs or ns when `STA_NANO`)
+- `timex_maxerror_seconds` — `maxerror` in seconds
+- `timex_sync_status` — `1` when `STA_UNSYNC` is clear
+
+With `services` / `services_process` and libsystemd ≥ 221, units also export:
+
+- `service_state{service,username}` — `ActiveState` as an int: `0=inactive`, `1=active`, `2=activating`, `3=deactivating`, `4=failed`, `5=reloading`, `6=maintenance` (`-1` if unknown)
+- `service_restarts_total{service,username}` — `NRestarts` for `.service` units only
+
+Cgroup-only systemd builds keep `service_running` / `service_enabled` and do not emit `service_state` or `service_restarts_total`.
 
 Metric naming notes:
 

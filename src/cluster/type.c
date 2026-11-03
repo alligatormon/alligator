@@ -87,7 +87,7 @@ static void cluster_oplog_counter_set(const char *name, uint64_t value, const ch
 		return;
 	}
 	/* add=0: publish absolute atomic totals (Prometheus counter scrape value). */
-	metric_upsert(ns->metrictree, labels_list, DATATYPE_UINT, &value, ns->expiretree, ttl, 0);
+	metric_upsert(ns->metrictree, labels_list, DATATYPE_UINT, &value, ns->expiretree, ttl, 0, ns, 0);
 }
 
 static void cluster_oplog_stats_flush_one(void *funcarg, void *arg)

@@ -33,7 +33,9 @@
 #include <utmp.h>
 #include "system/fdescriptors.h"
 #include "common/rtime.h"
+#include "common/ewma.h"
 #include "system/linux/systemd.h"
+#include <sys/timex.h>
 #include "system/linux/nftables.h"
 #include "system/linux/disk.h"
 #include "system/linux/cpu.h"
@@ -864,6 +866,56 @@ void get_loadavg()
 	fclose(fd);
 }
 
+/* EWMA of runnable+D threads for LXC pid-namespace load (host /proc/loadavg is the hypervisor). */
+void get_loadavg_pidns(uint64_t runnable)
+{
+	static double load1, load5, load15;
+	static uint64_t last_hrtime;
+	static uint8_t inited;
+	uint64_t now = uv_hrtime();
+	double sample = (double)runnable;
+	double dt = 0.0;
+
+	if (inited && last_hrtime && now > last_hrtime)
+		dt = (double)(now - last_hrtime) / 1e9;
+	last_hrtime = now;
+
+	if (!inited) {
+		load1 = load5 = load15 = sample;
+		inited = 1;
+	} else {
+		load1 = ewma_step(load1, sample, dt, 60.0);
+		load5 = ewma_step(load5, sample, dt, 300.0);
+		load15 = ewma_step(load15, sample, dt, 900.0);
+	}
+
+	metric_add_labels2("load_average", &load1, DATATYPE_DOUBLE, ac->system_carg, "type", "load1", "scope", "pidns");
+	metric_add_labels2("load_average", &load5, DATATYPE_DOUBLE, ac->system_carg, "type", "load5", "scope", "pidns");
+	metric_add_labels2("load_average", &load15, DATATYPE_DOUBLE, ac->system_carg, "type", "load15", "scope", "pidns");
+}
+
+void get_timex_stats(void)
+{
+	struct timex tx;
+	double offset_sec;
+	double maxerror_sec;
+	uint64_t synced;
+
+	memset(&tx, 0, sizeof(tx));
+	if (adjtimex(&tx) < 0) {
+		carglog(ac->system_carg, L_DEBUG, "adjtimex failed: %s\n", strerror(errno));
+		return;
+	}
+
+	offset_sec = timex_offset_to_seconds(tx.offset, tx.status & STA_NANO);
+	maxerror_sec = (double)tx.maxerror / 1e6;
+	synced = (tx.status & STA_UNSYNC) ? 0 : 1;
+
+	metric_add_auto("timex_offset_seconds", &offset_sec, DATATYPE_DOUBLE, ac->system_carg);
+	metric_add_auto("timex_maxerror_seconds", &maxerror_sec, DATATYPE_DOUBLE, ac->system_carg);
+	metric_add_auto("timex_sync_status", &synced, DATATYPE_UINT, ac->system_carg);
+}
+
 void get_uptime()
 {
 	r_time time1 = setrtime();
@@ -1657,14 +1709,43 @@ void service_running_status(char *name, char *username)
 {
 	int has_services = (match_mapper(ac->services_match, name, strlen(name), name) == 1);
 	int has_services_process = (match_mapper(ac->services_process_match, name, strlen(name), name) == 1);
+	systemd_service_status st;
+	uint64_t val;
+	char *uname = username ? username : "system";
 
 	if (!has_services && !has_services_process)
 		return;
 
-	int check_ready = 0;
-	uint64_t val = systemd_check_service(name, username, &check_ready);
+	memset(&st, 0, sizeof(st));
+	val = (uint64_t)systemd_check_service(name, username, &st);
 
-	metric_add_labels2("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", username ? username : "system");
+	metric_add_labels2("service_running", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", uname);
+	if (st.active_state[0]) {
+		/* Single series: value encodes ActiveState (no state= label).
+		   0=inactive 1=active 2=activating 3=deactivating 4=failed 5=reloading 6=maintenance
+		   unknown ActiveState → -1 */
+		int64_t state_code = -1;
+		if (!strcmp(st.active_state, "inactive"))
+			state_code = 0;
+		else if (!strcmp(st.active_state, "active"))
+			state_code = 1;
+		else if (!strcmp(st.active_state, "activating"))
+			state_code = 2;
+		else if (!strcmp(st.active_state, "deactivating"))
+			state_code = 3;
+		else if (!strcmp(st.active_state, "failed"))
+			state_code = 4;
+		else if (!strcmp(st.active_state, "reloading"))
+			state_code = 5;
+		else if (!strcmp(st.active_state, "maintenance"))
+			state_code = 6;
+		metric_add_labels2("service_state", &state_code, DATATYPE_INT, ac->system_carg,
+			"service", name, "username", uname);
+	}
+	if (st.has_restarts) {
+		uint64_t restarts = st.nrestarts;
+		metric_add_labels2("service_restarts_total", &restarts, DATATYPE_UINT, ac->system_carg, "service", name, "username", uname);
+	}
 
 	get_activate_status_services(name, username);
 	get_service_tasks_status(name, "cgroup.procs", "processes", username);
@@ -1672,8 +1753,8 @@ void service_running_status(char *name, char *username)
 
 	if (has_services == 1 || has_services_process == 1)
 	{
-		if (check_ready)
-			metric_add_labels2("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", username ? username : "system");
+		if (st.checked)
+			metric_add_labels2("service_match", &val, DATATYPE_UINT, ac->system_carg, "service", name, "username", uname);
 	}
 
 	if (has_services_process == 1)
@@ -2432,6 +2513,7 @@ void get_system_metrics()
 		get_zram_stats();
 		get_selinux_stats();
 		collect_power_supply();
+		get_timex_stats();
 		if (is_baremetal_or_vm(platform)) { // exclude containers
 			get_proc_interrupts(ac->system_interrupts);
 		}
@@ -2448,14 +2530,20 @@ void get_system_metrics()
 	}
 
 	// find_pid before system_network!
-	if (ac->system_process)
 	{
-		clear_counts_process();
-		find_pid(0);
-		fill_counts_process();
+		uint64_t pidns_runnable = 0;
+		if (ac->system_process)
+		{
+			clear_counts_process();
+			find_pid(0, &pidns_runnable);
+			fill_counts_process();
+		}
+		else if (ac->system_base)
+			find_pid(1, &pidns_runnable);
+
+		if (ac->system_base && platform == PLATFORM_LXC)
+			get_loadavg_pidns(pidns_runnable);
 	}
-	else if (ac->system_base)
-		find_pid(1);
 
 	if (ac->system_interrupts)
 		get_softirqs_stats();

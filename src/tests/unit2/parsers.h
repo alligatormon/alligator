@@ -2243,7 +2243,7 @@ void api_test_parser_lighttpd() {
 
 void api_test_parser_httpd() {
     char *httpd_test_ns = "unit_parser_httpd";
-    insert_namespace(httpd_test_ns, 0);
+    insert_namespace(httpd_test_ns, 0, UINT64_MAX);
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->namespace = httpd_test_ns;
     carg->is_http_query = 1;
@@ -2294,7 +2294,7 @@ void api_test_parser_httpd() {
 
 void api_test_parser_nats() {
     char *nats_test_ns = "unit_parser_nats";
-    insert_namespace(nats_test_ns, 0);
+    insert_namespace(nats_test_ns, 0, UINT64_MAX);
     context_arg *carg = calloc(1, sizeof(*carg));
     carg->namespace = nats_test_ns;
     carg->is_http_query = 1;

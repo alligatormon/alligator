@@ -105,7 +105,7 @@ void cluster_push_json(json_t *cluster)
 					if (remain > 0)
 						strlcpy(namespacename + cur, data, remain);
 				}
-				insert_namespace(namespacename, 0);
+				insert_namespace(namespacename, 0, UINT64_MAX);
 
 				cn->servers[j].oprec = oplog_record_init(cn->size);
 				if (!cn->servers[j].oprec)

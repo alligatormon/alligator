@@ -470,12 +470,24 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					json_t *max_emit = json_object_get(namespace, "max_emit");
 					uint64_t max_emit_value = 0;
+					/* UINT64_MAX = leave existing max_series unchanged when omitted. */
+					uint64_t max_series_value = UINT64_MAX;
+					json_t *max_series = json_object_get(namespace, "max_series");
 					if (max_emit)
 					{
 						max_emit_value = json_integer_value(max_emit);
 					}
+					if (max_series)
+					{
+						if (json_is_integer(max_series))
+							max_series_value = (uint64_t)json_integer_value(max_series);
+						else if (json_is_string(max_series))
+							max_series_value = strtoull(json_string_value(max_series), NULL, 10);
+						else
+							max_series_value = UINT64_MAX;
+					}
 
-					insert_namespace(name, max_emit_value);
+					insert_namespace(name, max_emit_value, max_series_value);
 				}
 			}
 			if (!strcmp(key, "query"))
@@ -850,7 +862,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					{   
 						carg->namespace = strdup(json_string_value(json_namespace));
 						carg->namespace_allocated = 1;
-						insert_namespace(carg->namespace, 0);
+						insert_namespace(carg->namespace, 0, UINT64_MAX);
 					}   
 
 					json_t *json_cert = json_object_get(entrypoint, "tls_certificate");

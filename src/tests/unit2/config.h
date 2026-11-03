@@ -2206,7 +2206,7 @@ void test_probe_grpc()
     carg.name = (char *)"ut-grpc-catch";
     carg.namespace = (char *)ns;
     carg.parser_name = (char *)"grpc_health_probe";
-    insert_namespace(carg.namespace, 0);
+    insert_namespace(carg.namespace, 0, UINT64_MAX);
 
     {
         unsigned char resp[256];
@@ -3602,7 +3602,7 @@ void test_metricstransform_plain_and_ingest()
     carg.metricstransform = json_incref(json_object_get(ep0, "metricstransform"));
     carg.namespace = strdup("ut_metricstransform_plain_ns");
     carg.namespace_allocated = 1;
-    insert_namespace(carg.namespace, 0);
+    insert_namespace(carg.namespace, 0, UINT64_MAX);
 
     int64_t val = 1;
     metric_add_labels("ut_metric_transform_total", &val, DATATYPE_INT, &carg, "source", "https://example.org/path?id=11");
@@ -3707,7 +3707,7 @@ void test_metric_filter_plain_and_ingest()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg.metric_filter_rules);
     carg.namespace = strdup(ns);
     carg.namespace_allocated = 1;
-    insert_namespace(carg.namespace, 0);
+    insert_namespace(carg.namespace, 0, UINT64_MAX);
 
     double v = 1.0;
     metric_add("ut_mf_app_requests", NULL, &v, DATATYPE_DOUBLE, &carg);
@@ -3863,7 +3863,7 @@ void test_metric_filter_semantics_extra()
         parse_metric_filter(carg, root);
         carg->namespace = strdup(ns);
         carg->namespace_allocated = 1;
-        insert_namespace(carg->namespace, 0);
+        insert_namespace(carg->namespace, 0, UINT64_MAX);
         double v = 1.0;
         metric_add_labels2("lbl2_ok_a", &v, DATATYPE_DOUBLE, carg, "a", "1", "b", "2");
         metric_add_labels2("lbl2_drop", &v, DATATYPE_DOUBLE, carg, "a", "1", "b", "2");
@@ -4166,7 +4166,7 @@ void test_metric_filter_semantics_extra()
         parse_metric_filter(carg, root);
         carg->namespace = strdup(ns);
         carg->namespace_allocated = 1;
-        insert_namespace(carg->namespace, 0);
+        insert_namespace(carg->namespace, 0, UINT64_MAX);
         double v = 1.0;
         metric_add_labels("ut_mf_lbl_ok", &v, DATATYPE_DOUBLE, carg, "http_response_code", "200");
         metric_add_labels("ut_mf_lbl_drop", &v, DATATYPE_DOUBLE, carg, "http_response_code", "404");
@@ -4199,7 +4199,7 @@ void test_metric_filter_semantics_extra()
         parse_metric_filter(carg, root);
         carg->namespace = strdup(ns);
         carg->namespace_allocated = 1;
-        insert_namespace(carg->namespace, 0);
+        insert_namespace(carg->namespace, 0, UINT64_MAX);
         double v = 1.0;
 
         /* Seed one accepted series so query helpers see a live namespace. */

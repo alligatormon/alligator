@@ -1014,9 +1014,10 @@ void metric_update(char *name, alligator_ht *labels, void* value, int8_t type, c
 	int64_t ttl = get_ttl(carg);
 
 	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0);
-	metric_node* mnode = metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1);
+	metric_node* mnode = metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1, ns, 0);
 
-	mapping_processing(carg, mnode, metric_get_double(value, type));
+	if (mnode)
+		mapping_processing(carg, mnode, metric_get_double(value, type));
 }
 
 void metric_update_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
@@ -1045,7 +1046,7 @@ void metric_update_labels2(char *name, void* value, int8_t type, context_arg *ca
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1, ns, 0);
 }
 
 void metric_update_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
@@ -1075,7 +1076,7 @@ void metric_update_labels3(char *name, void* value, int8_t type, context_arg *ca
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1, ns, 0);
 }
 
 void metric_update_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4)
@@ -1106,7 +1107,7 @@ void metric_update_labels4(char *name, void* value, int8_t type, context_arg *ca
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1, ns, 0);
 }
 
 void metric_update_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7)
@@ -1140,7 +1141,7 @@ void metric_update_labels7(char *name, void* value, int8_t type, context_arg *ca
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 1, ns, 0);
 }
 
 void metric_add_ttl(char *name, alligator_ht *labels, void* value, int8_t type, context_arg *carg, namespace_struct *ns_override, int64_t ttl_override)
@@ -1176,9 +1177,9 @@ void metric_add_ttl(char *name, alligator_ht *labels, void* value, int8_t type, 
 	int64_t ttl = ttl_override > 0 ? ttl_override : get_ttl(carg);
 
 	labels_t *labels_list = labels_initiate(ns, labels, name, NULL, ns, 0); // TODO: nodel:0 can make many new allocations in json_query
-	metric_node* mnode = metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_node* mnode = metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 
-	if (carg && carg->mm && !strstr(name, "_quantile") && !strstr(name, "_le") && !strstr(name, "_bucket"))
+	if (mnode && carg && carg->mm && !strstr(name, "_quantile") && !strstr(name, "_le") && !strstr(name, "_bucket"))
 	{
 		mapping_processing(carg, mnode, metric_get_double(value, type));
 	}
@@ -1210,7 +1211,7 @@ void metric_add_auto(char *name, void* value, int8_t type, context_arg *carg)
 	metric_apply_context_transform(name, labels, carg);
 
 	labels_t *labels_list = labels_initiate(ns, labels, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1)
@@ -1238,7 +1239,7 @@ void metric_add_labels(char *name, void* value, int8_t type, context_arg *carg, 
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2)
@@ -1267,7 +1268,7 @@ void metric_add_labels2(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3)
@@ -1297,7 +1298,7 @@ void metric_add_labels3(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4)
@@ -1328,7 +1329,7 @@ void metric_add_labels4(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5)
@@ -1360,7 +1361,7 @@ void metric_add_labels5(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6)
@@ -1393,7 +1394,7 @@ void metric_add_labels6(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7)
@@ -1427,7 +1428,7 @@ void metric_add_labels7(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8)
@@ -1462,7 +1463,7 @@ void metric_add_labels8(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9)
@@ -1498,7 +1499,7 @@ void metric_add_labels9(char *name, void* value, int8_t type, context_arg *carg,
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg, char *name1, char *key1, char *name2, char *key2, char *name3, char *key3, char *name4, char *key4, char *name5, char *key5, char *name6, char *key6, char *name7, char *key7, char *name8, char *key8, char* name9, char* key9, char* name10, char* key10)
@@ -1535,7 +1536,7 @@ void metric_add_labels10(char *name, void* value, int8_t type, context_arg *carg
 	metric_apply_context_transform(name, hash, carg);
 
 	labels_t *labels_list = labels_initiate(ns, hash, name, 0, 0, 0);
-	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0);
+	metric_upsert(tree, labels_list, type, value, expiretree, ttl, 0, ns, 0);
 }
 
 void metric_gen_foreach_avg(void *funcarg, void* arg)
@@ -1866,9 +1867,9 @@ void metric_query_gen (char *namespace, metric_query_context *mqc, char *new_nam
 		}
 
 		if (type == DATATYPE_UINT)
-			metric_upsert(tree, labels_list, type, &value, expiretree, ttl, 0);
+			metric_upsert(tree, labels_list, type, &value, expiretree, ttl, 0, ns, 0);
 		else if (type == DATATYPE_DOUBLE)
-			metric_upsert(tree, labels_list, type, &dvalue, expiretree, ttl, 0);
+			metric_upsert(tree, labels_list, type, &dvalue, expiretree, ttl, 0, ns, 0);
 		else
 			labels_head_free(labels_list);
 

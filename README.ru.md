@@ -57,7 +57,7 @@ alligator /etc/alligator.d/
 Контексты для описания сбора данных:
 - **aggregate**: сбор метрик из ПО через парсеры
 - **query**: генерация новых метрик через PromQL или SQL-запросы к БД
-- **namespace**: пространства имён метрик и лимиты выдачи (`max_emit`)
+- **namespace**: пространства имён метрик и лимиты выдачи / числа серий (`max_emit`, `max_series`)
 - **entrypoint**: приём метрик (Pushgateway, Statsd, Graphite); настройка портов для Prometheus и внутреннего API Alligator
 - **lang**: вызов функций из подключаемых модулей
 - **x509**: метрики из сертификатов PEM, JKS, PKCS

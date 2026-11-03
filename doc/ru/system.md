@@ -48,6 +48,10 @@ system {
 ## base
 Включает мониторинг базовых ресурсов ОС и железа, включая CPU, память и температуры материнской платы и компонентов. Также включаются ресурсы ОС: loadavg, openfiles, interrupts и context switches.
 
+`load_average{type}` — EWMA ядра. В LXC это часто load **хоста**; дополнительно экспортируется `load_average{type,scope="pidns"}` — EWMA runnable+uninterruptible потоков текущего PID namespace. Также из `adjtimex`: `timex_offset_seconds`, `timex_maxerror_seconds`, `timex_sync_status` (при ошибке вызова — skip).
+
+С `services` / `services_process` и libsystemd ≥ 221: `service_state{service,username}` — `ActiveState` числом (`0=inactive` `1=active` `2=activating` `3=deactivating` `4=failed` `5=reloading` `6=maintenance`, `-1=unknown`) и `service_restarts_total` (`NRestarts` для `.service`).
+
 Когда ядро отдаёт PSI (`/proc/pressure/*`, Linux 4.20+), Alligator экспортирует:
 
 - `pressure_waiting_seconds_total{resource="cpu|memory|io|irq"}` — накопленное **some** stall time (counter)

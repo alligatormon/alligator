@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,6 +22,7 @@
 #include "metric/query.h"
 #include "config/plain.h"
 #include "common/logs.h"
+#include "common/ewma.h"
 #include "common/url.h"
 #include "common/file_stat.h"
 #include "common/entrypoint.h"
@@ -1312,7 +1314,7 @@ static void test_metric_namespace_helper_paths(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
         prom_family_strip_histogram_suffix("plain_metric", base, sizeof(base)));
 
-    insert_namespace("ut_ns_helpers", 0);
+    insert_namespace("ut_ns_helpers", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_ns_helpers");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
     namespace_metric_family_set("ut_ns_helpers", NULL, "ut_help_metric", DATATYPE_DOUBLE, "help text");
@@ -2383,7 +2385,7 @@ static void test_labels_metric_add_labels6_to_10(void)
 
 static void test_labels_metric_add_multi_paths(void)
 {
-    insert_namespace("ut_lbl_multi", 0);
+    insert_namespace("ut_lbl_multi", 0, UINT64_MAX);
     context_arg carg = {0};
     carg.namespace = "ut_lbl_multi";
 
@@ -2408,7 +2410,7 @@ static void test_metric_query_name_filter_no_subtree_spill(void)
     /* Regression: after the first exact-name BST hit, serialize/gen used to dump
      * the whole subtree and leak sibling metric names (e.g. x509_cert_not_after
      * when querying x509_cert_expire_days). */
-    insert_namespace("ut_qname_filter", 0);
+    insert_namespace("ut_qname_filter", 0, UINT64_MAX);
     context_arg carg = {0};
     carg.namespace = "ut_qname_filter";
 
@@ -2565,7 +2567,7 @@ static void test_labels_cmp_and_cat_paths(void)
 
 static void test_metric_query_gen_extended(void)
 {
-    insert_namespace("ut_qgen_ext", 0);
+    insert_namespace("ut_qgen_ext", 0, UINT64_MAX);
     double d1 = 1.5, d2 = 2.5, d3 = 3.5;
     metric_add_labels("ut_qgen_ext_m", &d1, DATATYPE_DOUBLE, NULL, "host", "a");
     metric_add_labels("ut_qgen_ext_m", &d2, DATATYPE_DOUBLE, NULL, "host", "b");
@@ -2643,6 +2645,71 @@ static void test_action_query_foreach_and_http_paths(void)
     ac->action = saved_action;
 }
 
+static void test_loop_delay_and_ewma_helpers(void)
+{
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		loop_delay_seconds(1000000000ULL, 1000000000ULL) == 0.0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		loop_delay_seconds(900000000ULL, 1000000000ULL) == 0.0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		fabs(loop_delay_seconds(1250000000ULL, 1000000000ULL) - 0.25) < 1e-12);
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		fabs(ewma_step(NAN, 4.0, 60.0, 60.0) - 4.0) < 1e-12);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		fabs(ewma_step(10.0, 0.0, 0.0, 60.0) - 0.0) < 1e-12);
+	{
+		double mid = ewma_step(10.0, 0.0, 60.0, 60.0);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, mid > 0.0 && mid < 10.0);
+	}
+
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		fabs(timex_offset_to_seconds(2500, 0) - 0.0025) < 1e-12);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		fabs(timex_offset_to_seconds(2500, 1) - 0.0000025) < 1e-15);
+}
+
+static void test_namespace_max_series_cap(void)
+{
+	insert_namespace("ut_max_series", 0, 2);
+	namespace_struct *ns = get_namespace("ut_max_series");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)ns->max_series);
+
+	context_arg carg = {0};
+	carg.namespace = "ut_max_series";
+	int64_t v1 = 1, v2 = 2, v3 = 3, v1b = 11;
+
+	metric_add_labels("ut_cap_m", &v1, DATATYPE_INT, &carg, "id", "1");
+	metric_add_labels("ut_cap_m", &v2, DATATYPE_INT, &carg, "id", "2");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+
+	uint64_t before = __atomic_load_n(&ns->series_dropped, __ATOMIC_RELAXED);
+	metric_add_labels("ut_cap_m", &v3, DATATYPE_INT, &carg, "id", "3");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		(int)(__atomic_load_n(&ns->series_dropped, __ATOMIC_RELAXED) - before));
+
+	metric_add_labels("ut_cap_m", &v1b, DATATYPE_INT, &carg, "id", "1");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, ns->metrictree->count);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		(int)(__atomic_load_n(&ns->series_dropped, __ATOMIC_RELAXED) - before));
+
+	alligator_ht *hash = alligator_ht_init(NULL);
+	labels_hash_insert(hash, "id", "1");
+	labels_t *labels = labels_initiate(ns, hash, "ut_cap_m", NULL, ns, 0);
+	metric_node *m = metric_find(ns->metrictree, labels);
+	labels_head_free(labels);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 11, m->i);
+
+	/* Explicit 0 clears the cap; omitted (UINT64_MAX) would leave it. */
+	insert_namespace("ut_max_series", 0, 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)ns->max_series);
+	metric_add_labels("ut_cap_m", &v3, DATATYPE_INT, &carg, "id", "3");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, ns->metrictree->count);
+}
+
 static int metric_order_broken(metric_node *x, labels_t **prev, sortplan *plan);
 
 /* A label set that extends another one is a distinct series. The sort plan grows
@@ -2650,7 +2717,7 @@ static int metric_order_broken(metric_node *x, labels_t **prev, sortplan *plan);
    to compare equal to {a=1,b=2}, silently merging the two. */
 static void test_labels_cmp_extended_label_set_is_distinct(void)
 {
-    insert_namespace("ut_pfx", 0);
+    insert_namespace("ut_pfx", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_pfx");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
     context_arg carg = {0};
@@ -2701,7 +2768,7 @@ static int metric_order_broken(metric_node *x, labels_t **prev, sortplan *plan)
    pointing at the freed node, so the next metric_set read a dangling key. */
 static void test_expire_delete_clears_metric_backptr(void)
 {
-    insert_namespace("ut_expire_backptr", 0);
+    insert_namespace("ut_expire_backptr", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_expire_backptr");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -2753,7 +2820,7 @@ static void *expire_race_writer(void *arg)
 /* A short TTL expires on a later second, and a purge in the past leaves it. */
 static void test_expire_wheel_timed_purge(void)
 {
-    insert_namespace("ut_wheel", 0);
+    insert_namespace("ut_wheel", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_wheel");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
     context_arg carg = {0};
@@ -2791,7 +2858,7 @@ static metric_node *ut_metric_by_id(namespace_struct *ns, char *name, char *id)
 static void test_expire_wheel_cursor_rebase(void)
 {
     const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
-    insert_namespace("ut_wheel_rebase", 0);
+    insert_namespace("ut_wheel_rebase", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_wheel_rebase");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -2847,7 +2914,7 @@ static void test_expire_wheel_far_horizon(void)
 {
     const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
     const int64_t span3 = span1 * EXPIRE_LVN_SIZE * EXPIRE_LVN_SIZE;
-    insert_namespace("ut_wheel_far", 0);
+    insert_namespace("ut_wheel_far", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_wheel_far");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -2941,7 +3008,7 @@ static void test_expire_wheel_immortal_ttl(void)
 {
     const int64_t span1 = (int64_t)EXPIRE_LV0_SIZE * EXPIRE_LVN_SIZE;
     const int64_t span3 = span1 * EXPIRE_LVN_SIZE * EXPIRE_LVN_SIZE;
-    insert_namespace("ut_wheel_immortal", 0);
+    insert_namespace("ut_wheel_immortal", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_wheel_immortal");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -3034,7 +3101,7 @@ static void test_expire_wheel_immortal_ttl(void)
 
 static void test_expire_purge_concurrent_update(void)
 {
-    insert_namespace("ut_expire_race", 0);
+    insert_namespace("ut_expire_race", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_expire_race");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -3065,7 +3132,7 @@ static void test_expire_purge_concurrent_update(void)
    ordered, and fully removable. */
 static void test_metric_label_set_property(void)
 {
-    insert_namespace("ut_prop", 0);
+    insert_namespace("ut_prop", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_prop");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
     context_arg carg = {0};
@@ -3104,7 +3171,7 @@ static void test_metric_label_set_property(void)
 
 static void test_metrictree_delete_paths(void)
 {
-    insert_namespace("ut_mtree_del", 0);
+    insert_namespace("ut_mtree_del", 0, UINT64_MAX);
     context_arg carg = {0};
     carg.namespace = "ut_mtree_del";
     int64_t v = 11;
@@ -3163,7 +3230,7 @@ static void test_labels_hash_insert_and_groupkey_paths(void)
 
 static void test_metric_query_gen_paths(void)
 {
-    insert_namespace("ut_query_gen", 0);
+    insert_namespace("ut_query_gen", 0, UINT64_MAX);
     int64_t v1 = 10;
     int64_t v2 = 20;
     metric_add_labels("ut_query_gen_metric", &v1, DATATYPE_INT, NULL, "env", "a");
@@ -4215,7 +4282,7 @@ static void test_metric_str_build_named_namespaces(void)
     char ns_names[3][32];
     for (int n = 0; n < 3; n++) {
         snprintf(ns_names[n], sizeof(ns_names[n]), "ut_build_ns_%d", n);
-        insert_namespace(ns_names[n], 0);
+        insert_namespace(ns_names[n], 0, UINT64_MAX);
 
         context_arg carg = {0};
         carg.namespace = ns_names[n];
@@ -4617,7 +4684,7 @@ static void test_metric_restore_json_past_1mb(void)
     metric_node *head_m;
     metric_node *tail_m;
 
-    insert_namespace("ut_restore_big", 0);
+    insert_namespace("ut_restore_big", 0, UINT64_MAX);
     namespace_struct *ns = get_namespace("ut_restore_big");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
 
@@ -5097,6 +5164,8 @@ static void run_helpers_and_events_suites(void)
     test_http_api_v1_lang_x509_put_only();
     test_http_api_v1_comprehensive_put();
     test_action_query_foreach_and_http_paths();
+    test_loop_delay_and_ewma_helpers();
+    test_namespace_max_series_cap();
     test_labels_cmp_extended_label_set_is_distinct();
     test_metric_label_set_property();
     test_expire_wheel_timed_purge();

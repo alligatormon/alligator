@@ -169,7 +169,7 @@ metric_node* metric_insert (metric_tree *tree, labels_t *labels, int8_t type, vo
 	return ret;
 }
 
-metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, expire_tree *expiretree, int64_t ttl, int add)
+metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, void *value, expire_tree *expiretree, int64_t ttl, int add, namespace_struct *ns, int bypass_max_series)
 {
 	/* Hold the write lock from the lookup through the value/expire update.
 	   expire_purge frees the node; a find that drops the lock first leaves
@@ -185,6 +185,13 @@ metric_node *metric_upsert(metric_tree *tree, labels_t *labels, int8_t type, voi
 		pthread_rwlock_unlock(tree->rwlock);
 		labels_head_free(labels);
 		return mnode;
+	}
+
+	if (!bypass_max_series && ns && ns->max_series > 0 && tree->count >= (int64_t)ns->max_series) {
+		__atomic_fetch_add(&ns->series_dropped, 1, __ATOMIC_RELAXED);
+		pthread_rwlock_unlock(tree->rwlock);
+		labels_head_free(labels);
+		return NULL;
 	}
 
 	mnode = metric_insert_locked(tree, labels, type, value, expiretree, ttl);

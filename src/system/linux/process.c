@@ -1096,13 +1096,16 @@ void files_fd_free(void *funcarg, void* arg)
 	free(files);
 }
 
-void find_pid(int8_t lightweight)
+void find_pid(int8_t lightweight, uint64_t *runnable_out)
 {
 	carglog(ac->system_carg, L_TRACE, "system scrape metrics: processes\n");
 
 
 	struct dirent *entry;
 	DIR *dp;
+
+	if (runnable_out)
+		*runnable_out = 0;
 
 	dp = opendir(ac->system_procfs);
 	if (!dp)
@@ -1175,6 +1178,9 @@ void find_pid(int8_t lightweight)
 
 	double pids_usage = processes * 100.0 / pid_max;
 	metric_add_auto("processes_usage", &pids_usage, DATATYPE_DOUBLE, ac->system_carg);
+
+	if (runnable_out)
+		*runnable_out = task_states->running + task_states->uninterruptible;
 
 	free(states);
 	free(task_states);

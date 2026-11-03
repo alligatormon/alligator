@@ -9,6 +9,7 @@
 #include <systemd/sd-bus.h>
 #include "events/context_arg.h"
 #include "common/logs.h"
+#include "system/linux/systemd.h"
 #include "main.h"
 extern aconf *ac;
 
@@ -58,34 +59,64 @@ static int systemd_check_user_service_via_cgroup(const char *uid, const char *se
 	return 0;
 }
 
-int systemd_get_property(sd_bus *bus, char *property, char *expect, char *path) {
+static int systemd_read_active_state(sd_bus *bus, char *path, char *out, size_t outsz)
+{
 	sd_bus_error err = SD_BUS_ERROR_NULL;
-	char* msg;
-	int ret = 0;
+	char *msg = NULL;
+	int r;
 
-	int r = sd_bus_get_property_string(bus,
+	if (!out || !outsz)
+		return -1;
+	out[0] = '\0';
+
+	r = sd_bus_get_property_string(bus,
 		"org.freedesktop.systemd1",
 		path,
 		"org.freedesktop.systemd1.Unit",
-		property,
+		"ActiveState",
 		&err,
 		&msg);
 	if (r < 0)
 	{
-		carglog(ac->system_carg, L_DEBUG, "Failed to get %s for service %s. Error: '%s'\n", property, path, err.message ? err.message : "unknown");
+		carglog(ac->system_carg, L_DEBUG, "Failed to get ActiveState for %s. Error: '%s'\n", path, err.message ? err.message : "unknown");
 		sd_bus_error_free(&err);
-		return ret;
+		return r;
 	}
 
-	carglog(ac->system_carg, L_DEBUG, "systemd status returned: '%s', expected: '%s'\n", msg, expect);
-
+	strlcpy(out, msg, outsz);
+	free(msg);
 	sd_bus_error_free(&err);
+	return 0;
+}
 
-	if (!strcmp(msg, expect))
-		ret = 1;
+static int systemd_read_nrestarts(sd_bus *bus, char *path, uint32_t *out)
+{
+	sd_bus_error err = SD_BUS_ERROR_NULL;
+	uint32_t val = 0;
+	int r;
 
-	free (msg);
-	return ret;
+	if (!out)
+		return -1;
+	*out = 0;
+
+	r = sd_bus_get_property_trivial(bus,
+		"org.freedesktop.systemd1",
+		path,
+		"org.freedesktop.systemd1.Service",
+		"NRestarts",
+		&err,
+		'u',
+		&val);
+	if (r < 0)
+	{
+		carglog(ac->system_carg, L_DEBUG, "Failed to get NRestarts for %s. Error: '%s'\n", path, err.message ? err.message : "unknown");
+		sd_bus_error_free(&err);
+		return r;
+	}
+
+	*out = val;
+	sd_bus_error_free(&err);
+	return 0;
 }
 
 static int systemd_get_unit_path(sd_bus *bus, const char *service, char **unit_path)
@@ -124,11 +155,13 @@ static int systemd_get_unit_path(sd_bus *bus, const char *service, char **unit_p
 	return 0;
 }
 
-static int systemd_check_service_on_bus(sd_bus *bus, char *service)
+static int systemd_fill_from_bus(sd_bus *bus, char *service, systemd_service_status *st)
 {
 	char *path = NULL;
-	int ret = 0;
-	int r = systemd_get_unit_path(bus, service, &path);
+	int r;
+	size_t slen;
+
+	r = systemd_get_unit_path(bus, service, &path);
 	if (r < 0 || !path)
 	{
 		r = sd_bus_path_encode("/org/freedesktop/systemd1/unit", service, &path);
@@ -144,14 +177,23 @@ static int systemd_check_service_on_bus(sd_bus *bus, char *service)
 	carglog(ac->system_carg, L_DEBUG, "systemd converted name from '%s' to path '%s'\n", service, path);
 	if (systemd_trace_service(service))
 		carglog(ac->system_carg, L_INFO, "systemd-trace checking '%s' at path '%s'\n", service, path);
-	ret = systemd_get_property(bus, "ActiveState", "active", path);
+
+	if (systemd_read_active_state(bus, path, st->active_state, sizeof(st->active_state)) == 0)
+		st->running = !strcmp(st->active_state, "active");
+
+	slen = strlen(service);
+	if (slen >= 8 && !strcmp(service + slen - 8, ".service") &&
+	    systemd_read_nrestarts(bus, path, &st->nrestarts) == 0)
+		st->has_restarts = 1;
+
 	if (systemd_trace_service(service))
-		carglog(ac->system_carg, L_INFO, "systemd-trace result for '%s': %d\n", service, ret);
+		carglog(ac->system_carg, L_INFO, "systemd-trace result for '%s': running=%d state='%s'\n",
+			service, st->running, st->active_state);
 	free(path);
-	return ret;
+	return st->running;
 }
 
-int systemd_check_service(char *service, char *username, int *checked) {
+int systemd_check_service(char *service, char *username, systemd_service_status *st) {
 	const char *run_user_root = "/run/user";
 	DIR *root_dir = NULL;
 	struct dirent *entry;
@@ -163,9 +205,11 @@ int systemd_check_service(char *service, char *username, int *checked) {
 	const char *resolved_service = service;
 	uid_t target_uid = (uid_t) -1;
 	int target_user_only = 0;
+	systemd_service_status local;
 
-	if (checked)
-		*checked = 0;
+	if (!st)
+		st = &local;
+	memset(st, 0, sizeof(*st));
 
 	if (service && !strchr(service, '.'))
 	{
@@ -194,14 +238,19 @@ int systemd_check_service(char *service, char *username, int *checked) {
 			checked_local = 1;
 			if (systemd_trace_service(resolved_service))
 				carglog(ac->system_carg, L_INFO, "systemd-trace checking system bus for '%s'\n", resolved_service);
-			ret = systemd_check_service_on_bus(bus, (char*) resolved_service);
+			ret = systemd_fill_from_bus(bus, (char*) resolved_service, st);
 			sd_bus_unref(bus);
 			bus = NULL;
 			if (ret)
 			{
-				if (checked)
-					*checked = 1;
+				st->checked = 1;
 				return 1;
+			}
+			/* Keep ActiveState / NRestarts even when not active. */
+			if (st->active_state[0])
+			{
+				st->checked = 1;
+				return 0;
 			}
 		}
 	}
@@ -209,8 +258,7 @@ int systemd_check_service(char *service, char *username, int *checked) {
 	root_dir = opendir(run_user_root);
 	if (!root_dir)
 	{
-		if (checked)
-			*checked = checked_local;
+		st->checked = checked_local;
 		return 0;
 	}
 
@@ -271,16 +319,19 @@ int systemd_check_service(char *service, char *username, int *checked) {
 				carglog(ac->system_carg, L_INFO, "systemd-trace cgroup fallback uid=%s service='%s' ret=%d (after bus connect fail)\n", entry->d_name, resolved_service, ret);
 			sd_bus_unref(user_bus);
 			if (ret)
+			{
+				st->running = 1;
 				break;
+			}
 			continue;
 		}
 
 		if (systemd_trace_service(resolved_service))
 			carglog(ac->system_carg, L_INFO, "systemd-trace connected user bus '%s' for '%s'\n", address, resolved_service);
-		ret = systemd_check_service_on_bus(user_bus, (char*) resolved_service);
+		ret = systemd_fill_from_bus(user_bus, (char*) resolved_service, st);
 		checked_local = 1;
 		sd_bus_unref(user_bus);
-		if (ret)
+		if (ret || st->active_state[0])
 			break;
 
 		ret = systemd_check_user_service_via_cgroup(entry->d_name, resolved_service);
@@ -288,13 +339,15 @@ int systemd_check_service(char *service, char *username, int *checked) {
 		if (systemd_trace_service(resolved_service))
 			carglog(ac->system_carg, L_INFO, "systemd-trace cgroup fallback uid=%s service='%s' ret=%d\n", entry->d_name, resolved_service, ret);
 		if (ret)
+		{
+			st->running = 1;
 			break;
+		}
 	}
 
 	closedir(root_dir);
-	if (checked)
-		*checked = checked_local;
-	return ret;
+	st->checked = checked_local;
+	return st->running;
 }
 
 #endif
