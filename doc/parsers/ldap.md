@@ -14,9 +14,9 @@ TLS is ordinary alligator client TLS: use `tls://` for LDAPS (typically port 636
 
 ### Security notes
 
-- **Password binds over `tcp://` are refused** unless you set `env=ldap_allow_cleartext_bind:1` (local/lab only). Prefer `tls://` or `unix://` (ldapi).
+- Prefer `tls://` (LDAPS) or `unix://` (ldapi) for password binds; `tcp://` sends credentials in cleartext.
 - For `tls://`, if `tls_verify` is unset and either `tls_ca` or a bind password is present, alligator enables `tls_verify=on` automatically (same idea as action HTTPS). Set `tls_verify=off` only when you intentionally skip peer checks.
-- Anonymous bind (no URL user/pass) over `tcp://` is still allowed.
+- Anonymous bind (no URL user/pass) over `tcp://` is allowed.
 
 ### Connection URL
 
@@ -25,7 +25,7 @@ tcp://127.0.0.1:389
 tls://cn=Manager,dc=example,dc=com:secret@ldap.example:636 tls_ca=/etc/ssl/certs/ca.pem
 tls://cn=monitoring,cn=Monitor:secret@ldap.example:636 tls_ca=/etc/ssl/certs/ca.pem tls_verify=on
 unix:///var/run/slapd/ldapi
-tcp://user:pass@127.0.0.1:389 env=ldap_allow_cleartext_bind:1
+tcp://user:pass@127.0.0.1:389
 tcp://127.0.0.1:389/cn=Monitor
 ```
 

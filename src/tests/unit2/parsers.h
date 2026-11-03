@@ -1101,24 +1101,15 @@ void api_test_parser_ldap()
         url_free(phi);
     }
 
-    /* Cleartext password over tcp:// is refused without explicit env opt-in. */
+    /* Password bind over tcp:// is allowed. */
     memset(&hi, 0, sizeof(hi));
     hi.transport = APROTO_TCP;
     hi.proto = APROTO_TCP;
     hi.user = (char *)"cn=Manager,dc=example,dc=com";
     hi.pass = (char *)"secret";
     req = ldap_mesg(&hi, NULL, NULL, NULL);
-    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, req);
-
-    /* Opt-in cleartext bind. */
-    {
-        alligator_ht *env = alligator_ht_init(NULL);
-        env_struct_push_alloc(env, "ldap_allow_cleartext_bind", "1");
-        req = ldap_mesg(&hi, NULL, env, NULL);
-        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
-        string_free(req);
-        env_free(env);
-    }
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    string_free(req);
 
     /* Password over unix:// (ldapi) is allowed. */
     memset(&hi, 0, sizeof(hi));

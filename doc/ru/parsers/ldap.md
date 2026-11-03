@@ -14,9 +14,9 @@ TLS — обычный клиентский TLS alligator: `tls://` для LDAPS
 
 ### Безопасность
 
-- **Bind с паролем по `tcp://` запрещён**, пока не задан `env=ldap_allow_cleartext_bind:1` (только lab/local). Предпочтительны `tls://` или `unix://` (ldapi).
+- Для bind с паролем предпочтительны `tls://` (LDAPS) или `unix://` (ldapi); по `tcp://` учётные данные уходят открытым текстом.
 - Для `tls://`, если `tls_verify` не задан и есть `tls_ca` или пароль bind, alligator включает `tls_verify=on` (как у action HTTPS). `tls_verify=off` — только при осознанном отключении проверки.
-- Anonymous bind (без user/pass в URL) по `tcp://` по-прежнему разрешён.
+- Anonymous bind (без user/pass в URL) по `tcp://` разрешён.
 
 ### Connection URL
 
@@ -25,7 +25,7 @@ tcp://127.0.0.1:389
 tls://cn=Manager,dc=example,dc=com:secret@ldap.example:636 tls_ca=/etc/ssl/certs/ca.pem
 tls://cn=monitoring,cn=Monitor:secret@ldap.example:636 tls_ca=/etc/ssl/certs/ca.pem tls_verify=on
 unix:///var/run/slapd/ldapi
-tcp://user:pass@127.0.0.1:389 env=ldap_allow_cleartext_bind:1
+tcp://user:pass@127.0.0.1:389
 tcp://127.0.0.1:389/cn=Monitor
 ```
 
