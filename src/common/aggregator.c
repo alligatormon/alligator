@@ -787,6 +787,7 @@ void aggregate_ctx_init()
 	dnsmasq_parser_push();
 	dnsmasq_dhcp_parser_push();
 	freeradius_parser_push();
+	ldap_parser_push();
 	kubernetes_ingress_parser_push();
 	kubernetes_endpoint_parser_push();
 	kubernetes_operator_parser_push();

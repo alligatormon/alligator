@@ -361,6 +361,7 @@ set(STATIC_FILES
 	parsers/named.c
 	parsers/dnsmasq.c
 	parsers/freeradius.c
+	parsers/ldap.c
 	parsers/kubernetes.c
 	parsers/kubernetes_common.c
 	parsers/kubernetes_operator.c

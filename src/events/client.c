@@ -305,7 +305,8 @@ void tcp_client_read_data(uv_stream_t* stream, ssize_t nread, char *base)
 				/* Prior-knowledge HTTP/2 — skip HTTP/1.x probe (avoids noisy TRACE). */
 				int skip_http1 = carg->parser_name
 					&& (!strcmp(carg->parser_name, "otlp_grpc_response_catch")
-						|| !strcmp(carg->parser_name, "grpc_health_probe"));
+						|| !strcmp(carg->parser_name, "grpc_health_probe")
+						|| !strcmp(carg->parser_name, "ldap"));
 				http_reply_data* hr_data = skip_http1 ? NULL : http_reply_parser(base, nread);
 				if (hr_data)
 				{

@@ -200,6 +200,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [varnish](https://github.com/alligatormon/alligator/blob/master/doc/parsers/varnish.md)
 - [wazuh](https://github.com/alligatormon/alligator/blob/master/doc/parsers/wazuh.md)
 - [freeradius](https://github.com/alligatormon/alligator/blob/master/doc/parsers/freeradius.md)
+- [ldap](https://github.com/alligatormon/alligator/blob/master/doc/parsers/ldap.md)
 
 
 ## Persistence

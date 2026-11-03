@@ -4442,6 +4442,7 @@ static void run_config_query_suites(char **argv)
     api_test_parser_dnsmasq();
     api_test_parser_dnsmasq_dhcp();
     api_test_parser_freeradius();
+    api_test_parser_ldap();
     api_test_parser_postfix();
     api_test_parser_proxysql();
     api_test_parser_openclaw();

@@ -1,6 +1,7 @@
 Changelog
 
 ## [unreleased]
+- LDAP / OpenLDAP parser: minimal BER client scrapes `cn=Monitor` (`aggregate { ldap …; }`) with openldap_exporter-compatible gauges (`openldap_monitor_counter_object`, `openldap_monitored_object`, `openldap_monitor_operation`, `openldap_up`). Bind DN/password from URL user/pass; LDAPS via `tls://` (+ optional `tls_ca` / client cert); `unix://` for ldapi. Password binds over `tcp://` require `env=ldap_allow_cleartext_bind:1`; unset `tls_verify` with `tls_ca` or a password enables peer verify. `openldap_up` requires LDAP success on both bind and search. See `doc/parsers/ldap.md`.
 - ProxySQL parser: built-in admin scrape over `mysql://` (`aggregate { proxysql …; }`) with Percona proxysql_exporter-compatible defaults (`proxysql_mysql_status_*`, `proxysql_connection_pool_*`, processlist by client, `proxysql_info`, `proxysql_up`). Optional collectors via `env=collect.detailed_processlist:1` (alias `collect.detailed.stats_mysql_processlist`), `collect.runtime_mysql_servers:1`, `collect.stats_memory_metrics:1`. Default admin port `6032` when omitted. Per-target MySQL connection state (also for `mysql` / `sphinxsearch`). See `doc/parsers/proxysql.md`.
 - MySQL client: after a dropped admin/backend TCP session mark the conn failed and allocate a fresh connection on the next scrape (avoids stuck `STATE_QUERY` with `proxysql_up=1` / empty metrics until restart).
 - Linux hwmon: export voltage gauges `hwmon_voltage_volt{name,component,hwmon}` from `in*_input` (millivolts → volts), same walk as `core_temperature_celsius` / power / fan.

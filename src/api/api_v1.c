@@ -1873,9 +1873,20 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 						if (enkey)
 						{
+							/* ldap_mesg returns NULL when cleartext password bind is refused.
+							 * Only block CREATE; DELETE must still remove the aggregator key. */
+							if (!strcmp(handler, "ldap") && actx->handler[j].mesg_func && !writemesg)
+							{
+								snprintf(status, 100, "ERROR");
+								snprintf(respbody, 1000, "ldap mesg refused (cleartext bind?)");
+								continue;
+							}
+
 							context_arg *carg = context_arg_json_fill(aggregate, hi, actx->handler[j].name, actx->handler[j].key, writemesg, writelen, actx->data, actx->handler[j].validator, actx->handler[j].headers_pass, ac->loop, env, follow_redirects, NULL, 0);
 							carg->no_exit_status = actx->handler[j].no_exit_status;
 							carg->no_metric = actx->handler[j].no_metric;
+							if (!strcmp(handler, "ldap"))
+								ldap_carg_secure(carg, hi);
 							if (hi->proto == APROTO_GRPC) {
 								json_t *jsvc = json_object_get(aggregate, "service");
 								const char *service = jsvc ? json_string_value(jsvc) : NULL;

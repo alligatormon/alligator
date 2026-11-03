@@ -1014,6 +1014,183 @@ void api_test_parser_freeradius()
     parser_push_roundtrip("freeradius", freeradius_parser_push);
 }
 
+void api_test_parser_ldap()
+{
+    static const unsigned char fixture[] = {
+        0x30, 0x0c, 0x02, 0x01, 0x01, 0x61, 0x07, 0x0a, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00,
+        0x30, 0x45, 0x02, 0x01, 0x02, 0x64, 0x40, 0x04, 0x22, 0x63, 0x6e, 0x3d, 0x54, 0x6f,
+        0x74, 0x61, 0x6c, 0x2c, 0x63, 0x6e, 0x3d, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74,
+        0x69, 0x6f, 0x6e, 0x73, 0x2c, 0x63, 0x6e, 0x3d, 0x4d, 0x6f, 0x6e, 0x69, 0x74, 0x6f,
+        0x72, 0x30, 0x1a, 0x30, 0x18, 0x04, 0x0e, 0x6d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72,
+        0x43, 0x6f, 0x75, 0x6e, 0x74, 0x65, 0x72, 0x31, 0x06, 0x04, 0x04, 0x31, 0x35, 0x35,
+        0x33, 0x30, 0x41, 0x02, 0x01, 0x02, 0x64, 0x3c, 0x04, 0x1c, 0x63, 0x6e, 0x3d, 0x55,
+        0x70, 0x74, 0x69, 0x6d, 0x65, 0x2c, 0x63, 0x6e, 0x3d, 0x54, 0x69, 0x6d, 0x65, 0x2c,
+        0x63, 0x6e, 0x3d, 0x4d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72, 0x30, 0x1c, 0x30, 0x1a,
+        0x04, 0x0d, 0x6d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72, 0x65, 0x64, 0x49, 0x6e, 0x66,
+        0x6f, 0x31, 0x09, 0x04, 0x07, 0x33, 0x33, 0x35, 0x31, 0x34, 0x31, 0x34, 0x30, 0x48,
+        0x02, 0x01, 0x02, 0x64, 0x43, 0x04, 0x20, 0x63, 0x6e, 0x3d, 0x42, 0x69, 0x6e, 0x64,
+        0x2c, 0x63, 0x6e, 0x3d, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73,
+        0x2c, 0x63, 0x6e, 0x3d, 0x4d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72, 0x30, 0x1f, 0x30,
+        0x1d, 0x04, 0x12, 0x6d, 0x6f, 0x6e, 0x69, 0x74, 0x6f, 0x72, 0x4f, 0x70, 0x43, 0x6f,
+        0x6d, 0x70, 0x6c, 0x65, 0x74, 0x65, 0x64, 0x31, 0x07, 0x04, 0x05, 0x35, 0x37, 0x36,
+        0x39, 0x38, 0x30, 0x0c, 0x02, 0x01, 0x02, 0x65, 0x07, 0x0a, 0x01, 0x00, 0x04, 0x00,
+        0x04, 0x00
+    };
+    context_arg *carg;
+    host_aggregator_info hi;
+    string *req;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+        ldap_validator(NULL, (char *)fixture, sizeof(fixture)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        ldap_validator(NULL, (char *)fixture, 20));
+
+    /* BindResponse-only (28 bytes) must NOT complete — wait for SearchResultDone. */
+    {
+        static const unsigned char bind_only_28[] = {
+            0x30, 0x1a, 0x02, 0x01, 0x01, 0x61, 0x15, 0x0a, 0x01, 0x00, 0x04, 0x00, 0x04, 0x0e,
+            0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78, 0x78
+        };
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+            ldap_validator(NULL, (char *)bind_only_28, sizeof(bind_only_28)));
+    }
+
+    /* Bind success + SearchResultDone insufficientAccessRights (50) → complete, up=0. */
+    {
+        static const unsigned char bind_ok_search_deny[] = {
+            0x30, 0x0c, 0x02, 0x01, 0x01, 0x61, 0x07, 0x0a, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00,
+            0x30, 0x0c, 0x02, 0x01, 0x02, 0x65, 0x07, 0x0a, 0x01, 0x32, 0x04, 0x00, 0x04, 0x00
+        };
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            ldap_validator(NULL, (char *)bind_ok_search_deny, sizeof(bind_ok_search_deny)));
+        carg = calloc(1, sizeof(*carg));
+        ldap_handler((char *)bind_ok_search_deny, sizeof(bind_ok_search_deny), carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+        metric_test_run(CMP_EQUAL, "openldap_up", "openldap_up", 0);
+        metric_test_run(CMP_EQUAL, "openldap_bind_result_code", "openldap_bind_result_code", 0);
+        metric_test_run(CMP_EQUAL, "openldap_search_result_code", "openldap_search_result_code", 50);
+        free(carg);
+    }
+
+    carg = calloc(1, sizeof(*carg));
+    ldap_handler((char *)fixture, sizeof(fixture), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "openldap_up", "openldap_up", 1);
+    metric_test_run(CMP_EQUAL,
+        "openldap_monitor_counter_object{dn=\"cn=Total,cn=Connections,cn=Monitor\"}",
+        "openldap_monitor_counter_object", 1553);
+    metric_test_run(CMP_EQUAL,
+        "openldap_monitored_object{dn=\"cn=Uptime,cn=Time,cn=Monitor\"}",
+        "openldap_monitored_object", 3351414);
+    metric_test_run(CMP_EQUAL,
+        "openldap_monitor_operation{dn=\"cn=Bind,cn=Operations,cn=Monitor\"}",
+        "openldap_monitor_operation", 57698);
+    free(carg);
+
+    {
+        host_aggregator_info *phi = parse_url("tls://cn=Manager,dc=example,dc=com:secret@ldap.example:636",
+            strlen("tls://cn=Manager,dc=example,dc=com:secret@ldap.example:636"));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, phi);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, APROTO_TCP, phi->transport);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, phi->tls);
+        req = ldap_mesg(phi, NULL, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req->l > 20);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0x30, (unsigned char)req->s[0]);
+        string_free(req);
+        url_free(phi);
+    }
+
+    /* Cleartext password over tcp:// is refused without explicit env opt-in. */
+    memset(&hi, 0, sizeof(hi));
+    hi.transport = APROTO_TCP;
+    hi.proto = APROTO_TCP;
+    hi.user = (char *)"cn=Manager,dc=example,dc=com";
+    hi.pass = (char *)"secret";
+    req = ldap_mesg(&hi, NULL, NULL, NULL);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, req);
+
+    /* Opt-in cleartext bind. */
+    {
+        alligator_ht *env = alligator_ht_init(NULL);
+        env_struct_push_alloc(env, "ldap_allow_cleartext_bind", "1");
+        req = ldap_mesg(&hi, NULL, env, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+        string_free(req);
+        env_free(env);
+    }
+
+    /* Password over unix:// (ldapi) is allowed. */
+    memset(&hi, 0, sizeof(hi));
+    hi.transport = APROTO_UNIX;
+    hi.proto = APROTO_UNIX;
+    hi.user = (char *)"cn=Manager,dc=example,dc=com";
+    hi.pass = (char *)"secret";
+    req = ldap_mesg(&hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    string_free(req);
+
+    /* Anonymous bind over tcp:// remains allowed. */
+    memset(&hi, 0, sizeof(hi));
+    hi.transport = APROTO_TCP;
+    hi.proto = APROTO_TCP;
+    req = ldap_mesg(&hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    string_free(req);
+
+    /* SearchResultDone with non-success resultCode → openldap_up=0. */
+    {
+        static const unsigned char fail_search[] = {
+            0x30, 0x0c, 0x02, 0x01, 0x01, 0x61, 0x07, 0x0a, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00,
+            /* SearchResultDone msgid=2 resultCode=50 (insufficientAccessRights) */
+            0x30, 0x0c, 0x02, 0x01, 0x02, 0x65, 0x07, 0x0a, 0x01, 0x32, 0x04, 0x00, 0x04, 0x00
+        };
+        carg = calloc(1, sizeof(*carg));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            ldap_validator(NULL, (char *)fail_search, sizeof(fail_search)));
+        ldap_handler((char *)fail_search, sizeof(fail_search), carg);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+        metric_test_run(CMP_EQUAL, "openldap_up", "openldap_up", 0);
+        free(carg);
+    }
+
+    /* Bind failure completes validator even with trailing incomplete bytes. */
+    {
+        static const unsigned char bind_fail_trail[] = {
+            0x30, 0x0c, 0x02, 0x01, 0x01, 0x61, 0x07, 0x0a, 0x01, 0x31, 0x04, 0x00, 0x04, 0x00,
+            0x30, 0x82
+        };
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            ldap_validator(NULL, (char *)bind_fail_trail, sizeof(bind_fail_trail)));
+    }
+
+    /* Indefinite BER length is a framing error → validator completes. */
+    {
+        static const unsigned char bad_len[] = { 0x30, 0x80, 0x02, 0x01, 0x01 };
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            ldap_validator(NULL, (char *)bad_len, sizeof(bad_len)));
+    }
+
+    {
+        context_arg scarg;
+        memset(&scarg, 0, sizeof(scarg));
+        memset(&hi, 0, sizeof(hi));
+        scarg.tls = 1;
+        hi.pass = (char *)"secret";
+        hi.tls = 1;
+        ldap_carg_secure(&scarg, &hi);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, scarg.tls_verify);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, scarg.tls_verify_defined);
+    }
+
+    carg = calloc(1, sizeof(*carg));
+    ldap_handler("not-ldap", 8, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    free(carg);
+
+    parser_push_roundtrip("ldap", ldap_parser_push);
+}
+
 void api_test_parser_postfix()
 {
     char tmpl[] = "/tmp/alligator-postfix-XXXXXX";

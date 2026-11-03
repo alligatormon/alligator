@@ -200,6 +200,7 @@ aggregate {
 - [varnish](doc/ru/parsers/varnish.md)
 - [wazuh](doc/ru/parsers/wazuh.md)
 - [freeradius](doc/ru/parsers/freeradius.md)
+- [ldap](doc/ru/parsers/ldap.md)
 
 
 ## Persistence
