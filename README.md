@@ -174,6 +174,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [elasticsearch](https://github.com/alligatormon/alligator/blob/master/doc/parsers/elasticsearch.md)
 - [opentsdb](https://github.com/alligatormon/alligator/blob/master/doc/parsers/opentsdb.md)
 - [openvpn](doc/parsers/openvpn.md)
+- [frr](doc/parsers/frr.md)
 - [opennebula](doc/parsers/opennebula.md)
 - [openstack](doc/parsers/openstack.md)
 - [openclaw](doc/parsers/openclaw.md)

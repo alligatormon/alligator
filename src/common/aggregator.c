@@ -739,6 +739,7 @@ void aggregate_ctx_init()
 	nginx_parser_push();
 	fail2ban_parser_push();
 	chrony_parser_push();
+	frr_parser_push();
 	postfix_parser_push();
 	json_parser_push();
 	json_query_push();

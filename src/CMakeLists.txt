@@ -329,6 +329,7 @@ set(STATIC_FILES
 	parsers/nginx.c
 	parsers/fail2ban.c
 	parsers/chrony.c
+	parsers/frr.c
 	parsers/postfix.c
 	parsers/monit.c
 	parsers/rsyslog_impstats.c

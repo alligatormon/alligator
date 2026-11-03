@@ -174,6 +174,7 @@ aggregate {
 - [elasticsearch](doc/ru/parsers/elasticsearch.md)
 - [opentsdb](doc/ru/parsers/opentsdb.md)
 - [openvpn](doc/ru/parsers/openvpn.md)
+- [frr](doc/ru/parsers/frr.md)
 - [opennebula](doc/ru/parsers/opennebula.md)
 - [openstack](doc/ru/parsers/openstack.md)
 - [openclaw](doc/ru/parsers/openclaw.md)

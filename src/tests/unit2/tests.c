@@ -4439,6 +4439,7 @@ static void run_config_query_suites(char **argv)
     api_test_parser_openvpn();
     api_test_parser_opennebula();
     api_test_parser_chrony();
+    api_test_parser_frr(argv[0]);
     api_test_parser_dnsmasq();
     api_test_parser_dnsmasq_dhcp();
     api_test_parser_freeradius();

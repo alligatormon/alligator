@@ -810,6 +810,165 @@ void api_test_parser_chrony()
     parser_push_roundtrip("chrony", chrony_parser_push);
 }
 
+void api_test_parser_frr(char *binary)
+{
+    context_arg *carg;
+    char *pathbuf = malloc(PATH_MAX + 1);
+    string *msg;
+    char framed[4096];
+    size_t n;
+    const char *payload;
+    size_t payload_len;
+    char version[64];
+    char os[128];
+    host_aggregator_info hi;
+    string *req;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pathbuf);
+
+    /* Validator: trailing NUL + at least two NULs (enable + command). */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_validator(NULL, "a\0", 2));
+    n = 0;
+    framed[n++] = 'o';
+    framed[n++] = 'k';
+    framed[n++] = 0;
+    framed[n++] = '{';
+    framed[n++] = '}';
+    /* incomplete: no trailing NUL yet */
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_validator(NULL, framed, n));
+    framed[n++] = 0;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, frr_validator(NULL, framed, n));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_extract_command_body(framed, n, &payload, &payload_len));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)payload_len);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, '{', payload[0]);
+    /* Intermediate NUL in command body is stripped by frr_command_body_dup. */
+    {
+        char split[16];
+        char *dup;
+        size_t dlen = 0;
+        size_t sn = 0;
+        split[sn++] = 'e';
+        split[sn++] = 0;
+        split[sn++] = '{';
+        split[sn++] = 0;
+        split[sn++] = '}';
+        split[sn++] = 0;
+        dup = frr_command_body_dup(split, sn, &dlen);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, dup);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)dlen);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "{}", dup);
+        free(dup);
+    }
+
+    memset(&hi, 0, sizeof(hi));
+    hi.transport = APROTO_UNIX;
+    req = frr_mesg(&hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, req->l >= 14);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, memcmp(req->s, "enable", 6));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, req->s[6]);
+    string_free(req);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_version.txt");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+        frr_parse_status_version(msg->s, msg->l, version, sizeof(version), os, sizeof(os)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "10.3.1", version);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(os, "Linux") != NULL);
+    carg = calloc(1, sizeof(*carg));
+    frr_parse_status(msg->s, msg->l, carg);
+    metric_test_run(CMP_EQUAL, "frr_status_up{version=\"10.3.1\"}", "frr_status_up", 1);
+    free(carg);
+    string_free(msg);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_bgp_vrf_all_ipv4_summary.json");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_bgp_summary(msg->s, msg->l, carg, "ipv4"));
+    metric_test_run(CMP_EQUAL, "frr_bgp_rib_count_total{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_rib_count_total", 1);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peers_count_total{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peers_count_total", 2);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_state{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_state", 1);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_state{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.4\",peer_as=\"64515\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_state", 2);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_message_received_total{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_message_received_total", 100);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_uptime_seconds{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_uptime_seconds", 10);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_prefixes_received_count_total{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.3\",peer_as=\"64514\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_prefixes_received_count_total", 2);
+    free(carg);
+    string_free(msg);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_bfd_peers.json");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_bfd_peers(msg->s, msg->l, carg));
+    metric_test_run(CMP_EQUAL, "frr_bfd_peer_count", "frr_bfd_peer_count", 3);
+    metric_test_run(CMP_EQUAL, "frr_bfd_peer_state{iface=\"eth0\",local=\"10.10.141.81\",peer=\"10.10.141.61\",vrf=\"default\"}", "frr_bfd_peer_state", 1);
+    metric_test_run(CMP_EQUAL, "frr_bfd_peer_uptime{iface=\"eth0\",local=\"10.10.141.81\",peer=\"10.10.141.61\",vrf=\"default\"}", "frr_bfd_peer_uptime", 847716);
+    free(carg);
+    string_free(msg);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_ip_route_vrf_all_summary.json");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_route_summary(msg->s, msg->l, carg, "ipv4"));
+    metric_test_run(CMP_EQUAL, "frr_route_total{afi=\"ipv4\",vrf=\"default\"}", "frr_route_total", 3);
+    metric_test_run(CMP_EQUAL, "frr_route_total_fib{afi=\"ipv4\",vrf=\"red\"}", "frr_route_total_fib", 1000511);
+    free(carg);
+    string_free(msg);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_ip_ospf_vrf_all.json");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_ospf(msg->s, msg->l, carg));
+    metric_test_run(CMP_EQUAL, "frr_ospf_lsa_external_counter{vrf=\"default\"}", "frr_ospf_lsa_external_counter", 109);
+    metric_test_run(CMP_EQUAL, "frr_ospf_area_lsa_number{area=\"0.0.0.0\",vrf=\"default\"}", "frr_ospf_area_lsa_number", 17);
+    free(carg);
+    string_free(msg);
+
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_ip_ospf_vrf_all_neighbors.json");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    carg = calloc(1, sizeof(*carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_ospf_neighbor(msg->s, msg->l, carg));
+    metric_test_run(CMP_EQUAL, "frr_ospf_neighbor_state{iface=\"eth0\",local_address=\"192.168.1.2\",neighbor=\"0.0.35.148\",remote_address=\"192.168.1.3\",vrf=\"default\"}", "frr_ospf_neighbor_state", 7);
+    metric_test_run(CMP_EQUAL, "frr_ospf_neighbor_state{iface=\"eth1\",local_address=\"192.168.2.2\",neighbor=\"0.0.35.148\",remote_address=\"192.168.2.3\",vrf=\"default\"}", "frr_ospf_neighbor_state", 4);
+    free(carg);
+    string_free(msg);
+
+    /* Framed handler path: enable reply + show version. */
+    get_local_directory(pathbuf, binary, "tests/mock/frr/show_version.txt");
+    msg = get_file_content(pathbuf, 0);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
+    n = 0;
+    memcpy(framed + n, "enable ok", 9);
+    n += 9;
+    framed[n++] = 0;
+    memcpy(framed + n, msg->s, msg->l);
+    n += msg->l;
+    framed[n++] = 0;
+    carg = calloc(1, sizeof(*carg));
+    strlcpy(carg->host, "/var/run/frr/zebra.vty", sizeof(carg->host));
+    /* Disable optional collectors so handler does not oneshot real sockets. */
+    carg->env = alligator_ht_init(NULL);
+    env_struct_push_alloc(carg->env, "collect.bgp", "0");
+    env_struct_push_alloc(carg->env, "collect.bfd", "0");
+    env_struct_push_alloc(carg->env, "collect.ospf", "0");
+    env_struct_push_alloc(carg->env, "collect.route", "0");
+    frr_handler(framed, n, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "frr_status_up{version=\"10.3.1\"}", "frr_status_up", 1);
+    metric_test_run(CMP_EQUAL, "frr_collector_up{collector=\"status\"}", "frr_collector_up", 1);
+    env_free(carg->env);
+    free(carg);
+    string_free(msg);
+
+    free(pathbuf);
+    parser_push_roundtrip("frr", frr_parser_push);
+}
+
 static int test_dnsmasq_pack_txt(char *buf, int buflen, const char *qname, const char *txt)
 {
     dns_t pkt;
