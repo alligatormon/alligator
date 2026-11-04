@@ -1,5 +1,6 @@
 #pragma once
 #include <pcre.h>
+#include <pthread.h>
 #include "dstructures/tommy.h"
 #include "events/context_arg.h"
 #include <jansson.h>
@@ -19,6 +20,7 @@ typedef struct grok_pattern_node {
 typedef struct grok_pattern {
 	grok_pattern_node *nodes;
 	size_t count;
+	struct grok_pattern *retired_next; /* kept until grok_stop after reload */
 } grok_pattern;
 
 typedef struct grok_node
@@ -34,6 +36,9 @@ typedef struct grok_node
 	int name_entry_size;
 	const char *nametable;
 	alligator_ht *labels;
+	uint8_t compile_failed;
+	/* Primary series: 0 = counter (metric_update), 1 = gauge last-value (metric_add). */
+	uint8_t is_gauge;
 
 	tommy_node node;
 } grok_node;
@@ -41,35 +46,37 @@ typedef struct grok_node
 typedef struct grok_ds
 {
 	char *key;
-	uint8_t pattern_applied;
+	/* Accessed with __atomic_* (GCC 4.8 / CentOS 7 — no <stdatomic.h>).
+	 * want_epoch bumped on push/reload; have_epoch set after expand/compile. */
+	uint32_t want_epoch;
+	uint32_t have_epoch;
+	uint32_t mm_epoch; /* bumped when gps->mm / multimetrics built; carg refresh */
+	uint8_t zombie; /* removed from ac->grok; destroy when refs hit 0 */
+	uint8_t destroy_claimed; /* 0/1 via __atomic_exchange_n — single destroy owner */
+	pthread_rwlock_t lock;
+	int refs;
 	mapping_metric *mm;
 	string *separator;
 	alligator_ht *hash;
 	alligator_ht *gmm_quantile;
-	string_tokens *quantile_names;
 	alligator_ht *gmm_bucket;
-	string_tokens *bucket_names;
 	alligator_ht *gmm_le;
-	string_tokens *le_names;
 	alligator_ht *gmm_counter;
-	string_tokens *counter_names;
+	alligator_ht *gmm_gauge;
 
 	alligator_ht *gmm_splited_quantile;
-	string_tokens *splited_quantile_names;
 	alligator_ht *gmm_splited_bucket;
-	string_tokens *bucket_splited_names;
 	alligator_ht *gmm_splited_le;
-	string_tokens *splited_le_names;
 	alligator_ht *gmm_splited_counter;
-	string_tokens *splited_counter_names;
 	alligator_ht *gmm_splited_tags;
-	string_tokens *splited_tags_names;
 	alligator_ht *gmm_splited_inherit_tag;
-	string_tokens *splited_inherit_tag_names;
 	tommy_node node;
 } grok_ds;
 
 grok_ds* grok_get(char *key);
+void grok_put(grok_ds *gps);
+void grok_life_lock(void);
+void grok_life_unlock(void);
 alligator_ht* grok_get_field(json_t *jfield);
 grok_node *grok_get_node(grok_ds *gps, char *name);
 void grok_set_values(grok_node *gn);
@@ -82,4 +89,10 @@ int grokds_compare(const void* arg, const void* obj);
 int grok_patterns_init();
 int grok_multimetric_hash_compare(const void* arg, const void* obj);
 void grok_expand(string *src, string **dst, grok_pattern *patterns);
+int grok_expand_ok(string *src, string **dst, grok_pattern *patterns);
 void grok_sanitize_capture_name(const char *in, char *out, size_t outsz);
+void grok_ds_free_multimetrics(grok_ds *gps);
+void grok_node_del(grok_node *gn);
+void grok_ds_destroy(grok_ds *gps);
+void grok_parse_multimetrics(grok_ds *gps, json_t *grok);
+void grok_patterns_free_retired(void);

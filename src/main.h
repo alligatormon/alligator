@@ -204,7 +204,8 @@ typedef struct aconf
 
 	alligator_ht* grok;
 	string_tokens *grok_patterns_path;
-	grok_pattern* grok_patterns;
+	/* Swapped with __atomic_exchange_n; readers use __atomic_load_n. */
+	grok_pattern *grok_patterns;
 
 	int system_base;
 	int system_interrupts;

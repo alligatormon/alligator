@@ -561,6 +561,9 @@ void grok_node_generate_conf(void *funcarg, void* arg)
 	if (gn->value)
 		json_array_object_insert(ctx, "value", json_string(gn->value));
 
+	if (gn->is_gauge)
+		json_array_object_insert(ctx, "type", json_string("gauge"));
+
 	if (gn->match && gn->match->s)
 		json_array_object_insert(ctx, "match", json_string(gn->match->s));
 }

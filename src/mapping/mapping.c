@@ -54,17 +54,18 @@ void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node 
 {
 	int64_t le_size = mm->le_size;
 	char lekey[30];
+	char metric_name[255];
+	int64_t val = 1;
 
-	int64_t i;
-	int8_t inf = 0;
-	for (i=0; i<le_size; i++)
+	if (!mnode || !mnode->labels || !mm || !mm->le || le_size <= 0)
+		return;
+
+	snprintf(metric_name, sizeof(metric_name), "%s_le", mnode->labels->key);
+
+	for (int64_t i = 0; i < le_size; i++)
 	{
 		alligator_ht *hash = alligator_ht_init(NULL);
-
-		labels_t *labels = mnode->labels;
-		char metric_name[255];
-		snprintf(metric_name, 255, "%s_le", labels->key);
-		labels = labels->next;
+		labels_t *labels = mnode->labels->next;
 		for (; labels; labels = labels->next)
 		{
 			if (!labels->key)
@@ -72,25 +73,32 @@ void calc_buckets_cumulative(context_arg *carg, mapping_metric *mm, metric_node 
 			labels_hash_insert(hash, labels->name, labels->key);
 		}
 
-		if (dval < mm->le[i])
+		/* Prometheus cumulative histogram: count observations with value <= le. */
+		if (dval <= mm->le[i])
 		{
-			snprintf(lekey, 30, "%lg", mm->le[i]);
+			snprintf(lekey, sizeof(lekey), "%lg", mm->le[i]);
 			labels_hash_insert(hash, "le", lekey);
-			int64_t val = 1;
 			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
-		}
-		else if (dval > mm->le[i] && i+1 == le_size && !inf)
-		{
-			labels_hash_insert(hash, "le", "+Inf");
-			int64_t val = 1;
-			metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
-			inf = 1;
 		}
 		else
 		{
 			alligator_ht_done(hash);
 			free(hash);
 		}
+	}
+
+	/* Every observation counts toward +Inf. */
+	{
+		alligator_ht *hash = alligator_ht_init(NULL);
+		labels_t *labels = mnode->labels->next;
+		for (; labels; labels = labels->next)
+		{
+			if (!labels->key)
+				continue;
+			labels_hash_insert(hash, labels->name, labels->key);
+		}
+		labels_hash_insert(hash, "le", "+Inf");
+		metric_update(metric_name, hash, &val, DATATYPE_INT, carg);
 	}
 }
 

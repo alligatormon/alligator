@@ -58,7 +58,47 @@ Enables the calculation of quantiles using the metric values.
 Default: -\
 Plural: yes
 
-Adds additional metric counters for each log line.
+Adds additional metric counters for each log line. Values are **accumulated**
+(`metric_update`).
+
+Format:
+```
+counter <metric name> <capture field>;
+```
+
+
+## gauge
+Default: -\
+Plural: yes
+
+Adds additional **last-value** gauges for each log line. Values **replace** the
+previous sample (`metric_add`), like grok_exporter `type: gauge`.
+
+Format:
+```
+gauge <metric name> <capture field>;
+```
+
+
+## type
+Default: counter (implicit)\
+Plural: no
+
+Sets the primary metric (`name` / optional `value`) behaviour:
+
+- `type counter;` (default) — accumulate on each match  
+- `type gauge;` — last-value set on each match (use with `value <field>;`)
+
+```
+grok {
+  key pool;
+  name pool_size;
+  type gauge;
+  value size;
+  match '%{NUMBER:size}';
+}
+```
+
 
 ## splited_tags
 Default: -\

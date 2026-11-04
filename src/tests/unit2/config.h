@@ -5116,8 +5116,8 @@ void test_config_plain_more_top_level_blocks()
 void test_config_plain_grok_mtail_chromecdp_blocks()
 {
     const char *fragments[] = {
-        "grok { key dmesg; name dmesg_event; match '%{TIMESTAMP}] %{WORD:process}'; "
-        "counter dmesg_counter process; quantiles dmesg_q response_time 0.99 0.5; "
+        "grok { key dmesg; name dmesg_event; type gauge; value process; match '%{TIMESTAMP}] %{WORD:process} %{NUMBER:size}'; "
+        "counter dmesg_counter process; gauge dmesg_size size; quantiles dmesg_q response_time 0.99 0.5; "
         "splited_tags \", \" upstream_status upstream_addr; splited_inherit_tag server_name; }\n",
         "mtail { name nginx_mtail; script /etc/alligator/mtail/nginx.mtail; log_level_vm debug; }\n",
         "chromecdp { executable /usr/bin/chromium-browser; port 9222; https://example.com; "
@@ -5142,6 +5142,15 @@ void test_config_plain_grok_mtail_chromecdp_blocks()
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
             json_is_array(child) ? json_array_size(child) > 0 : json_object_size(child) > 0);
+        if (f == 0) {
+            json_t *g0 = json_array_get(child, 0);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, g0);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "gauge",
+                json_string_value(json_object_get(g0, "type")));
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(g0, "gauge"));
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+                json_is_array(json_object_get(g0, "gauge")));
+        }
         json_decref(part);
     }
 }

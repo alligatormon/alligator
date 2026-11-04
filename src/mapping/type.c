@@ -383,22 +383,31 @@ mapping_metric* mapping_copy(mapping_metric *src)
 		if (src->percentile_size)
 		{
 			mm->percentile_size = src->percentile_size;
-			mm->percentile = calloc(1, sizeof(int64_t) * src->percentile_size);
-			memcpy(mm->percentile, src->percentile, sizeof(int64_t) * src->percentile_size);
+			mm->percentile = calloc((size_t)src->percentile_size, sizeof(int64_t));
+			if (mm->percentile)
+				memcpy(mm->percentile, src->percentile, sizeof(int64_t) * (size_t)src->percentile_size);
+			else
+				mm->percentile_size = 0;
 		}
 
 		if (src->bucket_size)
 		{
 			mm->bucket_size = src->bucket_size;
-			mm->bucket = calloc(1, sizeof(int64_t) * src->bucket_size);
-			memcpy(mm->bucket, src->bucket, sizeof(int64_t) * src->bucket_size);
+			mm->bucket = calloc((size_t)src->bucket_size, sizeof(double));
+			if (mm->bucket)
+				memcpy(mm->bucket, src->bucket, sizeof(double) * (size_t)src->bucket_size);
+			else
+				mm->bucket_size = 0;
 		}
 
 		if (src->le_size)
 		{
 			mm->le_size = src->le_size;
-			mm->le = calloc(1, sizeof(int64_t) * src->le_size);
-			memcpy(mm->le, src->le, sizeof(int64_t) * src->le_size);
+			mm->le = calloc((size_t)src->le_size, sizeof(double));
+			if (mm->le)
+				memcpy(mm->le, src->le, sizeof(double) * (size_t)src->le_size);
+			else
+				mm->le_size = 0;
 		}
 
 		if (src->label_head)

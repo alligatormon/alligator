@@ -1800,6 +1800,7 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *grok_quantiles = NULL;
 			json_t *grok_le = NULL;
 			json_t *grok_counter = NULL;
+			json_t *grok_gauge = NULL;
 			json_t *grok_splited_quantiles = NULL;
 			json_t *grok_splited_le = NULL;
 			json_t *grok_splited_counter = NULL;
@@ -2720,6 +2721,31 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										{
 											json_t *arg_value = json_string(wstokens[i].token->s);
 											json_array_object_insert(counter_data, NULL, arg_value);
+										}
+
+										if (wstokens[i].semicolon)
+										{
+											break;
+										}
+									}
+								}
+								else if (!strcmp(operator_name, "gauge"))
+								{
+									json_t *gauge_data = json_array();
+									if (!grok_gauge)
+									{
+										grok_gauge = json_array();
+										json_array_object_insert(operator_json, "gauge", grok_gauge);
+									}
+
+									json_array_object_insert(grok_gauge, operator_name, gauge_data);
+
+									for (; i < token_count; i++)
+									{
+										if (wstokens[i].argument)
+										{
+											json_t *arg_value = json_string(wstokens[i].token->s);
+											json_array_object_insert(gauge_data, NULL, arg_value);
 										}
 
 										if (wstokens[i].semicolon)

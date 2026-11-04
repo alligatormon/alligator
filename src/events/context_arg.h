@@ -115,6 +115,7 @@ struct context_arg
 	//char *http_body;
 	regex_match **rematch;
 	mapping_metric *mm;
+	uint32_t grok_mm_epoch; /* last gps->mm_epoch copied into carg->mm */
 	struct phr_chunked_decoder chunked_dec;
 	char *bind_address;
 	uint16_t bind_port;

@@ -731,17 +731,13 @@ uint8_t string_tokens_push_dupn(string_tokens *st, char *s, uint64_t l)
 
 uint64_t string_tokens_check_or_add(string_tokens *st, char *s, uint64_t l)
 {
-	if (!st)
+	if (!st || !s)
 		return 0;
 
-	int found = 0;
 	for (uint64_t i = 0; i < st->l; ++i) {
-		if (!strncmp(st->str[i]->s, s, l))
-			found = 1;
+		if (st->str[i] && st->str[i]->l == l && !memcmp(st->str[i]->s, s, l))
+			return i + 1;
 	}
-
-	if (found)
-		return found;
 
 	if (!st->m)
 		string_tokens_scale(st);
@@ -780,6 +776,36 @@ string_tokens* string_tokens_char_split_any(char *s, uint64_t l, char *sepsym)
 		string_tokens_push_dupn(splited, s + i, size);
 		i += size;
 		i += strspn(s + i, sepsym);
+	}
+	return splited;
+}
+
+/* Split on an exact multi-character separator (e.g. ", "), not a charset. */
+string_tokens* string_tokens_char_split_literal(char *s, uint64_t l, char *sep)
+{
+	string_tokens *splited = string_tokens_new();
+	if (!s)
+		return splited;
+	if (!sep || !*sep) {
+		if (l)
+			string_tokens_push_dupn(splited, s, l);
+		return splited;
+	}
+
+	size_t seplen = strlen(sep);
+	uint64_t i = 0;
+	while (i <= l) {
+		uint64_t start = i;
+		while (i + seplen <= l && memcmp(s + i, sep, seplen) != 0)
+			++i;
+		if (i + seplen > l) {
+			if (l > start)
+				string_tokens_push_dupn(splited, s + start, l - start);
+			break;
+		}
+		if (i > start)
+			string_tokens_push_dupn(splited, s + start, i - start);
+		i += seplen;
 	}
 	return splited;
 }
