@@ -88,6 +88,10 @@ Sets the primary metric (`name` / optional `value`) behaviour:
 
 - `type counter;` (default) — accumulate on each match  
 - `type gauge;` — last-value set on each match (use with `value <field>;`)
+- `type constant;` — last-value set to a fixed number from config on each match
+  (use with `value <number>;`, default `1`). Captures become labels only; the
+  sample value is not taken from the log. Useful when labels matter more than
+  the numeric value (info-style series).
 
 ```
 grok {
@@ -98,6 +102,26 @@ grok {
   match '%{NUMBER:size}';
 }
 ```
+
+```
+grok {
+  key customword;
+  name customword;
+  type constant;
+  value 1;
+  match '%{WORD:word}';
+}
+```
+
+
+## value
+Default: (counter/gauge: unset → primary sample defaults to `1`; constant: `1`)\
+Plural: no
+
+Meaning depends on `type`:
+
+- `counter` / `gauge` — name of the capture field used as the metric sample
+- `constant` — numeric literal written as the metric sample (string or number in JSON)
 
 
 ## splited_tags

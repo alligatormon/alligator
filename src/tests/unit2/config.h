@@ -5123,12 +5123,13 @@ void test_config_plain_grok_mtail_chromecdp_blocks()
         "chromecdp { executable /usr/bin/chromium-browser; port 9222; https://example.com; "
         "log_level debug; timeout 30s; }\n",
         "aggregate { grok file:///var/log/nginx-access.log name=nginx log_level=off; "
-        "blackbox https://example.com threaded_loop_name=small; }\n"
+        "blackbox https://example.com threaded_loop_name=small; }\n",
+        "grok { key customword; name customword; type constant; value 1; match '%{WORD:word}'; }\n"
     };
-    const char *keys[] = { "grok", "mtail", "chromecdp", "aggregate" };
+    const char *keys[] = { "grok", "mtail", "chromecdp", "aggregate", "grok" };
 
     json_error_t error;
-    for (int f = 0; f < 4; f++) {
+    for (int f = 0; f < 5; f++) {
         string *s = string_new();
         string_cat(s, (char *)fragments[f], strlen(fragments[f]));
         char *json_s = config_plain_to_json(s);
@@ -5150,6 +5151,14 @@ void test_config_plain_grok_mtail_chromecdp_blocks()
             assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_object_get(g0, "gauge"));
             assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
                 json_is_array(json_object_get(g0, "gauge")));
+        }
+        if (f == 4) {
+            json_t *g0 = json_array_get(child, 0);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, g0);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "constant",
+                json_string_value(json_object_get(g0, "type")));
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "1",
+                json_string_value(json_object_get(g0, "value")));
         }
         json_decref(part);
     }

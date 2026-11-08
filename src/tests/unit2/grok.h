@@ -34,6 +34,9 @@ static void test_string_tokens_split_literal(void)
 	string_tokens_free(st);
 }
 
+void grok_generate_conf(void *funcarg, void* arg);
+static void test_grok_type_constant_push_and_handler(void);
+
 void test_grok_pcre_expand_and_match(void)
 {
 	char buf[64];
@@ -192,4 +195,157 @@ void test_grok_pcre_expand_and_match(void)
 		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, replaced);
 		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "BBB", ov[0].regex);
 	}
+
+	test_grok_type_constant_push_and_handler();
+}
+
+static void test_grok_type_constant_push_and_handler(void)
+{
+	alligator_ht *saved_grok = ac->grok;
+	grok_pattern *saved_patterns = ac->grok_patterns;
+
+	ac->grok = alligator_ht_init(NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->grok);
+
+	/* Empty pattern table is enough for matches without %{...}. */
+	grok_pattern *gp = calloc(1, sizeof(*gp));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gp);
+	gp->nodes = calloc(1, sizeof(*gp->nodes));
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gp->nodes);
+	gp->count = 0;
+	ac->grok_patterns = gp;
+
+	json_t *cfg = json_pack("{s:s,s:s,s:s,s:s,s:s}",
+		"key", "ut_const_key",
+		"name", "ut_const_metric",
+		"type", "constant",
+		"value", "42",
+		"match", "(?<word>\\w+)");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, grok_push(cfg));
+	json_decref(cfg);
+
+	grok_ds *gps = grok_get("ut_const_key");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+	grok_node *gn = grok_get_node(gps, "ut_const_metric");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->is_constant);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, gn->is_gauge);
+	assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, gn->value);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->constant_value == 42.0);
+
+	json_t *dst = json_object();
+	grok_generate_conf(dst, gps);
+	json_t *arr = json_object_get(dst, "grok");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, arr);
+	json_t *g0 = json_array_get(arr, 0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, g0);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "constant",
+		json_string_value(json_object_get(g0, "type")));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "42",
+		json_string_value(json_object_get(g0, "value")));
+	json_decref(dst);
+	grok_put(gps);
+
+	/* Default value when omitted. */
+	cfg = json_pack("{s:s,s:s,s:s,s:s}",
+		"key", "ut_const_def",
+		"name", "ut_const_default",
+		"type", "constant",
+		"match", "(?<word>\\w+)");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, grok_push(cfg));
+	json_decref(cfg);
+	gps = grok_get("ut_const_def");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+	gn = grok_get_node(gps, "ut_const_default");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->is_constant);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->constant_value == 1.0);
+	grok_put(gps);
+
+	/* JSON real value. */
+	cfg = json_pack("{s:s,s:s,s:s,s:f,s:s}",
+		"key", "ut_const_num",
+		"name", "ut_const_num",
+		"type", "constant",
+		"value", 7.5,
+		"match", "(?<word>\\w+)");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, grok_push(cfg));
+	json_decref(cfg);
+	gps = grok_get("ut_const_num");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+	gn = grok_get_node(gps, "ut_const_num");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->constant_value == 7.5);
+	grok_put(gps);
+
+	/* JSON integer value (API path often uses JSON_INTEGER for whole numbers). */
+	cfg = json_pack("{s:s,s:s,s:s,s:i,s:s}",
+		"key", "ut_const_int",
+		"name", "ut_const_int",
+		"type", "constant",
+		"value", 42,
+		"match", "(?<word>\\w+)");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, grok_push(cfg));
+	json_decref(cfg);
+	gps = grok_get("ut_const_int");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+	gn = grok_get_node(gps, "ut_const_int");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->constant_value == 42.0);
+	grok_put(gps);
+
+	/* Non-finite string values fall back to 1. */
+	cfg = json_pack("{s:s,s:s,s:s,s:s,s:s}",
+		"key", "ut_const_nan",
+		"name", "ut_const_nan",
+		"type", "constant",
+		"value", "nan",
+		"match", "(?<word>\\w+)");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, cfg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, grok_push(cfg));
+	json_decref(cfg);
+	gps = grok_get("ut_const_nan");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gps);
+	gn = grok_get_node(gps, "ut_const_nan");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, gn);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->is_constant);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gn->constant_value == 1.0);
+	grok_put(gps);
+
+	insert_namespace("ut_grok_const_ns", 0, UINT64_MAX);
+	context_arg carg = {0};
+	carg.name = "ut_const_key";
+	carg.namespace = "ut_grok_const_ns";
+	const char *line = "something\n";
+	grok_handler((char *)line, strlen(line), &carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.parser_status);
+
+	namespace_struct *ns = get_namespace("ut_grok_const_ns");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+	alligator_ht *hash = alligator_ht_init(NULL);
+	labels_hash_insert(hash, "word", "something");
+	labels_t *labels = labels_initiate(ns, hash, "ut_const_metric", NULL, ns, 0);
+	metric_node *m = metric_find(ns->metrictree, labels);
+	labels_head_free(labels);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, m->d == 42.0);
+
+	/* Re-match must replace, not accumulate (constant uses metric_add). */
+	grok_handler((char *)line, strlen(line), &carg);
+	hash = alligator_ht_init(NULL);
+	labels_hash_insert(hash, "word", "something");
+	labels = labels_initiate(ns, hash, "ut_const_metric", NULL, ns, 0);
+	m = metric_find(ns->metrictree, labels);
+	labels_head_free(labels);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, m->d == 42.0);
+
+	/* grok_stop frees current ac->grok and ac->grok_patterns. */
+	grok_stop();
+	ac->grok = saved_grok;
+	ac->grok_patterns = saved_patterns;
 }

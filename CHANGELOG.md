@@ -2,6 +2,8 @@ Changelog
 
 ## [unreleased]
 
+- Grok: `type constant;` with `value <number>;` (default `1`) sets a fixed last-value sample from config; named captures become labels only. See `doc/grok.md`.
+
 Host metric renames in this release (old name is gone):
 
 - `cpu_usage_time` → `cpu_time_seconds_total`

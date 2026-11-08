@@ -3,6 +3,8 @@
 #include "common/selector.h"
 #include "mapping/type.h"
 #include "main.h"
+#include <math.h>
+#include <stdlib.h>
 #include <strings.h>
 extern aconf *ac;
 
@@ -349,7 +351,6 @@ int grok_push(json_t *grok) {
 	char *key = (char *)json_string_value(jkey);
 
 	json_t *jvalue = json_object_get(grok, "value");
-	char *value = (jvalue && json_is_string(jvalue)) ? (char *)json_string_value(jvalue) : NULL;
 
 	json_t *jmatch = json_object_get(grok, "match");
 	if (!jmatch || !json_is_string(jmatch) || !json_string_value(jmatch)) {
@@ -363,15 +364,51 @@ int grok_push(json_t *grok) {
 	if (!gn)
 		return 0;
 	gn->name = strdup(name);
-	if (value)
-		gn->value = strdup(value);
 	gn->match = string_init_dupn(match, match_len);
 	json_t *jtype = json_object_get(grok, "type");
 	if (jtype && json_is_string(jtype)) {
 		const char *t = json_string_value(jtype);
 		if (t && !strcasecmp(t, "gauge"))
 			gn->is_gauge = 1;
+		else if (t && !strcasecmp(t, "constant")) {
+			gn->is_constant = 1;
+			gn->constant_value = 1.0;
+			if (jvalue) {
+				int have = 0;
+				double v = 0;
+				/* Prefer explicit integer/real checks (same pattern as mapping/type.c).
+				 * json_is_number also covers both; keep both branches for clarity. */
+				if (json_is_integer(jvalue)) {
+					v = (double)json_integer_value(jvalue);
+					have = 1;
+				} else if (json_is_real(jvalue)) {
+					v = json_real_value(jvalue);
+					have = 1;
+				} else if (json_is_string(jvalue)) {
+					const char *vs = json_string_value(jvalue);
+					char *end = NULL;
+					v = strtod(vs ? vs : "", &end);
+					if (vs && end && end != vs && *end == '\0')
+						have = 1;
+					else
+						glog(L_INFO, "grok_push: type constant for '%s' expects numeric value, got '%s' — using 1\n",
+							name, vs ? vs : "");
+				} else {
+					glog(L_INFO, "grok_push: type constant for '%s' expects numeric value — using 1\n", name);
+				}
+				if (have) {
+					if (isnan(v) || isinf(v))
+						glog(L_INFO, "grok_push: type constant for '%s' rejects non-finite value — using 1\n", name);
+					else
+						gn->constant_value = v;
+				}
+			}
+		}
 	}
+	/* For counter/gauge, value names the capture field used as the sample.
+	 * For constant, value is the numeric literal (handled above). */
+	if (!gn->is_constant && jvalue && json_is_string(jvalue) && json_string_value(jvalue))
+		gn->value = strdup(json_string_value(jvalue));
 
 	/* Contexts are keyed by `key`, not metric `name` — multiple rules share one key.
 	 * Hold life lock for table lookup/create, then pin with refs before unlocking. */

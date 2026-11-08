@@ -92,6 +92,9 @@ gauge <имя метрики> <поле capture>;
 
 - `type counter;` (по умолчанию) — накапливать на каждый match  
 - `type gauge;` — выставлять последнее значение (обычно вместе с `value <field>;`)
+- `type constant;` — на каждый match выставлять фиксированное число из конфига
+  (`value <число>;`, по умолчанию `1`). Captures идут только в labels; значение
+  из лога не берётся. Удобно, когда важны labels, а не число (info-метрики).
 
 ```
 grok {
@@ -102,6 +105,26 @@ grok {
   match '%{NUMBER:size}';
 }
 ```
+
+```
+grok {
+  key customword;
+  name customword;
+  type constant;
+  value 1;
+  match '%{WORD:word}';
+}
+```
+
+
+## value
+По умолчанию: (counter/gauge: не задано → sample `1`; constant: `1`)\
+Множественное число: нет
+
+Смысл зависит от `type`:
+
+- `counter` / `gauge` — имя capture-поля, из которого берётся sample
+- `constant` — числовой литерал sample (строка или число в JSON)
 
 
 ## splited_tags

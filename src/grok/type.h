@@ -39,6 +39,9 @@ typedef struct grok_node
 	uint8_t compile_failed;
 	/* Primary series: 0 = counter (metric_update), 1 = gauge last-value (metric_add). */
 	uint8_t is_gauge;
+	/* Fixed numeric sample from config (`type constant`); labels still come from captures. */
+	uint8_t is_constant;
+	double constant_value;
 
 	tommy_node node;
 } grok_node;

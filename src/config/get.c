@@ -558,11 +558,17 @@ void grok_node_generate_conf(void *funcarg, void* arg)
 	if (garg->key)
 		json_array_object_insert(ctx, "key", json_string(garg->key));
 
-	if (gn->value)
-		json_array_object_insert(ctx, "value", json_string(gn->value));
-
-	if (gn->is_gauge)
-		json_array_object_insert(ctx, "type", json_string("gauge"));
+	if (gn->is_constant) {
+		json_array_object_insert(ctx, "type", json_string("constant"));
+		char vbuf[64];
+		snprintf(vbuf, sizeof(vbuf), "%.17g", gn->constant_value);
+		json_array_object_insert(ctx, "value", json_string(vbuf));
+	} else {
+		if (gn->value)
+			json_array_object_insert(ctx, "value", json_string(gn->value));
+		if (gn->is_gauge)
+			json_array_object_insert(ctx, "type", json_string("gauge"));
+	}
 
 	if (gn->match && gn->match->s)
 		json_array_object_insert(ctx, "match", json_string(gn->match->s));

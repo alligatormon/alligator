@@ -826,7 +826,10 @@ void grok_handler_callback(void *funcarg, void* arg)
 			}
 		}
 
-		if (!ctx->value_set)
+		if (gn->is_constant) {
+			ctx->value = gn->constant_value;
+			ctx->value_set = 1;
+		} else if (!ctx->value_set)
 			ctx->value = 1;
 
 		char *pub_name = gn->name;
@@ -845,7 +848,8 @@ void grok_handler_callback(void *funcarg, void* arg)
 			}
 		}
 
-		if (gn->is_gauge)
+		/* constant is last-value like gauge: sample is fixed, labels carry meaning. */
+		if (gn->is_gauge || gn->is_constant)
 			metric_add(pub_name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
 		else
 			metric_update(pub_name, ctx->lbl, &ctx->value, DATATYPE_DOUBLE, ctx->carg);
