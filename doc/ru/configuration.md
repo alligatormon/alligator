@@ -260,10 +260,28 @@ Context logs через `carglog` prefixed `[context_key]` или `[channel_name
 
 `log_channel` (diagnostic logs via `carglog`) и `log_channel_raw` (incoming user payload) независимы.
 
+**Multi-sink:** `log_channel_raw` и `log_channel_out` принимают одно или несколько имён channel.
+JSON/YAML: строка или массив строк. Plain: значения через запятую и/или повторённые ключи.
+Каждая готовая строка/событие пишется во все resolved sinks независимо (best-effort fan-out;
+сбой одного не останавливает остальные). Неизвестные имена — warn и skip (без fallback на
+default stdout). Diagnostic `log_channel` / `log_dest` остаются single-destination.
+
+```conf
+entrypoint {
+    handler log;
+    tcp 1514;
+    log_channel_raw kafka-raw,file-raw;
+}
+```
+
+```json
+"log_channel_raw": ["kafka-raw", "file-raw"]
+```
+
 ### Transformed log sink (`log_channel_out`)
 
 После remap **VRL / grok / amtail** alligator может ship **transformed** events в
-named channel. Отдельно от `log_channel_raw` (passthrough input bytes).
+один или несколько named channels. Отдельно от `log_channel_raw` (passthrough input bytes).
 
 | Option | Payload |
 |--------|---------|

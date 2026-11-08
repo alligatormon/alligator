@@ -376,7 +376,7 @@ static void emit_one_log(context_arg *carg, vrl_value *v)
 /* Alligator extension: explicit .log / .logs → log_channel_out (not Vector VRL). */
 static void vrl_export_logs(context_arg *carg, vrl_value *event)
 {
-	if (!carg || !carg->log_ch_out || !event || event->type != VRL_OBJECT)
+	if (!carg || !carg->log_ch_out_n || !event || event->type != VRL_OBJECT)
 		return;
 
 	vrl_value *logs = vrl_object_get(event, "logs", 4);

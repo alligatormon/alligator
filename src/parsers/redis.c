@@ -143,7 +143,9 @@ void redis_keysdump(char *metrics, size_t size, context_arg *carg)
 		hint.log_level = carg->log_level;
 		hint.log_ch = carg->log_ch;
 		hint.log_ch_raw = carg->log_ch_raw;
+		hint.log_ch_raw_n = carg->log_ch_raw_n;
 		hint.log_ch_out = carg->log_ch_out;
+		hint.log_ch_out_n = carg->log_ch_out_n;
 		hint.labels = carg->labels;
 		memset(&res, 0, sizeof(res));
 		aggregator_oneshot_await(&hint, url, strlen(url), mesg, mesg_len,

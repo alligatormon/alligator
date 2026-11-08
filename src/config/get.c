@@ -32,6 +32,36 @@ typedef struct config_get_arg
 	json_t *dst;
 } config_get_arg;
 
+/* Emit string when n==1, JSON array when n>1 (skip default/unnamed). */
+static void conf_dump_log_channel_list(json_t *ctx, const char *key, log_channel **chs, size_t n)
+{
+	size_t i;
+	size_t real_n = 0;
+	const char *single = NULL;
+	json_t *arr;
+
+	if (!ctx || !key || !chs || !n)
+		return;
+	for (i = 0; i < n; ++i) {
+		if (chs[i] && chs[i]->name && !chs[i]->is_default) {
+			++real_n;
+			single = chs[i]->name;
+		}
+	}
+	if (!real_n)
+		return;
+	if (real_n == 1) {
+		json_array_object_insert(ctx, (char *)key, json_string(single));
+		return;
+	}
+	arr = json_array();
+	for (i = 0; i < n; ++i) {
+		if (chs[i] && chs[i]->name && !chs[i]->is_default)
+			json_array_append_new(arr, json_string(chs[i]->name));
+	}
+	json_array_object_insert(ctx, (char *)key, arr);
+}
+
 void labels_kv_deserialize(void *funcarg, void* arg)
 {
 	json_t *dst = funcarg;
@@ -360,17 +390,8 @@ void aggregator_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "log_channel", log_channel);
 	}
 
-	if (carg->log_ch_raw && carg->log_ch_raw->name && !carg->log_ch_raw->is_default)
-	{
-		json_t *log_channel_raw = json_string(carg->log_ch_raw->name);
-		json_array_object_insert(ctx, "log_channel_raw", log_channel_raw);
-	}
-
-	if (carg->log_ch_out && carg->log_ch_out->name && !carg->log_ch_out->is_default)
-	{
-		json_t *log_channel_out = json_string(carg->log_ch_out->name);
-		json_array_object_insert(ctx, "log_channel_out", log_channel_out);
-	}
+	conf_dump_log_channel_list(ctx, "log_channel_raw", carg->log_ch_raw, carg->log_ch_raw_n);
+	conf_dump_log_channel_list(ctx, "log_channel_out", carg->log_ch_out, carg->log_ch_out_n);
 
 	if (carg->url && !strncmp(carg->url, "file://", 7))
 	{
@@ -1586,10 +1607,8 @@ void entrypoints_generate_conf(void *funcarg, void* arg)
 
 	if (carg->log_ch && carg->log_ch->name && !carg->log_ch->is_default)
 		json_array_object_insert(ctx, "log_channel", json_string(carg->log_ch->name));
-	if (carg->log_ch_raw && carg->log_ch_raw->name && !carg->log_ch_raw->is_default)
-		json_array_object_insert(ctx, "log_channel_raw", json_string(carg->log_ch_raw->name));
-	if (carg->log_ch_out && carg->log_ch_out->name && !carg->log_ch_out->is_default)
-		json_array_object_insert(ctx, "log_channel_out", json_string(carg->log_ch_out->name));
+	conf_dump_log_channel_list(ctx, "log_channel_raw", carg->log_ch_raw, carg->log_ch_raw_n);
+	conf_dump_log_channel_list(ctx, "log_channel_out", carg->log_ch_out, carg->log_ch_out_n);
 
 	if (carg->metric_aggregation)
 	{

@@ -58,6 +58,16 @@ void log_channels_init(void);
 void log_channels_free(void);
 log_channel *log_channel_default(void);
 log_channel *log_channel_get(const char *name);
+/* Like log_channel_get but returns NULL when the name is unknown (no default fallback).
+ * Explicit name "default" (or empty) still returns the default channel. */
+log_channel *log_channel_find(const char *name);
+/* Duplicate a list of channel pointers (shallow; channels stay owned by ac->log_channels). */
+log_channel **log_channel_list_dup(log_channel **src, size_t n);
+/* Resolve JSON string or array-of-strings into a new pointer list.
+ * Comma-separated names and surrounding whitespace are accepted (same as plain).
+ * Unknown names / non-string array elements / wrong types: warn+skip.
+ * Returns count; *out is NULL when count is 0. Caller frees *out with free(). */
+size_t log_channel_list_resolve(json_t *node, log_channel ***out, const char *what);
 log_channel *log_channel_for_context(struct context_arg *carg);
 log_channel *log_channel_upsert(const char *name, const char *dest, int form, int time,
     const char *time_format, int log_format, const char *log_index);

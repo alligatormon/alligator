@@ -837,7 +837,7 @@ void grok_handler_callback(void *funcarg, void* arg)
 			pub_name = ctx->metric_name;
 		carglog(ctx->carg, L_TRACE, "add metric %s = %f\n", pub_name, ctx->value);
 
-		if (ctx->carg && ctx->carg->log_ch_out && ctx->lbl) {
+		if (ctx->carg && ctx->carg->log_ch_out_n && ctx->lbl) {
 			json_t *doc = labels_to_json(ctx->lbl);
 			if (doc) {
 				if (!json_object_get(doc, "message") && ctx->line && ctx->line->s)

@@ -816,7 +816,9 @@ static int frr_exec_cmd(context_arg *carg, const char *sock_dir, const char *dae
 	hint.log_level = carg->log_level;
 	hint.log_ch = carg->log_ch;
 	hint.log_ch_raw = carg->log_ch_raw;
+	hint.log_ch_raw_n = carg->log_ch_raw_n;
 	hint.log_ch_out = carg->log_ch_out;
+	hint.log_ch_out_n = carg->log_ch_out_n;
 	hint.labels = carg->labels;
 	memset(&res, 0, sizeof(res));
 

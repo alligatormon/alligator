@@ -5086,6 +5086,10 @@ static void run_helpers_and_events_suites(void)
     test_entrypoint_limit_plain_parse();
     test_log_channel_raw_plain_parse();
     test_log_channel_out_plain_parse();
+    test_log_channel_multi_sink_plain_parse();
+    test_log_channel_multi_sink_json_bind_and_fanout();
+    test_log_channel_accept_dup_independent();
+    test_log_channel_list_resolve_comma_and_trim();
     test_puppeteer_option_kv_plain_parse();
     test_entrypoint_plain_rich_parse();
     test_action_tls_plain_parse();

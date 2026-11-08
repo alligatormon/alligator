@@ -160,7 +160,7 @@ uint8_t filetailer_wants_content_read(context_arg *carg)
 {
 	if (!carg)
 		return 0;
-	if (carg->checksum || carg->calc_lines || carg->log_ch_raw)
+	if (carg->checksum || carg->calc_lines || carg->log_ch_raw_n)
 		return 1;
 	if (carg->parser_handler == blackbox_null)
 		return 0;
@@ -964,7 +964,7 @@ char* filetailer_handler(context_arg *carg)
 	carg->fs_handle.data = carg;
 
 	if ((carg->file_stat || carg->calc_lines || carg->checksum || carg->parser_handler ||
-	     carg->parser_name || carg->log_ch_raw) && carg->notify != 2)
+	     carg->parser_name || carg->log_ch_raw_n) && carg->notify != 2)
 	{
 		carglog(carg, L_DEBUG, "create file handler with carg->path %s\n", carg->path);
 		alligator_ht_insert(ac->file_aggregator, &(carg->node), carg, tommy_strhash_u32(0, carg->key));

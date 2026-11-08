@@ -23,6 +23,7 @@ typedef struct unix_srv_data
 static void unix_only_free_context(uv_handle_t *handle)
 {
 	context_arg *cc = handle->data;
+	carg_accept_free_log_channels(cc);
 	free(cc);
 }
 
@@ -45,6 +46,7 @@ static void unix_client_closed(uv_handle_t *handle)
 		string_free(cc->full_body);
 		cc->full_body = NULL;
 	}
+	carg_accept_free_log_channels(cc);
 	free(cc);
 }
 
@@ -132,10 +134,13 @@ void unix_connect(uv_stream_t *server, int status) {
 	cc->pipe = NULL;
 	cc->full_body = NULL;
 	cc->body = NULL;
+	/* Own independent sink arrays; do not share listener heap with clients. */
+	carg_accept_dup_log_channels(cc, srv_carg);
 
 	r = uv_pipe_init(loop, &cc->pclient, 0);
 	if (r) {
 		carglog(srv_carg, L_ERROR, "initializing client pipe %s %s\n", uv_err_name(r), uv_strerror(r));
+		carg_accept_free_log_channels(cc);
 		free(cc);
 		return;
 	}

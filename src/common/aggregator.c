@@ -418,8 +418,16 @@ void try_again(context_arg *carg, char *mesg, size_t mesg_len, void *handler, ch
 	new->context_ttl = time.sec;
 	new->log_level = carg->log_level;
 	new->log_ch = carg->log_ch;
-	new->log_ch_raw = carg->log_ch_raw;
-	new->log_ch_out = carg->log_ch_out;
+	free(new->log_ch_raw);
+	new->log_ch_raw = log_channel_list_dup(carg->log_ch_raw, carg->log_ch_raw_n);
+	new->log_ch_raw_n = carg->log_ch_raw_n;
+	if (!new->log_ch_raw)
+		new->log_ch_raw_n = 0;
+	free(new->log_ch_out);
+	new->log_ch_out = log_channel_list_dup(carg->log_ch_out, carg->log_ch_out_n);
+	new->log_ch_out_n = carg->log_ch_out_n;
+	if (!new->log_ch_out)
+		new->log_ch_out_n = 0;
 	if (carg->timeout)
 		new->timeout = carg->timeout;
 
@@ -523,8 +531,16 @@ context_arg *aggregator_oneshot(context_arg *carg, char *url, size_t url_len, ch
 
 	new->log_level = carg? carg->log_level : ac->log_level;
 	new->log_ch = carg ? carg->log_ch : NULL;
-	new->log_ch_raw = carg ? carg->log_ch_raw : NULL;
-	new->log_ch_out = carg ? carg->log_ch_out : NULL;
+	free(new->log_ch_raw);
+	new->log_ch_raw = carg ? log_channel_list_dup(carg->log_ch_raw, carg->log_ch_raw_n) : NULL;
+	new->log_ch_raw_n = carg ? carg->log_ch_raw_n : 0;
+	if (!new->log_ch_raw)
+		new->log_ch_raw_n = 0;
+	free(new->log_ch_out);
+	new->log_ch_out = carg ? log_channel_list_dup(carg->log_ch_out, carg->log_ch_out_n) : NULL;
+	new->log_ch_out_n = carg ? carg->log_ch_out_n : 0;
+	if (!new->log_ch_out)
+		new->log_ch_out_n = 0;
 	new->ttl = (carg && carg->ttl) ? carg->ttl : ac->ttl;
 	new->work_dir = work_dir;
 	if (carg && carg->timeout)

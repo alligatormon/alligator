@@ -337,6 +337,7 @@ Pingloop позволяет blackbox handler'у пинговать ресурс 
 Для транспортов file, kmsg и socket (`file://`, `kmsg://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`) пересылает входящие данные **построчно** (newline-delimited) в именованный log channel. Каждая строка остаётся целой внутри `message`; `log_format` / `log_time` channel'а добавляют только JSON/elastic-обёртку или префикс timestamp. Используйте с `handler log` для чистой доставки логов или вместе с grok/mtail, когда метрики парсятся отдельно. См. [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
 
 Простой пример: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
+Multi-sink: `log_channel_raw=kafka-raw,file-raw` (список через запятую) или JSON-массив — см. [configuration — multi-sink](configuration.md#raw-stream-passthrough-log_channel_raw).
 
 
 ## log\_channel\_out

@@ -382,7 +382,9 @@ static void vrl_http_kickoff(context_arg *parent, const char *url, uint64_t time
 	hint.log_level = parent ? parent->log_level : (ac ? ac->log_level : 0);
 	hint.log_ch = parent ? parent->log_ch : NULL;
 	hint.log_ch_raw = parent ? parent->log_ch_raw : NULL;
+	hint.log_ch_raw_n = parent ? parent->log_ch_raw_n : 0;
 	hint.log_ch_out = parent ? parent->log_ch_out : NULL;
+	hint.log_ch_out_n = parent ? parent->log_ch_out_n : 0;
 	hint.ttl = parent ? parent->ttl : (ac ? ac->ttl : 0);
 
 	context_arg *shot = aggregator_oneshot(

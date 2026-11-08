@@ -174,6 +174,7 @@ static void tcp_server_release_client(context_arg *carg)
 	}
 
 	carg_uv_detach_timers(carg);
+	carg_accept_free_log_channels(carg);
 	free(carg);
 }
 
@@ -560,6 +561,8 @@ void tcp_server_connected(uv_stream_t* stream, int status)
 	context_arg *carg = malloc(sizeof(*carg));
 	memcpy(carg, srv_carg, sizeof(context_arg));
 	carg_inherited_uv_reset(carg);
+	/* Own independent sink arrays; do not share listener heap with clients. */
+	carg_accept_dup_log_channels(carg, srv_carg);
 	carglog(carg, L_DEBUG, "tcp server: accepted client key=%s host=%s port=%s tls=%d\n", carg->key, carg->host, carg->port, carg->tls);
 	(srv_carg->conn_counter)++;
 

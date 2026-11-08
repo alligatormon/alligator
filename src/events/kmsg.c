@@ -215,7 +215,7 @@ void kmsg_submit_text(context_arg *carg, const char *text, size_t len)
 	carg->read_bytes_counter += len;
 	if (carg->parser_handler)
 		alligator_multiparser((char *)text, len, carg->parser_handler, NULL, carg);
-	else if (carg->log_ch_raw)
+	else if (carg->log_ch_raw_n)
 		carglog_raw(carg, text, len);
 }
 

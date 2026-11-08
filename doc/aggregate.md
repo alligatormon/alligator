@@ -346,6 +346,7 @@ Plural: no
 For file, kmsg, and socket transports (`file://`, `kmsg://`, `tcp://`, `udp://`, `unix://`, `unixgram://`, `tls://`), forwards incoming data **line by line** (newline-delimited) to the named log channel. Each line is kept intact inside `message`; channel `log_format` / `log_time` add JSON/elastic envelope or a timestamp prefix only. Use with `handler log` for log-only shipping, or alongside grok/mtail when metrics are parsed separately. See [configuration — raw stream passthrough](https://github.com/alligatormon/alligator/blob/master/doc/configuration.md#raw-stream-passthrough-log_channel_raw).
 
 Plain example: `log "file:///var/log/app.log" log_channel_raw=kafka-raw;`
+Multi-sink: `log_channel_raw=kafka-raw,file-raw` (comma list) or a JSON array — see [configuration — multi-sink](configuration.md#raw-stream-passthrough-log_channel_raw).
 
 
 ## log\_channel\_out

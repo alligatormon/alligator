@@ -609,6 +609,145 @@ log_channel *log_channel_get(const char *name)
 	return ch;
 }
 
+log_channel *log_channel_find(const char *name)
+{
+	if (!name || !name[0] || !strcmp(name, "default"))
+		return log_channel_default();
+
+	if (!ac || !ac->log_channels)
+		return NULL;
+
+	return alligator_ht_search(ac->log_channels, log_channel_compare, (char *)name,
+	    tommy_strhash_u32(0, name));
+}
+
+log_channel **log_channel_list_dup(log_channel **src, size_t n)
+{
+	log_channel **dst;
+
+	if (!src || !n)
+		return NULL;
+	dst = malloc(sizeof(*dst) * n);
+	if (!dst)
+		return NULL;
+	memcpy(dst, src, sizeof(*dst) * n);
+	return dst;
+}
+
+static int log_channel_list_contains(log_channel **list, size_t n, log_channel *ch)
+{
+	size_t i;
+
+	for (i = 0; i < n; ++i) {
+		if (list[i] == ch)
+			return 1;
+	}
+	return 0;
+}
+
+static void log_channel_list_append(log_channel ***list, size_t *n, size_t *cap, log_channel *ch)
+{
+	log_channel **nl;
+	size_t ncap;
+
+	if (!ch || log_channel_list_contains(*list, *n, ch))
+		return;
+	if (*n >= *cap) {
+		ncap = *cap ? *cap * 2 : 4;
+		nl = realloc(*list, ncap * sizeof(*nl));
+		if (!nl) {
+			glog(L_WARN, "log_channel list: realloc OOM, skipping channel '%s'\n",
+			    ch->name ? ch->name : "?");
+			return;
+		}
+		*list = nl;
+		*cap = ncap;
+	}
+	(*list)[(*n)++] = ch;
+}
+
+static void log_channel_list_add_one(log_channel ***list, size_t *n, size_t *cap,
+    char *name, const char *what)
+{
+	log_channel *ch;
+	char *tok;
+
+	if (!name)
+		return;
+	tok = trim(name);
+	if (!tok[0])
+		return;
+	ch = log_channel_find(tok);
+	if (!ch) {
+		glog(L_WARN, "%s: log channel '%s' not found, skipping\n",
+		    what ? what : "log_channel", tok);
+		return;
+	}
+	log_channel_list_append(list, n, cap, ch);
+}
+
+/* Split commas and trim whitespace so JSON/YAML "a, b" matches plain config. */
+static void log_channel_list_add_name(log_channel ***list, size_t *n, size_t *cap,
+    const char *name, const char *what)
+{
+	char *buf;
+	char *p;
+	char *save;
+
+	if (!name || !name[0])
+		return;
+	buf = strdup(name);
+	if (!buf) {
+		glog(L_WARN, "%s: strdup OOM for log channel name, skipping\n",
+		    what ? what : "log_channel");
+		return;
+	}
+	for (p = strtok_r(buf, ",", &save); p; p = strtok_r(NULL, ",", &save))
+		log_channel_list_add_one(list, n, cap, p, what);
+	free(buf);
+}
+
+size_t log_channel_list_resolve(json_t *node, log_channel ***out, const char *what)
+{
+	log_channel **list = NULL;
+	size_t n = 0;
+	size_t cap = 0;
+	size_t i;
+	size_t sz;
+	const char *label = what ? what : "log_channel";
+
+	if (out)
+		*out = NULL;
+	if (!node || !out)
+		return 0;
+
+	if (json_typeof(node) == JSON_STRING) {
+		log_channel_list_add_name(&list, &n, &cap, json_string_value(node), what);
+	} else if (json_typeof(node) == JSON_ARRAY) {
+		sz = json_array_size(node);
+		for (i = 0; i < sz; ++i) {
+			json_t *el = json_array_get(node, i);
+			if (el && json_typeof(el) == JSON_STRING) {
+				log_channel_list_add_name(&list, &n, &cap, json_string_value(el), what);
+			} else {
+				glog(L_WARN, "%s: array element %zu is not a string, skipping\n",
+				    label, i);
+			}
+		}
+	} else {
+		glog(L_WARN, "%s: expected string or array of strings, got type %d\n",
+		    label, (int)json_typeof(node));
+	}
+
+	if (!n) {
+		free(list);
+		*out = NULL;
+		return 0;
+	}
+	*out = list;
+	return n;
+}
+
 log_channel *log_channel_upsert(const char *name, const char *dest, int form, int time,
     const char *time_format, int log_format, const char *log_index)
 {

@@ -260,10 +260,29 @@ Use it as an extra sink alongside grok/mtail metric parsing, or with `handler lo
 
 `log_channel` (diagnostic logs via `carglog`) and `log_channel_raw` (incoming user payload) are independent.
 
+**Multi-sink:** `log_channel_raw` and `log_channel_out` accept one or more channel names.
+JSON/YAML: a string or an array of strings. Plain: comma-separated values and/or
+repeated keys. Each complete line/event is written to every resolved sink independently
+(best-effort fan-out; one failure does not stop the others). Unknown names are warned
+and skipped (no fallback to the default stdout channel). Diagnostic `log_channel` /
+`log_dest` remain single-destination.
+
+```conf
+entrypoint {
+    handler log;
+    tcp 1514;
+    log_channel_raw kafka-raw,file-raw;
+}
+```
+
+```json
+"log_channel_raw": ["kafka-raw", "file-raw"]
+```
+
 ### Transformed log sink (`log_channel_out`)
 
-After **VRL / grok / amtail** remap, alligator can ship **transformed** events to a
-named channel. This is separate from `log_channel_raw` (passthrough of input bytes).
+After **VRL / grok / amtail** remap, alligator can ship **transformed** events to one or
+more named channels. This is separate from `log_channel_raw` (passthrough of input bytes).
 
 | Option | Payload |
 |--------|---------|

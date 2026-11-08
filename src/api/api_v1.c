@@ -790,23 +790,8 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							glog(L_WARN, "entrypoint: log_channel '%s' not found, using default\n", chname);
 					}
 
-					json_t *carg_log_channel_raw = json_object_get(entrypoint, "log_channel_raw");
-					if (carg_log_channel_raw && json_typeof(carg_log_channel_raw) == JSON_STRING)
-					{
-						const char *chname = json_string_value(carg_log_channel_raw);
-						carg->log_ch_raw = log_channel_get(chname);
-						if (carg->log_ch_raw && carg->log_ch_raw->is_default && chname && strcmp(chname, "default"))
-							glog(L_WARN, "entrypoint: log_channel_raw '%s' not found, using default\n", chname);
-					}
-
-					json_t *carg_log_channel_out = json_object_get(entrypoint, "log_channel_out");
-					if (carg_log_channel_out && json_typeof(carg_log_channel_out) == JSON_STRING)
-					{
-						const char *chname = json_string_value(carg_log_channel_out);
-						carg->log_ch_out = log_channel_get(chname);
-						if (carg->log_ch_out && carg->log_ch_out->is_default && chname && strcmp(chname, "default"))
-							glog(L_WARN, "entrypoint: log_channel_out '%s' not found, using default\n", chname);
-					}
+					carg_bind_log_channel_raw(carg, json_object_get(entrypoint, "log_channel_raw"));
+					carg_bind_log_channel_out(carg, json_object_get(entrypoint, "log_channel_out"));
 
 					json_t *carg_api = json_object_get(entrypoint, "api");
 					char *api = (char*)json_string_value(carg_api);
@@ -850,7 +835,7 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 							glog(L_FATAL, "unknown entrypoint handler '%s'; falling back to the default prometheus handler\n", str_handler);
 					}
 
-					if (carg->log_ch_out &&
+					if (carg->log_ch_out_n &&
 					    carg->parser_handler != &grok_handler &&
 					    carg->parser_handler != &amtail_handler &&
 					    carg->parser_handler != &vrl_handler)

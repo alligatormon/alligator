@@ -464,10 +464,18 @@ struct context_arg
 
 	int log_level;
 	struct log_channel *log_ch;
-	struct log_channel *log_ch_raw;
+	/* Raw stream sinks (file/kmsg/socket passthrough).
+	 * log_ch_raw / log_ch_out: owned pointer arrays (free with free()); channel
+	 * objects live in ac->log_channels. Accept paths must log_channel_list_dup
+	 * after memcpy so client teardown does not free the listener's arrays.
+	 * log_ch_raw_tail: owned incomplete-line buffer (string_free); reset to NULL
+	 * on accept (do not share the listener's tail). */
+	struct log_channel **log_ch_raw;
+	size_t log_ch_raw_n;
 	string *log_ch_raw_tail;
-	/* Transformed log sink (VRL .log/.logs, grok, amtail emit_log). Independent of log_ch_raw. */
-	struct log_channel *log_ch_out;
+	/* Transformed log sinks (VRL .log/.logs, grok, amtail emit_log). Independent of log_ch_raw. */
+	struct log_channel **log_ch_out;
+	size_t log_ch_out_n;
 	int64_t context_ttl;
 
 	//uint64_t sequence_size;
@@ -556,10 +564,17 @@ int env_struct_compare(const void *arg, const void *obj);
 void env_free(alligator_ht *env);
 void carglog(context_arg *carg, int priority, const char *format, ...);
 void carglog_raw(context_arg *carg, const char *data, size_t len);
-/* Emit one transformed log line/document to carg->log_ch_out (no-op if unset). */
+/* Emit one transformed log line/document to all carg->log_ch_out sinks (no-op if unset). */
 void carg_emit_log(context_arg *carg, const char *data, size_t len);
-/* Emit a flat JSON document to carg->log_ch_out (does not wrap as {"message":...}). */
+/* Emit a flat JSON document to all carg->log_ch_out sinks (does not wrap as {"message":...}). */
 void carg_emit_log_document(context_arg *carg, json_t *doc);
+/* Bind log_channel_raw / log_channel_out from JSON string or array of strings. */
+void carg_bind_log_channel_raw(context_arg *carg, json_t *node);
+void carg_bind_log_channel_out(context_arg *carg, json_t *node);
+/* After accept memcpy: own independent log_ch_raw/out arrays; clear raw_tail. */
+void carg_accept_dup_log_channels(context_arg *client, context_arg *listener);
+/* Free owned log_ch_raw/out arrays + raw_tail on accept-client teardown (not carg_free). */
+void carg_accept_free_log_channels(context_arg *carg);
 void carg_or_glog(context_arg *carg, int priority, const char *format, ...);
 void parse_add_label(context_arg *carg, json_t *root);
 void parse_metricstransform(context_arg *carg, json_t *root);

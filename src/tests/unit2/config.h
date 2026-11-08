@@ -317,18 +317,23 @@ void test_logs_helpers()
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw_json);
 
         context_arg file_carg = {0};
+        log_channel *raw_plain_list[1] = { raw_plain };
+        log_channel *raw_json_list[1] = { raw_json };
         file_carg.transport = APROTO_FILE;
         file_carg.key = "file://test";
-        file_carg.log_ch_raw = raw_plain;
+        file_carg.log_ch_raw = raw_plain_list;
+        file_carg.log_ch_raw_n = 1;
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, context_allows_raw_log(&file_carg));
         log_channel_write_raw(raw_plain, &file_carg, "raw line\n", 9);
 
-        file_carg.log_ch_raw = raw_json;
+        file_carg.log_ch_raw = raw_json_list;
+        file_carg.log_ch_raw_n = 1;
         log_channel_write_raw(raw_json, &file_carg, "json line\n", 10);
 
         context_arg http_carg = {0};
         http_carg.transport = APROTO_HTTP;
-        http_carg.log_ch_raw = raw_plain;
+        http_carg.log_ch_raw = raw_plain_list;
+        http_carg.log_ch_raw_n = 1;
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, context_allows_raw_log(&http_carg));
         carglog_raw(&http_carg, "skipped\n", 8);
 
@@ -365,9 +370,11 @@ void test_logs_helpers()
             assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw_lines);
 
             memset(&file_carg, 0, sizeof(file_carg));
+            log_channel *raw_lines_list[1] = { raw_lines };
             file_carg.transport = APROTO_FILE;
             file_carg.key = "file://lines";
-            file_carg.log_ch_raw = raw_lines;
+            file_carg.log_ch_raw = raw_lines_list;
+            file_carg.log_ch_raw_n = 1;
 
             carglog_raw(&file_carg, "line1\nline2\npar", 15);
             assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, file_carg.log_ch_raw_tail);
@@ -401,8 +408,10 @@ void test_logs_helpers()
         log_channel *log_ch = log_channel_upsert("log-handler", "file:///tmp/alligator-ut2-log-handler.log",
             -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
         context_arg log_carg = {0};
+        log_channel *log_ch_list[1] = { log_ch };
         log_carg.transport = APROTO_FILE;
-        log_carg.log_ch_raw = log_ch;
+        log_carg.log_ch_raw = log_ch_list;
+        log_carg.log_ch_raw_n = 1;
         alligator_multiparser("syslog line\n", 12, log_handler, NULL, &log_carg);
         assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, log_carg.parser_status);
         if (log_ch && log_ch->socket > 2)
@@ -634,8 +643,12 @@ void test_log_channel_shipper_metrics()
     carg.transport = APROTO_FILE;
     carg.key = "file://ut-lc";
     log_channel_write_raw_kind(file_ch, &carg, "raw-kind\n", 9, "raw");
-    carg.log_ch_out = file_ch;
-    carg_emit_log(&carg, "out-kind\n", 9);
+    {
+        log_channel *out_list[1] = { file_ch };
+        carg.log_ch_out = out_list;
+        carg.log_ch_out_n = 1;
+        carg_emit_log(&carg, "out-kind\n", 9);
+    }
     metric_test_run(CMP_EQUAL,
         "alligator_log_channel_sent_total{channel=\"ut-lc-file\",kind=\"raw\"}",
         "alligator_log_channel_sent_total", 1);
@@ -4436,6 +4449,258 @@ void test_log_channel_out_plain_parse()
         json_string_value(json_object_get(ep0, "log_channel_out")));
 
     json_decref(root);
+}
+
+void test_log_channel_multi_sink_plain_parse()
+{
+    const char *conf =
+        "log_channel {\n"
+        "  name raw-a;\n"
+        "  dest file:///tmp/a.log;\n"
+        "}\n"
+        "log_channel {\n"
+        "  name raw-b;\n"
+        "  dest file:///tmp/b.log;\n"
+        "}\n"
+        "log_channel {\n"
+        "  name out-a;\n"
+        "  dest file:///tmp/oa.log;\n"
+        "}\n"
+        "log_channel {\n"
+        "  name out-b;\n"
+        "  dest file:///tmp/ob.log;\n"
+        "}\n"
+        "entrypoint {\n"
+        "  handler log;\n"
+        "  tcp 1514;\n"
+        "  log_channel_raw raw-a,raw-b;\n"
+        "  log_channel_out out-a;\n"
+        "  log_channel_out out-b;\n"
+        "}\n"
+        "aggregate {\n"
+        "  log \"file:///var/log/app.log\" log_channel_raw=raw-a,raw-b log_channel_out=out-a,out-b;\n"
+        "}\n";
+
+    string *s = string_new();
+    string_cat(s, (char *)conf, strlen(conf));
+    char *json_s = config_plain_to_json(s);
+    string_free(s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, json_s);
+
+    json_error_t error;
+    json_t *root = json_loads(json_s, 0, &error);
+    free(json_s);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, root);
+
+    json_t *ep0 = json_array_get(json_object_get(root, "entrypoint"), 0);
+    json_t *raw_ep = json_object_get(ep0, "log_channel_raw");
+    json_t *out_ep = json_object_get(ep0, "log_channel_out");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, JSON_ARRAY, json_typeof(raw_ep));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(raw_ep));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "raw-a", json_string_value(json_array_get(raw_ep, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "raw-b", json_string_value(json_array_get(raw_ep, 1)));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, JSON_ARRAY, json_typeof(out_ep));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(out_ep));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "out-a", json_string_value(json_array_get(out_ep, 0)));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "out-b", json_string_value(json_array_get(out_ep, 1)));
+
+    json_t *ag0 = json_array_get(json_object_get(root, "aggregate"), 0);
+    json_t *raw_ag = json_object_get(ag0, "log_channel_raw");
+    json_t *out_ag = json_object_get(ag0, "log_channel_out");
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, JSON_ARRAY, json_typeof(raw_ag));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(raw_ag));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, JSON_ARRAY, json_typeof(out_ag));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)json_array_size(out_ag));
+
+    json_decref(root);
+}
+
+void test_log_channel_multi_sink_json_bind_and_fanout()
+{
+    const char *path_a = "/tmp/alligator-ut2-multi-raw-a.log";
+    const char *path_b = "/tmp/alligator-ut2-multi-raw-b.log";
+    const char *path_out_a = "/tmp/alligator-ut2-multi-out-a.log";
+    const char *path_out_b = "/tmp/alligator-ut2-multi-out-b.log";
+    unlink(path_a);
+    unlink(path_b);
+    unlink(path_out_a);
+    unlink(path_out_b);
+
+    log_channel *ch_a = log_channel_upsert("multi-raw-a", "file:///tmp/alligator-ut2-multi-raw-a.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    log_channel *ch_b = log_channel_upsert("multi-raw-b", "file:///tmp/alligator-ut2-multi-raw-b.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    log_channel *out_a = log_channel_upsert("multi-out-a", "file:///tmp/alligator-ut2-multi-out-a.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    log_channel *out_b = log_channel_upsert("multi-out-b", "file:///tmp/alligator-ut2-multi-out-b.log",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_a);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_b);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out_a);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out_b);
+
+    /* JSON string (back-compat) */
+    {
+        context_arg carg = {0};
+        json_t *node = json_string("multi-raw-a");
+        carg_bind_log_channel_raw(&carg, node);
+        json_decref(node);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)carg.log_ch_raw_n);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_raw[0] == ch_a);
+        free(carg.log_ch_raw);
+    }
+
+    /* JSON array + unknown name skipped */
+    {
+        context_arg carg = {0};
+        json_t *arr = json_array();
+        json_array_append_new(arr, json_string("multi-raw-a"));
+        json_array_append_new(arr, json_string("no-such-channel"));
+        json_array_append_new(arr, json_string("multi-raw-b"));
+        json_array_append_new(arr, json_string("multi-raw-a")); /* dedup */
+        carg_bind_log_channel_raw(&carg, arr);
+        json_decref(arr);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)carg.log_ch_raw_n);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_raw[0] == ch_a);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_raw[1] == ch_b);
+
+        json_t *out_arr = json_array();
+        json_array_append_new(out_arr, json_string("multi-out-a"));
+        json_array_append_new(out_arr, json_string("multi-out-b"));
+        carg_bind_log_channel_out(&carg, out_arr);
+        json_decref(out_arr);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)carg.log_ch_out_n);
+
+        carg.transport = APROTO_FILE;
+        carg.key = "file://multi";
+        carglog_raw(&carg, "hello multi\n", 12);
+        carg_emit_log(&carg, "out multi\n", 10);
+
+        free(carg.log_ch_raw);
+        free(carg.log_ch_out);
+    }
+
+    if (ch_a->socket > 2) close(ch_a->socket);
+    if (ch_b->socket > 2) close(ch_b->socket);
+    if (out_a->socket > 2) close(out_a->socket);
+    if (out_b->socket > 2) close(out_b->socket);
+
+    {
+        char buf[64] = {0};
+        FILE *f = fopen(path_a, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "hello multi") != NULL);
+
+        memset(buf, 0, sizeof(buf));
+        f = fopen(path_b, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+        n = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "hello multi") != NULL);
+
+        memset(buf, 0, sizeof(buf));
+        f = fopen(path_out_a, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+        n = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "out multi") != NULL);
+
+        memset(buf, 0, sizeof(buf));
+        f = fopen(path_out_b, "r");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+        n = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, n > 0);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "out multi") != NULL);
+    }
+
+    unlink(path_a);
+    unlink(path_b);
+    unlink(path_out_a);
+    unlink(path_out_b);
+}
+
+/* Accept memcpy must not share owned log_ch_raw/out arrays with the listener.
+ * Simulate tcp_server_connected / unix_connect: memcpy then carg_accept_dup_log_channels. */
+void test_log_channel_accept_dup_independent()
+{
+    log_channel *ch_a = log_channel_upsert("accept-dup-raw", "file:///dev/null",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    log_channel *ch_b = log_channel_upsert("accept-dup-out", "file:///dev/null",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_a);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_b);
+
+    context_arg listener = {0};
+    log_channel **raw = malloc(sizeof(*raw));
+    log_channel **out = malloc(sizeof(*out));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, raw);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    raw[0] = ch_a;
+    out[0] = ch_b;
+    listener.log_ch_raw = raw;
+    listener.log_ch_raw_n = 1;
+    listener.log_ch_out = out;
+    listener.log_ch_out_n = 1;
+
+    context_arg client;
+    memcpy(&client, &listener, sizeof(client));
+    carg_accept_dup_log_channels(&client, &listener);
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, client.log_ch_raw);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, client.log_ch_out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, client.log_ch_raw != listener.log_ch_raw);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, client.log_ch_out != listener.log_ch_out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)client.log_ch_raw_n);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)client.log_ch_out_n);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, client.log_ch_raw[0] == ch_a);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, client.log_ch_out[0] == ch_b);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, client.log_ch_raw_tail);
+
+    /* Teardown client lists must leave listener arrays intact. */
+    carg_accept_free_log_channels(&client);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, listener.log_ch_raw[0] == ch_a);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, listener.log_ch_out[0] == ch_b);
+
+    free(listener.log_ch_raw);
+    free(listener.log_ch_out);
+}
+
+/* JSON string "a, b" and whitespace trim resolve like plain comma lists. */
+void test_log_channel_list_resolve_comma_and_trim()
+{
+    log_channel *ch_a = log_channel_upsert("resolve-comma-a", "file:///dev/null",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    log_channel *ch_b = log_channel_upsert("resolve-comma-b", "file:///dev/null",
+        -1, 0, NULL, LOG_FORMAT_PLAIN, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_a);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch_b);
+
+    {
+        context_arg carg = {0};
+        json_t *node = json_string(" resolve-comma-a , resolve-comma-b ");
+        carg_bind_log_channel_raw(&carg, node);
+        json_decref(node);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)carg.log_ch_raw_n);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_raw[0] == ch_a);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_raw[1] == ch_b);
+        free(carg.log_ch_raw);
+    }
+
+    {
+        context_arg carg = {0};
+        json_t *node = json_string("  resolve-comma-a  ");
+        carg_bind_log_channel_out(&carg, node);
+        json_decref(node);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, (int)carg.log_ch_out_n);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg.log_ch_out[0] == ch_a);
+        free(carg.log_ch_out);
+    }
 }
 
 void test_puppeteer_option_kv_plain_parse()

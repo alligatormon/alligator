@@ -1516,6 +1516,66 @@ static uint8_t plain_puppeteer_insert_option(json_t *dst_obj, config_parser_stat
 	return 1;
 }
 
+/* Merge comma-separated and/or repeated log_channel_raw/out names into obj[key].
+ * Keeps a single string when only one name is present; promotes to a JSON array for 2+. */
+static void plain_log_channel_list_add(json_t *obj, const char *key, const char *value)
+{
+	char *buf;
+	char *p;
+	char *save;
+	json_t *existing;
+
+	if (!obj || !key || !value || !value[0])
+		return;
+	buf = strdup(value);
+	if (!buf)
+		return;
+
+	for (p = strtok_r(buf, ",", &save); p; p = strtok_r(NULL, ",", &save)) {
+		char *end;
+
+		while (*p == ' ' || *p == '\t')
+			++p;
+		end = p + strlen(p);
+		while (end > p && (end[-1] == ' ' || end[-1] == '\t'))
+			--end;
+		*end = '\0';
+		if (!*p)
+			continue;
+
+		existing = json_object_get(obj, key);
+		if (!existing) {
+			json_object_set_new(obj, key, json_string(p));
+			continue;
+		}
+		if (json_is_string(existing)) {
+			if (!strcmp(json_string_value(existing), p))
+				continue;
+			json_t *arr = json_array();
+			json_array_append_new(arr, json_string(json_string_value(existing)));
+			json_array_append_new(arr, json_string(p));
+			json_object_set_new(obj, key, arr);
+			continue;
+		}
+		if (json_is_array(existing)) {
+			size_t i;
+			size_t sz = json_array_size(existing);
+			int found = 0;
+
+			for (i = 0; i < sz; ++i) {
+				json_t *el = json_array_get(existing, i);
+				if (json_is_string(el) && !strcmp(json_string_value(el), p)) {
+					found = 1;
+					break;
+				}
+			}
+			if (!found)
+				json_array_append_new(existing, json_string(p));
+		}
+	}
+	free(buf);
+}
+
 static json_t* plain_json_or_string(const char *value)
 {
 	if (!value)
@@ -1775,8 +1835,6 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			json_t *read_metric_interval_entrypoint = NULL;
 			json_t *log_level_entrypoint = NULL;
 			json_t *log_channel_entrypoint = NULL;
-			json_t *log_channel_raw_entrypoint = NULL;
-			json_t *log_channel_out_entrypoint = NULL;
 			json_t *cluster_entrypoint = NULL;
 			json_t *instance_entrypoint = NULL;
 			json_t *threads_entrypoint = NULL;
@@ -1911,21 +1969,15 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "log_channel_raw"))
 					{
-						if (!log_channel_raw_entrypoint)
-						{
-							++i;
-							log_channel_raw_entrypoint = json_string(wstokens[i].token->s);
-							json_array_object_insert(operator_json, "log_channel_raw", log_channel_raw_entrypoint);
-						}
+						++i;
+						if (i < token_count)
+							plain_log_channel_list_add(operator_json, "log_channel_raw", wstokens[i].token->s);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "log_channel_out"))
 					{
-						if (!log_channel_out_entrypoint)
-						{
-							++i;
-							log_channel_out_entrypoint = json_string(wstokens[i].token->s);
-							json_array_object_insert(operator_json, "log_channel_out", log_channel_out_entrypoint);
-						}
+						++i;
+						if (i < token_count)
+							plain_log_channel_list_add(operator_json, "log_channel_out", wstokens[i].token->s);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(wstokens[i].token->s, "metric_name_transform_pattern"))
 					{
@@ -1999,9 +2051,14 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					}
 					else if (json_typeof(context_json) == JSON_OBJECT && (!strcmp(wstokens[i].token->s, "log_level") || !strcmp(wstokens[i].token->s, "log_channel") || !strcmp(wstokens[i].token->s, "log_channel_raw") || !strcmp(wstokens[i].token->s, "log_channel_out")))
 					{
+						char *list_key = wstokens[i].token->s;
 						++i;
-						json_t *arg_json = json_string(wstokens[i].token->s);
-						json_array_object_insert(context_json, operator_name, arg_json);
+						if (i < token_count && (!strcmp(list_key, "log_channel_raw") || !strcmp(list_key, "log_channel_out")))
+							plain_log_channel_list_add(context_json, list_key, wstokens[i].token->s);
+						else if (i < token_count) {
+							json_t *arg_json = json_string(wstokens[i].token->s);
+							json_array_object_insert(context_json, operator_name, arg_json);
+						}
 					}
 					else if (!strcmp(wstokens[i].token->s, "cadvisor") || !strcmp(wstokens[i].token->s, "cpuavg") || !strcmp(wstokens[i].token->s, "firewall") || !strcmp(wstokens[i].token->s, "perf_functions"))
 					{
@@ -2965,7 +3022,8 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 								    !strcmp(arg_name, "start_pattern") || !strcmp(arg_name, "condition_pattern") ||
 								    !strcmp(arg_name, "match") || !strcmp(arg_name, "glob") ||
 								    !strcmp(arg_name, "proxy") || !strcmp(arg_name, "tls_ocsp_proxy") ||
-								    !strcmp(arg_name, "tls_ocsp_responder"))
+								    !strcmp(arg_name, "tls_ocsp_responder") ||
+								    !strcmp(arg_name, "log_channel_raw") || !strcmp(arg_name, "log_channel_out"))
 									semisep = toklen;
 								if (!strcmp(arg_name, "metricstransform") || !strcmp(arg_name, "metric_filter"))
 									semisep = toklen;
@@ -3015,6 +3073,10 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 										arg_value = json_object();
 									json_t *kv_value = json_string(opt_tok+semisep+2);
 									json_array_object_insert(arg_value, kv_key, kv_value);
+								}
+								else if (!strcmp(arg_name, "log_channel_raw") || !strcmp(arg_name, "log_channel_out"))
+								{
+									plain_log_channel_list_add(operator_json, arg_name, opt_tok+sep+1);
 								}
 								else
 								{
@@ -3110,19 +3172,11 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "log_channel_raw"))
 					{
-						if (!log_channel_raw_entrypoint)
-						{
-							log_channel_raw_entrypoint = json_string(wstokens[i].token->s);
-							json_array_object_insert(operator_json, "log_channel_raw", log_channel_raw_entrypoint);
-						}
+						plain_log_channel_list_add(operator_json, "log_channel_raw", wstokens[i].token->s);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "log_channel_out"))
 					{
-						if (!log_channel_out_entrypoint)
-						{
-							log_channel_out_entrypoint = json_string(wstokens[i].token->s);
-							json_array_object_insert(operator_json, "log_channel_out", log_channel_out_entrypoint);
-						}
+						plain_log_channel_list_add(operator_json, "log_channel_out", wstokens[i].token->s);
 					}
 					else if (!strcmp(context_name, "entrypoint") && !strcmp(operator_name, "allow"))
 					{

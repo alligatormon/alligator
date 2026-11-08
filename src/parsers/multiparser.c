@@ -655,7 +655,7 @@ void alligator_multiparser(char *buf, size_t slen, void (*handler)(char*, size_t
 			proxylen = len;
 		}
 		//printf(">>>>>>>>>>>>>>>\n%zu\n'%s'\n<<<<<<<<<<<<<<<<<<\n", proxylen, proxybuf);
-		if (proxybuf && carg && carg->log_ch_raw && proxylen)
+		if (proxybuf && carg && carg->log_ch_raw_n && proxylen)
 			carglog_raw(carg, proxybuf, proxylen);
 		if (proxybuf)
 			handler(proxybuf, proxylen, carg);
