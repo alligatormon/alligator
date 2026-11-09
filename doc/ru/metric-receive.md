@@ -16,7 +16,7 @@ entrypoint {
 }
 ```
 
-`GET /` и `GET /metrics` отдают серии, лежащие на этом entrypoint. `ttl` удаляет серии StatsD, Graphite и Pushgateway, которые давно не обновлялись. `ttl 0` хранит их до перезапуска.
+`GET /` и `GET /metrics` отдают серии, лежащие на этом entrypoint. `ttl` удаляет серии StatsD, Graphite, Pushgateway и OTLP, которые давно не обновлялись. `ttl 0` хранит их до перезапуска.
 
 ## Blackbox
 
@@ -104,6 +104,61 @@ printf 'servers.web01.cpu.user 12.5 %s\n' "$(date +%s)" | nc 127.0.0.1 2003
 
 Текстовый Pushgateway на `POST /metrics/job/...` — HTTP-вариант того же приёма. Формат описан в [entrypoint](entrypoint.md#pushgateway-body-formats). `metric_aggregation count` суммирует counter и histogram Pushgateway внутри Alligator. StatsD и Graphite сами выбирают прибавление или замену через `|c` и голое значение, поэтому эта опция к ним не относится.
 
+## OTLP
+
+OTLP-метрики принимаются на том же HTTP entrypoint с `handler prometheus` по `POST /v1/metrics` — обычный HTTP-путь OpenTelemetry для метрик (в collector по умолчанию порт `4318`; здесь любой настроенный `tcp` / `tls`). Направьте OTLP HTTP exporter на этот listen-адрес; путь остаётся `/v1/metrics`.
+
+Кодировки тела:
+
+- **JSON** — `ExportMetricsServiceRequest` с массивом `resourceMetrics` (по умолчанию, если тело похоже на JSON)
+- **Protobuf** — тот же запрос в OTLP wire format, если `Content-Type` — `application/x-protobuf`, `application/protobuf` или `application/octet-stream`, либо если тело не JSON
+
+В хранилище попадают только number data points типа **gauge** и **sum**. Histogram, exponential histogram и summary игнорируются. Монотонный sum помечается как counter для exposition; немонотонные sum и gauge — как gauge. Каждый push **заменяет** значение серии (абсолютные значения OTLP), а не прибавляет, как StatsD `|c`.
+
+Атрибуты resource и data point становятся лейблами (сливаются; сначала resource). В ключах атрибутов остаются буквы, цифры, `_`, `:`, `.` и `-`; остальные символы заменяются на `_`. Имена метрик проходят тот же Prom/StatsD validator и normalizer, что и другие push-пути.
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 4318;
+    ttl 5m;
+    allow 10.0.0.0/8;
+}
+```
+
+```
+curl -sS -D- http://127.0.0.1:4318/v1/metrics \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "resourceMetrics": [{
+    "resource": {
+      "attributes": [
+        {"key": "service.name", "value": {"stringValue": "demo"}}
+      ]
+    },
+    "scopeMetrics": [{
+      "metrics": [{
+        "name": "demo_queue_depth",
+        "gauge": {
+          "dataPoints": [{
+            "asDouble": 12,
+            "attributes": [
+              {"key": "host", "value": {"stringValue": "web01"}}
+            ]
+          }]
+        }
+      }]
+    }]
+  }]
+}'
+```
+
+Успешный приём отвечает `202` с `{"linesOk":N,"linesInvalid":M}`. Не-`POST` — `405`. Неразбираемое тело — `400`. Если в разобранном payload есть невалидные data points, тоже `400`, со счётчиками в теле. После scrape пример выше выглядит как `demo_queue_depth{service.name="demo",host="web01"}`.
+
+`metric_filter`, `add_label` и `metricstransform` на этом пути работают так же, как для StatsD / Pushgateway. Auth на entrypoint закрывает `/v1/metrics` вместе с остальными HTTP-push.
+
+Ограничения относительно полноценного OpenTelemetry Collector: **только метрики** (нет `/v1/traces` и `/v1/logs`), **только HTTP** (нет приёма OTLP/gRPC на `:4317`). Чтобы **отправлять** метрики наружу как OTLP, используйте [action](action.md) с `serializer otlp`, `otlp_protobuf` или `otlp_grpc`.
+
 ## Кластер, gauge и несколько хостов
 
 Для counter и histogram кластер не нужен: их агрегируют через PromQL (`sum`, `rate`, `histogram_quantile`). Для gauge он нужен.
@@ -148,7 +203,7 @@ Primary пишет серию в namespace entrypoint. Копия реплики
 
 ## Кто может пушить и скрейпить
 
-HTTP-аутентификация задаётся на entrypoint. Она закрывает scrape, Pushgateway, `/probe` и API. UDP она не закрывает.
+HTTP-аутентификация задаётся на entrypoint. Она закрывает scrape, Pushgateway, OTLP `/v1/metrics`, `/probe` и API. UDP она не закрывает.
 
 Статические способы: `auth basic`, `auth bearer` и `auth other`. Достаточно любого одного. Нет учётных данных — 401. Данные есть, но не подошли — 403.
 

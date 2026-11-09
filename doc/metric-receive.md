@@ -16,7 +16,7 @@ entrypoint {
 }
 ```
 
-`GET /` and `GET /metrics` return the series stored on that entrypoint. `ttl` drops StatsD, Graphite, and Pushgateway series that have not been updated. `ttl 0` keeps them until restart.
+`GET /` and `GET /metrics` return the series stored on that entrypoint. `ttl` drops StatsD, Graphite, Pushgateway, and OTLP series that have not been updated. `ttl 0` keeps them until restart.
 
 ## Blackbox
 
@@ -104,6 +104,61 @@ With that mapping the series is `node_cpu{host="web01",mode="user"}`. Without a 
 
 Pushgateway text on `POST /metrics/job/...` is the HTTP equivalent. It is covered in [entrypoint](entrypoint.md#pushgateway-body-formats). `metric_aggregation count` sums Pushgateway counters and histograms inside Alligator. StatsD and Graphite already choose add versus replace with `|c` and a bare value, so that option does not apply to them.
 
+## OTLP
+
+OTLP metrics are accepted on the same `handler prometheus` HTTP entrypoint at `POST /v1/metrics` — the usual OpenTelemetry HTTP metrics path (port `4318` in collector defaults; here any `tcp` / `tls` you configure). Point an OTLP HTTP exporter at that listen address; the path stays `/v1/metrics`.
+
+Body encodings:
+
+- **JSON** — `ExportMetricsServiceRequest` with a `resourceMetrics` array (default when the body looks like JSON)
+- **Protobuf** — same request in OTLP wire format when `Content-Type` is `application/x-protobuf`, `application/protobuf`, or `application/octet-stream`, or when the body is not JSON
+
+Only **gauge** and **sum** number data points are stored. Histogram, exponential histogram, and summary metrics are ignored. A monotonic sum is tagged as a counter for exposition; non-monotonic sums and gauges are gauges. Each push **replaces** the series value (absolute OTLP values), it does not add like StatsD `|c`.
+
+Resource attributes and data-point attributes become labels (merged; resource first). Attribute keys keep letters, digits, `_`, `:`, `.`, and `-`; other characters become `_`. Metric names go through the same Prom/StatsD validator and normalizer as other push paths.
+
+```
+entrypoint {
+    handler prometheus;
+    tcp 4318;
+    ttl 5m;
+    allow 10.0.0.0/8;
+}
+```
+
+```
+curl -sS -D- http://127.0.0.1:4318/v1/metrics \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "resourceMetrics": [{
+    "resource": {
+      "attributes": [
+        {"key": "service.name", "value": {"stringValue": "demo"}}
+      ]
+    },
+    "scopeMetrics": [{
+      "metrics": [{
+        "name": "demo_queue_depth",
+        "gauge": {
+          "dataPoints": [{
+            "asDouble": 12,
+            "attributes": [
+              {"key": "host", "value": {"stringValue": "web01"}}
+            ]
+          }]
+        }
+      }]
+    }]
+  }]
+}'
+```
+
+A successful ingest returns `202` with `{"linesOk":N,"linesInvalid":M}`. Non-`POST` is `405`. An unparseable body is `400`. Any invalid data points in an otherwise parsed payload also yield `400` with the counts in the body. Scraped series for the example above look like `demo_queue_depth{service.name="demo",host="web01"}`.
+
+`metric_filter`, `add_label`, and `metricstransform` apply on this path the same way as on StatsD / Pushgateway. Auth on the entrypoint covers `/v1/metrics` like other HTTP pushes.
+
+Limits relative to a full OpenTelemetry Collector: **metrics only** (no `/v1/traces` or `/v1/logs`), **HTTP only** (no OTLP/gRPC receive on `:4317`). To **send** metrics out as OTLP, use an [action](action.md) with `serializer otlp`, `otlp_protobuf`, or `otlp_grpc`.
+
 ## Cluster, gauges, and several hosts
 
 Counters and histograms do not need a cluster: aggregate them in PromQL (`sum`, `rate`, `histogram_quantile`). Gauges do.
@@ -148,7 +203,7 @@ The primary stores the series in the entrypoint namespace. A replica copy is sto
 
 ## Who may push and scrape
 
-HTTP authentication is per entrypoint. It covers scrape, Pushgateway, `/probe`, and the API. It does not cover UDP.
+HTTP authentication is per entrypoint. It covers scrape, Pushgateway, OTLP `/v1/metrics`, `/probe`, and the API. It does not cover UDP.
 
 Static methods are `auth basic`, `auth bearer`, and `auth other`. Any one of them is enough. Missing credentials are 401. Present but wrong credentials are 403.
 

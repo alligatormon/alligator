@@ -19,7 +19,7 @@ Entrypoint нужен для включения портов, через кот�
 - Alligator API
 - Replication log для конфигурации [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md).
 
-Сценарий StatsD, Graphite, blackbox `/probe`, gauge в кластере, авторизации и `metric_filter`: [приём метрик](metric-receive.md).
+Сценарий StatsD, Graphite, OTLP `/v1/metrics`, blackbox `/probe`, gauge в кластере, авторизации и `metric_filter`: [приём метрик](metric-receive.md).
 
 Полное описание
 ```
@@ -310,7 +310,7 @@ entrypoint {
 - {any_number}{any_unit}
 
 
-Эта опция позволяет задать максимальное время жизни метрик, отправленных методами statsd, pushgateway или graphite.
+Эта опция позволяет задать максимальное время жизни метрик, отправленных методами statsd, pushgateway, graphite или OTLP.
 TTL в alligator даёт возможность удалять устаревшие метрики, которые долго не обновлялись.
 
 Нулевое значение отключает функциональность TTL. Это означает, что полученные метрики никогда не удаляются;

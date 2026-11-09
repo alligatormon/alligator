@@ -58,7 +58,7 @@ Alligator has many contexts for describing the collection data:
 - **aggregate**: Collects metrics from software using various parsers from software
 - **query**: Generates new metrics internally through PromQL queries or database queries
 - **namespace**: Configures metric namespaces and optional emission / series limits (`max_emit`, `max_series`)
-- **entrypoint**: Receives metrics via Pushgateway, Statsd or Graphite protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
+- **entrypoint**: Receives metrics via Pushgateway, Statsd, Graphite, or OTLP (`POST /v1/metrics`) protocols. It also configures the listen policy of ports to pass metrics to Prometheus, or make queries to the internal Alligator API
 - **lang**: Runs functions and methods from subprograms
 - **x509**: Obtains metrics from PEM, JKS or PKCS certificate formats
 - **action**: Runs commands in response to the metrics behaviour. It allows for proactive monitoring policy.
@@ -81,7 +81,7 @@ Detailed information about the configuration file structure is in [configuration
 
 
 ## Entrypoint context
-Please refer to the entrypoint context [explanation](doc/entrypoint.md). A walkthrough for receiving StatsD, Graphite, and blackbox checks, with cluster, auth, and ingest filters, is in [receiving metrics](doc/metric-receive.md).
+Please refer to the entrypoint context [explanation](doc/entrypoint.md). A walkthrough for receiving StatsD, Graphite, OTLP, and blackbox checks, with cluster, auth, and ingest filters, is in [receiving metrics](doc/metric-receive.md).
 
 Here's an example of a simple handler that can respond to Prometheus:
 ```

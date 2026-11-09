@@ -17,7 +17,7 @@ Entrypoint functionality includes:
 - Alligator API
 - Replication log for [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) configuration.
 
-Walkthrough for StatsD, Graphite, blackbox `/probe`, cluster gauges, auth, and `metric_filter`: [receiving metrics](metric-receive.md).
+Walkthrough for StatsD, Graphite, OTLP `/v1/metrics`, blackbox `/probe`, cluster gauges, auth, and `metric_filter`: [receiving metrics](metric-receive.md).
 
 Full explain
 ```
@@ -308,7 +308,7 @@ Possible values:
 - {any_number}{any_unit}
 
 
-This options allows user to set maximum time to live metrics that have been pushed by statsd, pushgateway or graphite methods.
+This options allows user to set maximum time to live metrics that have been pushed by statsd, pushgateway, graphite, or OTLP methods.
 TTL in alligator provides capability to remove obsolete metrics, that haven't been updated for a long time.
 
 A zero value can be used to disable the TTL functionality. This means that any received metrics are never deleted;
