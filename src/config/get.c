@@ -9,6 +9,7 @@
 #include "chromecdp/chromecdp.h"
 #include "resolver/resolver.h"
 #include "system/linux/sysctl.h"
+#include "bpf/bpf.h"
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "common/crc32.h"
@@ -2132,6 +2133,7 @@ json_t *config_get()
 	alligator_ht_foreach_arg(ac->probe, probe_generate_conf, dst);
 	alligator_ht_foreach_arg(ac->entrypoints, entrypoints_generate_conf, dst);
 	system_config_get(dst);
+	bpf_config_get(dst);
 	alligator_ht_foreach_arg(ac->puppeteer, puppeteer_generate_conf, dst);
 	chromecdp_root_generate_conf(dst);
 	alligator_ht_foreach_arg(ac->chromecdp, chromecdp_generate_conf, dst);

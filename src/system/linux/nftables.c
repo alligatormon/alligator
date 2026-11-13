@@ -94,25 +94,6 @@ extern aconf *ac;
 
 void nftables_send_query(int setfd, uint16_t nlmsg_type, int nlmsg_flags, uint32_t pid, uint32_t seq, uint8_t, void *body, size_t body_len, void *userdata);
 
-size_t strlcpy(char *dst, const char *src, size_t dsize)
-{
-	const char *osrc = src;
-	size_t nleft = dsize;
-
-	if (nleft != 0) while (--nleft != 0) {
-		if ((*dst++ = *src++) == '\0')
-			break;
-	}
-
-	if (nleft == 0) {
-		if (dsize != 0) *dst = '\0';
-		while (*src++) ;
-	}
-
-	return(src - osrc - 1);
-}
-
-
 typedef struct nftable_struct
 {
 	struct nlattr nlattr;

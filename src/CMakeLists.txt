@@ -2,6 +2,21 @@ cmake_minimum_required(VERSION 3.8)
 
 set(VERSION 2.3.1)
 project(alligator VERSION ${VERSION})
+# Same switch for Debug, Release, RelWithDebInfo, and MinSizeRel.
+# option() will not replace a value already in the cache, so an older
+# configure that stored OFF used to stick for every later build type.
+set(_BPF_HELP "Build eBPF kprobe and uprobe collectors for every build type (Linux, libbpf, clang, bpftool, BTF)")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(_BPF_DEFAULT ON)
+else()
+	set(_BPF_DEFAULT OFF)
+endif()
+get_property(_bpf_help CACHE ENABLE_BPF PROPERTY HELPSTRING)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _bpf_help MATCHES "bpftool" AND NOT _bpf_help MATCHES "every build type")
+	set(ENABLE_BPF ON CACHE BOOL "${_BPF_HELP}" FORCE)
+endif()
+unset(_bpf_help)
+option(ENABLE_BPF "${_BPF_HELP}" ${_BPF_DEFAULT})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 
@@ -592,6 +607,10 @@ set(STATIC_FILES
 	dstructures/tommyds/tommyds/tommylist.c
 	dstructures/tommyds/tommyds/tommyhash.c
 	dstructures/ngram/ngram.c
+	bpf/bpf_logic.c
+	bpf/bpf_plain.c
+	bpf/bpf_state.c
+	bpf/bpf_loader_stub.c
 )
 
 set(_LINUX_SYSTEM_SOURCES
@@ -722,6 +741,92 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		list(APPEND STATIC_FILES common/strlcat.c)
 	endif()
 endif()
+
+if(ENABLE_BPF)
+	if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		message(FATAL_ERROR "ENABLE_BPF requires Linux")
+	endif()
+	pkg_check_modules(LIBBPF REQUIRED libbpf)
+	find_program(BPF_CLANG clang REQUIRED)
+	find_program(BPFTOOL bpftool REQUIRED)
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+		set(BPF_TARGET_DEFINE __TARGET_ARCH_arm64)
+	else()
+		set(BPF_TARGET_DEFINE __TARGET_ARCH_x86)
+	endif()
+	set(BPF_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/bpf)
+	set(BPF_SCRIPT_DIR ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/bpf)
+	file(MAKE_DIRECTORY ${BPF_GEN_DIR} ${BPF_SCRIPT_DIR})
+	set(BPF_VMLINUX ${BPF_GEN_DIR}/vmlinux.h)
+	# Do not redirect with ">" inside COMMAND. The Makefile generator escapes it,
+	# and the shell then creates a file whose name has a leading space.
+	file(WRITE ${BPF_SCRIPT_DIR}/dump_btf.cmake
+"if(NOT DEFINED BPFTOOL OR NOT DEFINED OUT)
+  message(FATAL_ERROR \"dump_btf.cmake needs BPFTOOL and OUT\")
+endif()
+execute_process(
+  COMMAND \${BPFTOOL} btf dump file /sys/kernel/btf/vmlinux format c
+  OUTPUT_FILE \${OUT}
+  RESULT_VARIABLE _bpf_rc
+)
+if(NOT _bpf_rc EQUAL 0)
+  message(FATAL_ERROR \"bpftool btf dump failed (\${_bpf_rc})\")
+endif()
+")
+	add_custom_command(
+		OUTPUT ${BPF_VMLINUX}
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${BPF_GEN_DIR}
+		COMMAND ${CMAKE_COMMAND} -DBPFTOOL=${BPFTOOL} -DOUT=${BPF_VMLINUX} -P ${BPF_SCRIPT_DIR}/dump_btf.cmake
+		VERBATIM
+	)
+	set(BPF_PROG_NAMES generic sched block tcp process dns)
+	execute_process(COMMAND grep -q trace_event_raw_contention_begin /sys/kernel/btf/vmlinux
+		RESULT_VARIABLE BPF_LOCK_GREP)
+	if(BPF_LOCK_GREP EQUAL 0)
+		list(APPEND BPF_PROG_NAMES lock)
+	else()
+		set(BPF_NO_LOCK_DEF 1)
+	endif()
+	set(BPF_SKEL_HDRS "")
+	foreach(prog IN LISTS BPF_PROG_NAMES)
+		set(prog_src ${CMAKE_CURRENT_SOURCE_DIR}/bpf/progs/${prog}.bpf.c)
+		set(prog_obj ${BPF_GEN_DIR}/${prog}.bpf.o)
+		set(prog_skel ${BPF_GEN_DIR}/${prog}.skel.h)
+		add_custom_command(
+			OUTPUT ${prog_obj}
+			COMMAND ${BPF_CLANG} -g -O2 -target bpf -D${BPF_TARGET_DEFINE} -D__BPF_PROG__
+				-I${CMAKE_CURRENT_SOURCE_DIR}/bpf
+				-I${CMAKE_CURRENT_SOURCE_DIR}/bpf/progs
+				-I${BPF_GEN_DIR}
+				-c ${prog_src} -o ${prog_obj}
+			DEPENDS ${prog_src} ${BPF_VMLINUX} ${CMAKE_CURRENT_SOURCE_DIR}/bpf/bpf_types.h ${CMAKE_CURRENT_SOURCE_DIR}/bpf/progs/map_help.h
+		)
+		add_custom_command(
+			OUTPUT ${prog_skel}
+			COMMAND ${CMAKE_COMMAND} -DBPFTOOL=${BPFTOOL} -DIN=${prog_obj} -DOUT=${prog_skel} -P ${BPF_SCRIPT_DIR}/gen_skel.cmake
+			DEPENDS ${prog_obj}
+			VERBATIM
+		)
+		list(APPEND BPF_SKEL_HDRS ${prog_skel})
+	endforeach()
+	list(REMOVE_ITEM STATIC_FILES bpf/bpf_loader_stub.c)
+	list(APPEND STATIC_FILES bpf/bpf_loader.c)
+	file(WRITE ${BPF_SCRIPT_DIR}/gen_skel.cmake
+"if(NOT DEFINED BPFTOOL OR NOT DEFINED IN OR NOT DEFINED OUT)
+  message(FATAL_ERROR \"gen_skel.cmake needs BPFTOOL, IN, and OUT\")
+endif()
+execute_process(
+  COMMAND \${BPFTOOL} gen skeleton \${IN}
+  OUTPUT_FILE \${OUT}
+  RESULT_VARIABLE _bpf_rc
+)
+if(NOT _bpf_rc EQUAL 0)
+  message(FATAL_ERROR \"bpftool gen skeleton failed (\${_bpf_rc})\")
+endif()
+")
+	add_custom_target(bpf_generated DEPENDS ${BPF_VMLINUX} ${BPF_SKEL_HDRS})
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	list(APPEND ALLIGATOR_COMMON_LIBS libatasmart.a -ludev)
 endif()
@@ -747,6 +852,24 @@ endif()
 target_link_libraries(${COMMON_TESTS} PUBLIC ${ALLIGATOR_COMMON_LIBS})
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_link_libraries(${COMMON_TESTS} PUBLIC "-framework IOKit" "-framework CoreFoundation")
+endif()
+if(ENABLE_BPF)
+	target_include_directories(${COMMON} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
+	target_include_directories(${COMMON_TESTS} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
+	target_compile_definitions(${COMMON} PRIVATE ENABLE_BPF)
+	target_compile_definitions(${COMMON_TESTS} PRIVATE ENABLE_BPF)
+	target_link_libraries(${COMMON} PUBLIC ${LIBBPF_LIBRARIES})
+	target_link_libraries(${COMMON_TESTS} PUBLIC ${LIBBPF_LIBRARIES})
+	if(BPF_NO_LOCK_DEF)
+		target_compile_definitions(${COMMON} PRIVATE BPF_NO_LOCK)
+		target_compile_definitions(${COMMON_TESTS} PRIVATE BPF_NO_LOCK)
+	endif()
+	add_dependencies(${COMMON} bpf_generated)
+	add_dependencies(${COMMON_TESTS} bpf_generated)
+	add_executable(bpf_attach_test tests/bpf_attach.c)
+	target_include_directories(bpf_attach_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
+	target_compile_definitions(bpf_attach_test PRIVATE ENABLE_BPF)
+	target_link_libraries(bpf_attach_test ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL ${LIBBPF_LIBRARIES})
 endif()
 
 set_property(TARGET ${COMMON_TESTS} PROPERTY POSITION_INDEPENDENT_CODE ON)

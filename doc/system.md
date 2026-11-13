@@ -784,6 +784,8 @@ Linux only. Kernel leaf samples only (`PERF_SAMPLE_IP`): `exclude_user=1`, `excl
 
 Privileges: this open is cpu-wide (`pid = -1`), so an unprivileged process needs `perf_event_paranoid <= 0`. Root or `CAP_PERFMON` / `CAP_SYS_ADMIN` still works. Resolving names needs a readable `/proc/kallsyms` (`kptr_restrict`). The counting collector can succeed on a host where this sampler returns `EACCES` or unresolved zeros. `/proc/kallsyms` is parsed once and refreshed about once a minute, not on every scrape. A module loaded after that refresh is an unresolved IP until the next refresh.
 
+eBPF kprobe and uprobe collectors are a separate `bpf { }` context. On Linux they are built by default for every build type; `-DENABLE_BPF=OFF` leaves them out. Loading those programs needs `CAP_BPF` and `CAP_PERFMON`, or `CAP_SYS_ADMIN`, plus Linux 5.8 and `/sys/kernel/btf/vmlinux`. See [bpf.md](bpf.md). They do not change `perf_events_total`, `perf_events_scaling_ratio`, or `perf_kernel_samples_total`.
+
 - `perf_kernel_samples_total{function}` — leaf samples resolved to that symbol since the fd was opened, not since the last scrape. The counter resets when the fd closes
 - `perf_kernel_samples_dropped_total` — samples not stored: IP missing from kallsyms, the 8192-symbol table is full, `PERF_RECORD_LOST`, or a ring window skipped after an overrun
 - `perf_kernel_sampling` — 1 while the fd is open, 0 otherwise

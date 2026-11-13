@@ -17,6 +17,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include "main.h"
+#include "bpf/bpf.h"
 #include "common/pw.h"
 #include "common/selector.h"
 #include "common/rpm.h"
@@ -2667,6 +2668,7 @@ void system_free()
 {
 	perf_events_cleanup();
 	perf_functions_cleanup();
+	bpf_cleanup();
 
 	if (ac->fdesc)
 	{

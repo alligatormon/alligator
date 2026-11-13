@@ -4887,8 +4887,8 @@ void api_test_postgresql_error_reason()
 {
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "route_not_found",
         postgresql_error_reason(
-            "connection to server at \"0node0028.db.rambler.tech\" (10.128.7.14), port 9000 failed:\n"
-            "ERROR:  odyssey: c088a0a325c57: route for 'adblock_stage....' is not found"));
+            "connection to server at \"dbhost.example\" (203.0.113.10), port 9000 failed:\n"
+            "ERROR:  odyssey: deadbeef01234: route for 'testdb_stage....' is not found"));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "backend_connect_failed",
         postgresql_error_reason("failed to connect to remote server s1abc01234567"));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pool_size_reached",

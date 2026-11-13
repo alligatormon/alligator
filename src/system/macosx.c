@@ -27,6 +27,7 @@
 
 #include "metric/labels.h"
 #include "main.h"
+#include "bpf/bpf.h"
 #include "common/rtime.h"
 #include "system/common.h"
 #include "system/macosx/parsers.h"
@@ -633,6 +634,7 @@ void system_slow_scrape(void)
 
 void system_free(void)
 {
+	bpf_cleanup();
 	if (ac->scs) {
 		if (ac->scs->cores)
 			free(ac->scs->cores);

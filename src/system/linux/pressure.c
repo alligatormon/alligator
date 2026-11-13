@@ -34,9 +34,7 @@ static void parse_pressure_file(char *resource)
 		char kind[16];
 		double avg10, avg60, avg300;
 		uint64_t total;
-		int n = sscanf(line, "%15s avg10=%lf avg60=%lf avg300=%lf total=%" SCNu64,
-			kind, &avg10, &avg60, &avg300, &total);
-		if (n < 5)
+		if (!pressure_parse_line(line, kind, sizeof(kind), &avg10, &avg60, &avg300, &total))
 			continue;
 
 		double total_seconds = total / 1000000.0;
@@ -51,6 +49,28 @@ static void parse_pressure_file(char *resource)
 		}
 	}
 	fclose(fd);
+}
+
+int pressure_parse_line(const char *line, char *kind, size_t kind_cap,
+	double *avg10, double *avg60, double *avg300, uint64_t *total)
+{
+	char tmp[16];
+	double a10, a60, a300;
+	uint64_t tot;
+	int n;
+
+	if (!line || !kind || !kind_cap || !avg10 || !avg60 || !avg300 || !total)
+		return 0;
+	n = sscanf(line, "%15s avg10=%lf avg60=%lf avg300=%lf total=%" SCNu64,
+		tmp, &a10, &a60, &a300, &tot);
+	if (n < 5)
+		return 0;
+	snprintf(kind, kind_cap, "%s", tmp);
+	*avg10 = a10;
+	*avg60 = a60;
+	*avg300 = a300;
+	*total = tot;
+	return 1;
 }
 
 void get_pressure_stats(void)

@@ -383,6 +383,7 @@ gld_done:
 #include "common/http2_grpc.h"
 #include "cadvisor_parsers.h"
 #include "system.h"
+#include "bpf.h"
 #include "config.h"
 #include "ht.h"
 #include "maglev.h"
@@ -4534,6 +4535,7 @@ static void run_config_query_suites(char **argv)
     test_json_query_skip_label_field_metric();
     test_json_query_ndjson_lines();
     system_test(argv[0]);
+    bpf_test();
     test_config();
 }
 

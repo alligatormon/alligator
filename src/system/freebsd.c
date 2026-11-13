@@ -49,6 +49,7 @@
 
 #include "metric/labels.h"
 #include "main.h"
+#include "bpf/bpf.h"
 #include "common/rtime.h"
 #include "common/selector.h"
 #include "common/logs.h"
@@ -1025,6 +1026,7 @@ void system_slow_scrape()
 
 void system_free()
 {
+	bpf_cleanup();
 	if (ac->system_avg_metrics) {
 		free(ac->system_avg_metrics);
 		ac->system_avg_metrics = NULL;

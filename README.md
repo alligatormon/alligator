@@ -92,7 +92,7 @@ entrypoint {
 ```
 
 ## System metrics collecting
-Please refer to the explanation of system context [here](doc/system.md).
+Please refer to the explanation of system context [here](doc/system.md). eBPF kprobe and uprobe collectors are a separate optional context, described in [doc/bpf.md](doc/bpf.md).
 
 Below is an example of a simple system context that collects CPU, baseboard, system-wide resources, memory, and network statistics:
 ```

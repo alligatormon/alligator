@@ -32,6 +32,7 @@
 #include "cluster/type.h"
 #include "system/common.h"
 #include "system/linux/perf_functions.h"
+#include "bpf/bpf.h"
 #include "common/json_query.h"
 #include "common/logs.h"
 #include "puppeteer/puppeteer.h"
@@ -447,6 +448,13 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 
 					vrl_push(vrl);
 				}
+			}
+			if (!strcmp(key, "bpf"))
+			{
+				if (method == HTTP_METHOD_DELETE)
+					bpf_config_apply(NULL, 1);
+				else if (json_typeof(value) == JSON_OBJECT)
+					bpf_config_apply(value, 0);
 			}
 			if (!strcmp(key, "namespace"))
 			{

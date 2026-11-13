@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <linux/sched.h>
 #include "main.h"
+#include "bpf/bpf.h"
 #include "cadvisor/metrics.h"
 #include "cadvisor/parsers.h"
 #include "cadvisor/ns.h"
@@ -2167,6 +2168,7 @@ void cadvisor_scrape(char *ifname, char *cgroupPath, char *slice, char *cntid, c
 			snprintf(cad_id, 255, "/%s", cntid);
 		cgroupPath = cad_id;
 	}
+	bpf_cgroup_remember(cgroupPath, kubepod, kubenamespace, kubecontainer);
 
 	cadvisor_network_scrape(ac->system_sysfs, cntid, name, image, cgroupPath, kubenamespace, kubepod, kubecontainer, libvirt_id);
 	if (ifname)

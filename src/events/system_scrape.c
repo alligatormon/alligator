@@ -3,6 +3,7 @@
 #include <uv.h>
 #include "main.h"
 #include "events/system_scrape.h"
+#include "bpf/bpf.h"
 void on_scrape_run(void* arg)
 {
 	system_scrape_info *ssinfo = arg;
@@ -15,6 +16,7 @@ static void system_scrape(uv_timer_t* handle)
 	(void)handle;
 	extern aconf* ac;
 	alligator_ht_foreach(ac->system_aggregator, on_scrape_run);
+	bpf_scrape();
 }
 
 void on_scrape_free(void* arg)

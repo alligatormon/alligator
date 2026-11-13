@@ -644,6 +644,8 @@ system {
 
 Права: открытие на весь CPU (`pid = -1`), поэтому непривилегированному процессу нужно `perf_event_paranoid <= 0`. Root или `CAP_PERFMON` / `CAP_SYS_ADMIN` по-прежнему достаточно. Имена берутся из читаемого `/proc/kallsyms` (`kptr_restrict`). Счётчик `perf_events` может работать на хосте, где этот сборщик получает `EACCES` или одни нули. `/proc/kallsyms` разбирается один раз и обновляется примерно раз в минуту, не на каждом съёме. Модуль, загруженный после обновления, остаётся неразрешённым IP до следующего обновления.
 
+Отдельный контекст `bpf { }` — kprobe и uprobe через eBPF. На Linux он собирается по умолчанию для любого типа сборки (Debug, Release и остальные), `-DENABLE_BPF=OFF` отключает сборку. Нужны Linux 5.8, `/sys/kernel/btf/vmlinux` и `CAP_BPF` вместе с `CAP_PERFMON` (или `CAP_SYS_ADMIN`). Описание: [bpf.md](../bpf.md). Серии `perf_events_total`, `perf_events_scaling_ratio` и `perf_kernel_samples_total` он не меняет.
+
 - `perf_kernel_samples_total{function}` — листовые сэмплы, разрешённые в этот символ, с момента открытия fd (не за последний съём). Счётчик сбрасывается при закрытии fd
 - `perf_kernel_samples_dropped_total` — сэмплы, которые не сохранены: IP нет в kallsyms, таблица из 8192 символов заполнена, запись `PERF_RECORD_LOST`, или окно кольца пропущено после переполнения
 - `perf_kernel_sampling` — 1, пока fd открыт, иначе 0

@@ -91,7 +91,7 @@ entrypoint {
 ```
 
 ## Сбор системных метрик
-См. [system](doc/ru/system.md).
+См. [system](doc/ru/system.md). Опциональные kprobe и uprobe через eBPF описаны в [bpf.md](doc/bpf.md).
 
 Пример сбора CPU, baseboard, ресурсов системы, памяти и сети:
 ```

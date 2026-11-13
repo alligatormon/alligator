@@ -7,6 +7,7 @@
 #include "common/logs.h"
 #include "common/units.h"
 #include "main.h"
+#include "bpf/bpf.h"
 
 typedef struct config_parser_stat {
 	uint8_t quotas1; // '
@@ -1877,6 +1878,33 @@ char *build_json_from_tokens(config_parser_stat *wstokens, uint64_t token_count)
 			}
 
 			json_t *operator_json = NULL;
+			if (!strcmp(context_name, "bpf"))
+			{
+				bpf_plain_tok *btoks = calloc(token_count, sizeof(*btoks));
+				uint64_t k;
+				uint64_t idx = i;
+				json_t *parsed;
+				const char *bkey;
+				json_t *bval;
+
+				if (btoks)
+				{
+					for (k = 0; k < token_count; k++)
+					{
+						btoks[k].s = wstokens[k].token ? wstokens[k].token->s : "";
+						btoks[k].start = wstokens[k].start;
+						btoks[k].end = wstokens[k].end;
+						btoks[k].semicolon = wstokens[k].semicolon;
+					}
+					parsed = bpf_plain_parse(btoks, token_count, &idx);
+					json_object_foreach(parsed, bkey, bval)
+						json_object_set(context_json, bkey, bval);
+					json_decref(parsed);
+					free(btoks);
+					i = idx;
+					continue;
+				}
+			}
 			if (!strcmp(context_name, "entrypoint"))
 			{
 				operator_json = json_object();
