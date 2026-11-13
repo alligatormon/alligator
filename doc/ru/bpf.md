@@ -107,7 +107,7 @@ namespace {
 
 `namespace custom;` и `namespace=custom;` эквивалентны. Без директивы серии остаются в default namespace. Label `namespace` на cgroup-серии — это Kubernetes namespace, не эта настройка.
 
-## Custom kprobe и uprobe
+## Custom kprobe/uprobe
 
 До шести аргументов. У каждого — type, label и необязательный filter. Filter выполняется до записи события. Значение, не прошедшее filter, отбрасывается и серию не создаёт.
 
