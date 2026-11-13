@@ -106,7 +106,7 @@ conan build external/
 
 Для CentOS 7 сначала используйте закреплённые зависимости:
 ```
-cp ../misc/centos7/conanfile.txt ./conanfile.txt
+cp ../misc/centos7/conanfile.py ./conanfile.py
 conan install . --build=missing -s build_type=Debug
 ```
 

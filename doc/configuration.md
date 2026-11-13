@@ -9,6 +9,7 @@
 | Metric collection (pull) | [aggregate.md](aggregate.md) |
 | Metric ingestion (push) and scrape | [entrypoint.md](entrypoint.md) |
 | Host metrics | [system.md](system.md) |
+| eBPF collectors (kprobe / uprobe / built-in probes) | [bpf.md](bpf.md) |
 | PromQL / SQL queries | [query.md](query.md) |
 | Export and automation | [action.md](action.md), [scheduler.md](scheduler.md) |
 | Metric namespaces | [namespace.md](namespace.md) |
@@ -35,6 +36,7 @@ These blocks can appear in `/etc/alligator.conf` (plain) or JSON configuration:
 | `entrypoint` | Listen addresses, handlers, scrape/export endpoints |
 | `aggregate` | Poll external targets and run parsers |
 | `system` | Collect host and container metrics |
+| `bpf` | eBPF kprobe, uprobe, and built-in probes; see [bpf.md](bpf.md) |
 | `query` | Run PromQL or SQL on a schedule |
 | `action` | Export metrics or run commands |
 | `scheduler` | Trigger actions on an interval |
@@ -637,6 +639,10 @@ system {
     <option2>;
     ...
     <optionN> [<param1>] ... [<paramN>];
+}
+
+bpf {
+    <probe or kprobe or uprobe>;
 }
 
 aggregate {

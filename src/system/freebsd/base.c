@@ -68,7 +68,7 @@ int8_t get_platform(int8_t mode)
 	return PLATFORM_BAREMETAL;
 }
 
-void get_kernel_version(int8_t platform)
+void system_get_kernel_version(int8_t platform)
 {
 	struct utsname un;
 	char *platform_name = "unknown";

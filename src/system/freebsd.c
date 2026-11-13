@@ -956,7 +956,7 @@ void get_system_metrics()
 		hw_cpu_info();
 		get_utsname();
 		platform = get_platform(1);
-		get_kernel_version(platform);
+		system_get_kernel_version(platform);
 		get_distribution_name();
 		get_memory_usage_hw();
 		get_memory_usage_cgroup();

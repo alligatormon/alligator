@@ -104,7 +104,7 @@ conan build external/
 
 For CentOS 7, use the pinned deps first:
 ```
-cp ../misc/centos7/conanfile.txt ./conanfile.txt
+cp ../misc/centos7/conanfile.py ./conanfile.py
 conan install . --build=missing -s build_type=Debug
 ```
 

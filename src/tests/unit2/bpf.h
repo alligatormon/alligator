@@ -209,6 +209,8 @@ static void test_bpf_config_and_scrape(void)
 
 	bpf_apply_plain("bpf { probe runqueue_latency; probe cgroup_memory; }\n");
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("runqueue_latency"));
+	/* Detach so scrape does not wipe injected staging via bpf_loader_poll. */
+	bpf_loader_shutdown();
 	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, 0, 1500);
 	bpf_drop_add("runqueue_latency", "lru", 4);
 	bpf_pressure_sample("/kubepods/namespace-demo/podabc-def/cri-containerd-cid.scope", "some", 1, 2, 3, 9);
@@ -241,6 +243,7 @@ static void test_bpf_config_and_scrape(void)
 	json_decref(cfg);
 
 	bpf_apply_plain("bpf { namespace custom; probe runqueue_latency; }\n");
+	bpf_loader_shutdown();
 	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, 0, 1500);
 	bpf_scrape();
 	metric_test_run_ns(CMP_EQUAL, "bpf_up", "bpf_up", 0, "custom");

@@ -2,7 +2,7 @@
 #include <sys/types.h>
 
 int8_t get_platform(int8_t mode);
-void get_kernel_version(int8_t platform);
+void system_get_kernel_version(int8_t platform);
 void get_distribution_name(void);
 void get_utmp_info(void);
 void get_memory_usage_hw(void);

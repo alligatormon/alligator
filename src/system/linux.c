@@ -1446,7 +1446,7 @@ void get_buddyinfo()
 	fclose(fd);
 }
 
-void get_kernel_version(int8_t platform)
+void system_get_kernel_version(int8_t platform)
 {
 	char procversion[255];
 	snprintf(procversion, 255, "%s/version", ac->system_procfs);
@@ -2496,7 +2496,7 @@ void get_system_metrics()
 		get_mem(platform);
 		get_nofile_stat();
 		get_loadavg();
-		get_kernel_version(platform);
+		system_get_kernel_version(platform);
 		get_alligator_info();
 		get_conntrack_info();
 		ipaddr_info();
@@ -2612,7 +2612,7 @@ void get_system_metrics()
 	if (ac->system_firewall)
 	{
 		if (!ac->kernel_version[0]) {
-			get_kernel_version(platform);
+			system_get_kernel_version(platform);
 		}
 		if (ac->kernel_version[0] >= 5)
 			nftables_handler();

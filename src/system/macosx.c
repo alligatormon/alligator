@@ -577,7 +577,7 @@ void get_system_metrics(void)
 		hw_cpu_info();
 		get_utsname();
 		platform = get_platform(1);
-		get_kernel_version(platform);
+		system_get_kernel_version(platform);
 		get_distribution_name();
 		get_utmp_info();
 		get_proc_interrupts(ac->system_interrupts);
