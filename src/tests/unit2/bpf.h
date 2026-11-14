@@ -116,6 +116,7 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_KPROBE, p->kind);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp_v4_connect", p->symbol);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->latency);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_COUNT, p->mode);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, p->nargs);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_ARG_SOCKADDR, p->args[0].kind);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_FILTER_PREFIX, p->args[0].filter);
@@ -127,6 +128,7 @@ static void test_bpf_config_and_scrape(void)
 	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_UPROBE, p->kind);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->latency);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_COUNT, p->mode);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/lib64/libc.so.6", p->binary);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "getaddrinfo", p->symbol);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_ARG_USER_STR, p->args[0].kind);
@@ -319,8 +321,397 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
 }
 
+static int bpf_query_n(const char *query, const char *ns)
+{
+	metric_query_context *mqc;
+	string *body;
+	json_error_t error;
+	json_t *root;
+	int n;
+
+	mqc = promql_parser(NULL, (char *)query, strlen(query));
+	body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_JSON, 0, (char *)ns, NULL, NULL, NULL, NULL);
+	if (!body)
+		return 0;
+	root = json_loads(body->s, 0, &error);
+	string_free(body);
+	if (!root)
+		return 0;
+	n = json_is_array(root) ? (int)json_array_size(root) : 0;
+	json_decref(root);
+	return n;
+}
+
+static void bpf_capture_event(uint32_t probe, uint32_t arg, const char *comm, const void *buf, uint32_t len)
+{
+	struct bpf_capture_event ev;
+
+	memset(&ev, 0, sizeof(ev));
+	ev.probe_id = probe;
+	ev.arg_index[0] = arg;
+	ev.nbuf = 1;
+	ev.len[0] = len;
+	if (comm)
+		snprintf(ev.comm, sizeof(ev.comm), "%s", comm);
+	if (buf && len && len <= BPF_CAPTURE_MAX)
+		memcpy(ev.data[0], buf, len);
+	bpf_capture_on_event(&ev, sizeof(ev));
+}
+
+static void test_bpf_capture(void)
+{
+	const bpf_probe *p;
+	const char *user_example =
+		"bpf {\n"
+		"    namespace bpf_usdt;\n"
+		"    uprobe /lib64/libssl.so.3:SSL_write {\n"
+		"        mode capture;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        comm curl;\n"
+		"        arg 1 type=user_buffer size=arg2 max=512 label=buf;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\\\* HTTP/(?P<h2>2)\\\\.0|(?P<method>GET|POST)\\\\s+(?P<path>\\\\S+)\\\\s+HTTP/(?P<version>\\\\d+(?:\\\\.\\\\d+)?))\";\n"
+		"    }\n"
+		"    uprobe /lib64/libssl.so.3:SSL_read {\n"
+		"        mode capture; pair_id ssl_read; save arg1;\n"
+		"    }\n"
+		"    uretprobe /lib64/libssl.so.3:SSL_read {\n"
+		"        mode capture; pair_id ssl_read; metric bpf_us_fn_events_total; comm curl;\n"
+		"        arg 1 type=user_buffer size=retval max=512 label=buf from=saved;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\\\* HTTP/(?P<h2>2)\\\\.0|HTTP/(?P<version>\\\\d+(?:\\\\.\\\\d+)?)\\\\s+(?P<status>\\\\d{3})\\\\b)\";\n"
+		"    }\n"
+		"}\n";
+	const char *stored_req =
+		"^(?:PRI \\\\* HTTP/(?P<h2>2)\\\\.0|(?P<method>GET|POST)\\\\s+(?P<path>\\\\S+)\\\\s+HTTP/(?P<version>\\\\d+(?:\\\\.\\\\d+)?))";
+	const char *http =
+		"GET /index.html HTTP/1.1\r\nHost: example\r\n";
+	const char *h2_preface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+	char raw[8];
+
+	bpf_apply_plain(user_example);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_UPROBE, p->kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_CAPTURE, p->mode);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "SSL_write", p->symbol);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/lib64/libssl.so.3", p->binary);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_us_fn_events_total", p->metric);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->ncomm);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "curl", p->comm[0]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->nargs);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_ARG_USER_BUFFER, p->args[0].kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->args[0].index);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_SIZE_ARG, p->args[0].size_src);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, p->args[0].size_arg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 512, p->args[0].buf_max);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->args[0].from_saved);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "buf", p->args[0].label);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "buf", p->regex_on);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, (char *)stored_req, p->regex_pattern);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->generic_slot);
+	p = bpf_probe_at(1);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_CAPTURE, p->mode);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ssl_read", p->pair_id);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->nsave);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->save_arg[0]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->nargs);
+	p = bpf_probe_at(2);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_URETPROBE, p->kind);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "SSL_read", p->symbol);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/lib64/libssl.so.3:SSL_read:ret", p->name);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ssl_read", p->pair_id);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, bpf_probe_at(1)->pair_slot, p->pair_slot);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->pair_slot > 0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_ARG_USER_BUFFER, p->args[0].kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_SIZE_RETVAL, p->args[0].size_src);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->args[0].from_saved);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 512, p->args[0].buf_max);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "buf", p->regex_on);
+
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace bpf_usdt;\n"
+		"    uprobe /lib64/libssl.so.3:SSL_write {\n"
+		"        mode capture;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        comm curl;\n"
+		"        arg 1 type=user_buffer size=arg2 max=512 label=buf;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|(?P<method>GET|POST)\\s+(?P<path>\\S+)\\s+HTTP/(?P<version>\\d+(?:\\.\\d+)?))\";\n"
+		"    }\n"
+		"    uprobe /lib64/libssl.so.3:SSL_write_ex {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_write_ex;\n"
+		"        save arg1;\n"
+		"        save arg3;\n"
+		"    }\n"
+		"    uretprobe /lib64/libssl.so.3:SSL_write_ex {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_write_ex;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        comm curl;\n"
+		"        when retval_gt 0;\n"
+		"        arg 1 type=user_buffer size=deref:saved_arg3 max=512 label=buf from=saved;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|(?P<method>GET|POST)\\s+(?P<path>\\S+)\\s+HTTP/(?P<version>\\d+(?:\\.\\d+)?))\";\n"
+		"    }\n"
+		"    uprobe /lib64/libssl.so.3:SSL_read {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_read;\n"
+		"        save arg1;\n"
+		"    }\n"
+		"    uretprobe /lib64/libssl.so.3:SSL_read {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_read;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        comm curl;\n"
+		"        when retval_gt 0;\n"
+		"        arg 1 type=user_buffer size=retval max=512 label=buf from=saved;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|HTTP/(?P<version>\\d+(?:\\.\\d+)?)\\s+(?P<status>\\d{3})\\b)\";\n"
+		"    }\n"
+		"    uprobe /lib64/libssl.so.3:SSL_read_ex {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_read_ex;\n"
+		"        save arg1;\n"
+		"        save arg3;\n"
+		"    }\n"
+		"    uretprobe /lib64/libssl.so.3:SSL_read_ex {\n"
+		"        mode capture;\n"
+		"        pair_id ssl_read_ex;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        comm curl;\n"
+		"        when retval_gt 0;\n"
+		"        arg 1 type=user_buffer size=deref:saved_arg3 max=99999 label=buf from=saved;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|HTTP/(?P<version>\\d+(?:\\.\\d+)?)\\s+(?P<status>\\d{3})\\b)\";\n"
+		"    }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, bpf_probe_count());
+	p = bpf_probe_at(2);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_URETPROBE, p->kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->has_when);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)p->retval_gt);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_SIZE_DEREF_SAVED, p->args[0].size_src);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, p->args[0].size_arg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->args[0].from_saved);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, bpf_probe_at(1)->pair_slot, p->pair_slot);
+	p = bpf_probe_at(1);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, p->nsave);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->save_arg[0]);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, p->save_arg[1]);
+	p = bpf_probe_at(6);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_CAPTURE_MAX, p->args[0].buf_max);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->has_when);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ssl_read_ex", p->pair_id);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, bpf_probe_at(5)->pair_slot, p->pair_slot);
+
+	bpf_apply_plain("bpf { uprobe /lib/x:f { mode capture; arg 1 type=user_buffer label=buf; } }\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace captest;\n"
+		"    uprobe /lib/libssl.so:SSL_write {\n"
+		"        mode capture;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        arg 1 type=user_buffer size=arg2 max=64 label=buf;\n"
+		"        regex on=buf pattern=\"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|(?P<method>GET|POST)\\s+(?P<path>\\S+)\\s+HTTP/(?P<version>\\d+(?:\\.\\d+)?))\";\n"
+		"    }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__,
+		"^(?:PRI \\* HTTP/(?P<h2>2)\\.0|(?P<method>GET|POST)\\s+(?P<path>\\S+)\\s+HTTP/(?P<version>\\d+(?:\\.\\d+)?))", p->regex_pattern);
+	bpf_loader_shutdown();
+	bpf_capture_event(0, 1, "curl", "HELLO", 5);
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0,
+		bpf_query_n("bpf_us_fn_events_total", "captest"));
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_probe_dropped_total{probe=\"/lib/libssl.so:SSL_write\",reason=\"regex_nomatch\"}",
+		"bpf_probe_dropped_total", 1, "captest");
+
+	bpf_capture_event(0, 1, "curl", http, (uint32_t)strlen(http));
+	bpf_capture_event(0, 1, "curl", http, (uint32_t)strlen(http));
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		bpf_query_n("bpf_us_fn_events_total{method=\"GET\",path=\"/index.html\",version=\"1.1\",comm=\"curl\"}", "captest"));
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_us_fn_events_total{probe=\"/lib/libssl.so:SSL_write\",method=\"GET\",path=\"/index.html\",version=\"1.1\",comm=\"curl\"}",
+		"bpf_us_fn_events_total", 2, "captest");
+
+	bpf_capture_event(0, 1, "curl", h2_preface, (uint32_t)strlen(h2_preface));
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		bpf_query_n("bpf_us_fn_events_total{h2=\"2\",comm=\"curl\"}", "captest"));
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_us_fn_events_total{probe=\"/lib/libssl.so:SSL_write\",h2=\"2\",comm=\"curl\"}",
+		"bpf_us_fn_events_total", 1, "captest");
+
+	/* Embedded NUL: strlen would stop at 3 and miss the tail. pcre_exec uses len. */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace captest;\n"
+		"    uprobe /lib/libssl.so:SSL_read {\n"
+		"        mode capture;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        arg 1 type=user_buffer size=retval max=16 label=buf;\n"
+		"        regex on=buf pattern=\"(?P<tail>ZZZ)$\";\n"
+		"    }\n"
+		"}\n");
+	raw[0] = 'A'; raw[1] = 'A'; raw[2] = 'A'; raw[3] = 0;
+	raw[4] = 'Z'; raw[5] = 'Z'; raw[6] = 'Z'; raw[7] = 'Q';
+	bpf_loader_shutdown();
+	bpf_capture_event(0, 1, "curl", raw, 7);
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		bpf_query_n("bpf_us_fn_events_total{tail=\"ZZZ\"}", "captest"));
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_us_fn_events_total{probe=\"/lib/libssl.so:SSL_read\",tail=\"ZZZ\",comm=\"curl\"}",
+		"bpf_us_fn_events_total", 1, "captest");
+
+	/* type=user_buffer is capture-only. A count probe that uses it is not enabled. */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    kprobe vfs_read { arg 0 type=u64 label=n; }\n"
+		"    uprobe /lib/x:f { arg 1 type=user_buffer size=arg2 max=32 label=buf; }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_KPROBE, p->kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_COUNT, p->mode);
+
+	/* save and pair_id are capture-only. A count probe that uses them is not enabled. */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    kprobe vfs_read { arg 0 type=u64 label=n; }\n"
+		"    uprobe /lib/x:f { save arg1; }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_KPROBE, p->kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->nsave);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->pair_id[0]);
+	bpf_apply_plain("bpf { uprobe /lib/x:f { save arg1; } }\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+	bpf_apply_plain("bpf { uretprobe /lib/x:f { pair_id ssl_read; } }\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+
+	/* Capture defaults max_series when the operator did not set it. */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace capdfltseries;\n"
+		"    uprobe /lib/x:f {\n"
+		"        mode capture;\n"
+		"        arg 1 type=user_buffer size=arg2 max=16 label=buf;\n"
+		"        regex on=buf pattern=\"(?P<id>\\d+)\";\n"
+		"    }\n"
+		"}\n");
+	{
+		namespace_struct *ns = get_namespace("capdfltseries");
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_SERIES_MAX, (int)ns->max_series);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ns->max_series_set);
+	}
+
+	/* An explicit cap, including unlimited 0, is left alone. */
+	insert_namespace("capexplicit", 0, 3);
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace capexplicit;\n"
+		"    uprobe /lib/x:f {\n"
+		"        mode capture;\n"
+		"        arg 1 type=user_buffer size=arg2 max=16 label=buf;\n"
+		"        regex on=buf pattern=\"(?P<id>\\d+)\";\n"
+		"    }\n"
+		"}\n");
+	{
+		namespace_struct *ns = get_namespace("capexplicit");
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 3, (int)ns->max_series);
+	}
+	insert_namespace("capunlimited", 0, 0);
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace capunlimited;\n"
+		"    uprobe /lib/x:f {\n"
+		"        mode capture;\n"
+		"        arg 1 type=user_buffer size=arg2 max=16 label=buf;\n"
+		"        regex on=buf pattern=\"(?P<id>\\d+)\";\n"
+		"    }\n"
+		"}\n");
+	{
+		namespace_struct *ns = get_namespace("capunlimited");
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)ns->max_series);
+	}
+
+	/* Count-only does not install the capture default. */
+	bpf_apply_plain("bpf { namespace capcountonly; probe runqueue_latency; }\n");
+	{
+		namespace_struct *ns = get_namespace("capcountonly");
+		assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)ns->max_series);
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->max_series_set);
+	}
+
+	/* A full staging table drops new label sets and does not restart a counter at 1. */
+	insert_namespace("caplru", 0, 0);
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace caplru;\n"
+		"    uprobe /t:f {\n"
+		"        mode capture;\n"
+		"        metric bpf_us_fn_events_total;\n"
+		"        arg 1 type=user_buffer size=arg2 max=16 label=buf;\n"
+		"        regex on=buf pattern=\"^(?P<id>\\d+)$\";\n"
+		"    }\n"
+		"}\n");
+	bpf_loader_shutdown();
+	{
+		int i;
+		char body[16];
+		for (i = 0; i < BPF_SERIES_MAX; i++) {
+			snprintf(body, sizeof(body), "%d", i);
+			bpf_capture_event(0, 1, "curl", body, (uint32_t)strlen(body));
+		}
+		snprintf(body, sizeof(body), "%d", BPF_SERIES_MAX);
+		bpf_capture_event(0, 1, "curl", body, (uint32_t)strlen(body));
+		bpf_capture_event(0, 1, "curl", "0", 1);
+	}
+	bpf_scrape();
+	{
+		char q[80];
+		snprintf(q, sizeof(q), "bpf_us_fn_events_total{id=\"%d\"}", BPF_SERIES_MAX);
+		metric_test_run_ns(CMP_EQUAL,
+			"bpf_us_fn_events_total{probe=\"/t:f\",id=\"0\",comm=\"curl\"}",
+			"bpf_us_fn_events_total", 2, "caplru");
+		assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_query_n(q, "caplru"));
+	}
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_probe_dropped_total{probe=\"/t:f\",reason=\"lru\"}",
+		"bpf_probe_dropped_total", 1, "caplru");
+
+	/* Count-mode probes ignore capture samples. */
+	bpf_apply_plain("bpf { kprobe tcp_v4_connect { arg 1 type=sockaddr label=daddr filter=prefix value=10.; } }\n");
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_COUNT, p->mode);
+	bpf_loader_shutdown();
+	bpf_capture_event(0, 1, "curl", http, (uint32_t)strlen(http));
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_query_n("bpf_us_fn_events_total", NULL));
+
+	bpf_cleanup();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+}
+
 void bpf_test(void)
 {
 	test_bpf_filters_and_buckets();
 	test_bpf_config_and_scrape();
+	test_bpf_capture();
 }

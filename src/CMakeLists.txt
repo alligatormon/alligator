@@ -782,6 +782,16 @@ if(ENABLE_BPF)
 	set(BPF_GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/bpf)
 	set(BPF_SCRIPT_DIR ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/bpf)
 	file(MAKE_DIRECTORY ${BPF_GEN_DIR} ${BPF_SCRIPT_DIR})
+	# An in-source cmake used to write these next to bpf_loader.c. A quoted
+	# include then prefers that stale header over ${BPF_GEN_DIR}.
+	file(GLOB _bpf_stale
+		"${CMAKE_CURRENT_SOURCE_DIR}/bpf/*.skel.h"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bpf/*.bpf.o"
+		"${CMAKE_CURRENT_SOURCE_DIR}/bpf/vmlinux.h")
+	if(_bpf_stale)
+		message(STATUS "Removing stale BPF outputs from src/bpf")
+		file(REMOVE ${_bpf_stale})
+	endif()
 	set(BPF_VMLINUX ${BPF_GEN_DIR}/vmlinux.h)
 	# Do not redirect with ">" inside COMMAND. The Makefile generator escapes it,
 	# and the shell then creates a file whose name has a leading space.
@@ -820,9 +830,9 @@ endif()
 		add_custom_command(
 			OUTPUT ${prog_obj}
 			COMMAND ${BPF_CLANG} -g -O2 -target bpf -D${BPF_TARGET_DEFINE} -D__BPF_PROG__
+				-I${BPF_GEN_DIR}
 				-I${CMAKE_CURRENT_SOURCE_DIR}/bpf
 				-I${CMAKE_CURRENT_SOURCE_DIR}/bpf/progs
-				-I${BPF_GEN_DIR}
 				-c ${prog_src} -o ${prog_obj}
 			DEPENDS ${prog_src} ${BPF_VMLINUX} ${CMAKE_CURRENT_SOURCE_DIR}/bpf/bpf_types.h ${CMAKE_CURRENT_SOURCE_DIR}/bpf/progs/map_help.h
 		)
@@ -836,6 +846,7 @@ endif()
 	endforeach()
 	list(REMOVE_ITEM STATIC_FILES bpf/bpf_loader_stub.c)
 	list(APPEND STATIC_FILES bpf/bpf_loader.c)
+	set_property(SOURCE bpf/bpf_loader.c PROPERTY OBJECT_DEPENDS ${BPF_SKEL_HDRS})
 	file(WRITE ${BPF_SCRIPT_DIR}/gen_skel.cmake
 "if(NOT DEFINED BPFTOOL OR NOT DEFINED IN OR NOT DEFINED OUT)
   message(FATAL_ERROR \"gen_skel.cmake needs BPFTOOL, IN, and OUT\")
@@ -879,8 +890,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_link_libraries(${COMMON_TESTS} PUBLIC "-framework IOKit" "-framework CoreFoundation")
 endif()
 if(ENABLE_BPF)
-	target_include_directories(${COMMON} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
-	target_include_directories(${COMMON_TESTS} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
+	target_include_directories(${COMMON} BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf)
+	target_include_directories(${COMMON_TESTS} BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf)
+	target_include_directories(${COMMON} PRIVATE ${LIBBPF_INCLUDE_DIRS})
+	target_include_directories(${COMMON_TESTS} PRIVATE ${LIBBPF_INCLUDE_DIRS})
 	target_compile_definitions(${COMMON} PRIVATE ENABLE_BPF)
 	target_compile_definitions(${COMMON_TESTS} PRIVATE ENABLE_BPF)
 	target_link_libraries(${COMMON} PUBLIC ${LIBBPF_LINK_LIBS})
@@ -892,7 +905,8 @@ if(ENABLE_BPF)
 	add_dependencies(${COMMON} bpf_generated)
 	add_dependencies(${COMMON_TESTS} bpf_generated)
 	add_executable(bpf_attach_test tests/bpf_attach.c)
-	target_include_directories(bpf_attach_test PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf ${LIBBPF_INCLUDE_DIRS})
+	target_include_directories(bpf_attach_test BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/bpf)
+	target_include_directories(bpf_attach_test PRIVATE ${LIBBPF_INCLUDE_DIRS})
 	target_compile_definitions(bpf_attach_test PRIVATE ENABLE_BPF)
 	target_link_libraries(bpf_attach_test ${COMMON} -Wl,--no-as-needed dl systemd jansson::jansson PostgreSQL::PostgreSQL ${LIBBPF_LINK_LIBS})
 endif()

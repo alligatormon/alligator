@@ -39,6 +39,8 @@ typedef struct namespace_struct
 	pthread_mutex_t *max_emit_lock;
 	/* 0 = unlimited. Caps distinct live series in metrictree (not max_emit). */
 	uint64_t max_series;
+	/* 1 once an explicit max_series was stored, including 0. Omitted stays 0. */
+	int max_series_set;
 	/* Atomic: new-series inserts refused by max_series. Flushed to alligator_series_dropped_total. */
 	uint64_t series_dropped;
 	expire_tree *expiretree;
@@ -114,7 +116,7 @@ int metric_serializer_stored_label_superseded_by_add_label(char *metric_name_for
 namespace_struct *get_namespace_by_carg(context_arg *carg);
 namespace_struct *get_namespace(char *key);
 /* max_series: 0 = unlimited on create; UINT64_MAX = leave existing unchanged.
-   Non-zero finite values set/replace the series cap. */
+   Any other value, including explicit 0, stores the cap and sets max_series_set. */
 namespace_struct *insert_namespace(char *key, uint64_t max_emit, uint64_t max_series);
 void namespace_series_dropped_flush(void);
 namespace_struct *get_namespace_or_null(char *key);

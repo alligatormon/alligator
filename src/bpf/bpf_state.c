@@ -5,6 +5,7 @@
 #include "metric/labels.h"
 #include "metric/metric_types.h"
 #include "dstructures/ht.h"
+#include <pcre.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,6 +68,33 @@ struct skip_row {
 	int on;
 };
 
+#define BPF_CAP_LABELS 6
+#define BPF_CAP_K 32
+#define BPF_CAP_V 128
+
+struct cap_lab {
+	char k[BPF_CAP_K];
+	char v[BPF_CAP_V];
+};
+
+struct cap_row {
+	int used;
+	char metric[64];
+	char probe[64];
+	char comm[16];
+	struct cap_lab lab[BPF_CAP_LABELS];
+	int nl;
+	uint64_t count;
+};
+
+struct cap_prog {
+	pcre *re;
+	pcre_extra *extra;
+	int namecount;
+	int name_entry_size;
+	const unsigned char *nametable;
+};
+
 struct cg_row {
 	int used;
 	uint64_t id;
@@ -97,6 +125,9 @@ static struct ctr_row ctrs[BPF_SERIES_MAX];
 static struct gen_row gens[BPF_SERIES_MAX];
 static struct gen_hist_row gen_hists[BPF_SERIES_MAX];
 static struct drop_row drops[64];
+static struct drop_row cap_user_drops[64];
+static struct cap_row cap_rows[BPF_SERIES_MAX];
+static struct cap_prog cap_prog[BPF_PROBE_SLOTS];
 static struct skip_row skips[BPF_PROBE_SLOTS];
 static struct cg_row cgroups[512];
 static int cg_n;
@@ -438,12 +469,43 @@ static void metric_ns_set(const char *name)
 		metric_ns = strdup(name);
 }
 
+static int capture_enabled(void)
+{
+	int i;
+
+	for (i = 0; i < probe_n; i++) {
+		if (probes[i].enabled && probes[i].mode == BPF_MODE_CAPTURE)
+			return 1;
+	}
+	return 0;
+}
+
+/* UINT64_MAX leaves an existing cap alone. Capture defaults a namespace that
+ * was never given an explicit max_series (including explicit 0) to the
+ * staging-table size so cap_emit cannot grow metrictree without a bound. */
+static uint64_t capture_series_arg(const char *name)
+{
+	namespace_struct *ns;
+
+	if (!name || !capture_enabled())
+		return UINT64_MAX;
+	ns = get_namespace((char *)name);
+	if (ns && ns->max_series_set)
+		return UINT64_MAX;
+	glog(L_INFO, "bpf: namespace '%s' max_series defaulted to %d for capture\n",
+		name, BPF_SERIES_MAX);
+	return BPF_SERIES_MAX;
+}
+
 static void carg_sync_namespace(void)
 {
+	uint64_t series;
+
 	if (!bpf_carg)
 		return;
+	series = capture_series_arg(metric_ns);
 	if (metric_ns && bpf_carg->namespace && !strcmp(metric_ns, bpf_carg->namespace)) {
-		insert_namespace(metric_ns, 0, UINT64_MAX);
+		insert_namespace(metric_ns, 0, series);
 		return;
 	}
 	if (!metric_ns && !bpf_carg->namespace)
@@ -453,7 +515,7 @@ static void carg_sync_namespace(void)
 	if (!metric_ns)
 		return;
 	bpf_carg->namespace = strdup(metric_ns);
-	insert_namespace(metric_ns, 0, UINT64_MAX);
+	insert_namespace(metric_ns, 0, series);
 }
 
 static void ensure_carg(void)
@@ -536,6 +598,453 @@ static void add_label(alligator_ht *lbl, char *name, const char *value)
 	if (!lbl || !name || !value || !value[0])
 		return;
 	labels_hash_insert_nocache(lbl, name, (char *)value);
+}
+
+static void cap_reset(void)
+{
+	int i;
+
+	for (i = 0; i < BPF_PROBE_SLOTS; i++) {
+		if (cap_prog[i].extra)
+			pcre_free_study(cap_prog[i].extra);
+		if (cap_prog[i].re)
+			pcre_free(cap_prog[i].re);
+	}
+	memset(cap_prog, 0, sizeof(cap_prog));
+	memset(cap_rows, 0, sizeof(cap_rows));
+	memset(cap_user_drops, 0, sizeof(cap_user_drops));
+}
+
+static void cap_note(const char *probe, const char *reason, uint64_t n)
+{
+	int i;
+
+	if (!n)
+		return;
+	for (i = 0; i < 64; i++) {
+		if (!cap_user_drops[i].used)
+			continue;
+		if (same_str(cap_user_drops[i].probe, probe) && same_str(cap_user_drops[i].reason, reason)) {
+			cap_user_drops[i].n += n;
+			return;
+		}
+	}
+	for (i = 0; i < 64; i++) {
+		if (cap_user_drops[i].used)
+			continue;
+		cap_user_drops[i].used = 1;
+		copy_cap(cap_user_drops[i].probe, sizeof(cap_user_drops[i].probe), probe);
+		copy_cap(cap_user_drops[i].reason, sizeof(cap_user_drops[i].reason), reason);
+		cap_user_drops[i].n = n;
+		return;
+	}
+}
+
+static int label_name_ok(const char *s)
+{
+	int i;
+
+	if (!s || !((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z') || s[0] == '_'))
+		return 0;
+	for (i = 1; s[i]; i++) {
+		char c = s[i];
+		if (i >= BPF_CAP_K - 1)
+			return 0;
+		if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'))
+			return 0;
+	}
+	return 1;
+}
+
+static void copy_span(char *dst, size_t cap, const char *src, int n, int *clipped)
+{
+	int i, o = 0;
+
+	if (!dst || !cap)
+		return;
+	if (n < 0)
+		n = 0;
+	for (i = 0; i < n && src && (size_t)o + 1 < cap; i++) {
+		unsigned char c = (unsigned char)src[i];
+		if (!c)
+			break;
+		if (c < 32 || c > 126)
+			c = '_';
+		dst[o++] = (char)c;
+	}
+	dst[o] = 0;
+	if (clipped && i < n)
+		*clipped = 1;
+}
+
+static void comm_copy(char *dst, size_t cap, const char *src)
+{
+	size_t i;
+
+	if (!dst || !cap)
+		return;
+	for (i = 0; i + 1 < cap && i < 16 && src && src[i]; i++) {
+		unsigned char c = (unsigned char)src[i];
+		if (c < 32 || c > 126)
+			break;
+		dst[i] = (char)c;
+	}
+	dst[i] = 0;
+}
+
+static int cap_row_same(const struct cap_row *r, const char *metric, const char *probe, const char *comm,
+	const struct cap_lab *lab, int nl)
+{
+	int i;
+
+	if (!same_str(r->metric, metric) || !same_str(r->probe, probe) || !same_str(r->comm, comm))
+		return 0;
+	if (r->nl != nl)
+		return 0;
+	for (i = 0; i < nl; i++) {
+		if (!same_str(r->lab[i].k, lab[i].k) || !same_str(r->lab[i].v, lab[i].v))
+			return 0;
+	}
+	return 1;
+}
+
+static void cap_bump(const char *metric, const char *probe, const char *comm, const struct cap_lab *lab, int nl)
+{
+	int i;
+	struct cap_row *row = NULL;
+
+	for (i = 0; i < BPF_SERIES_MAX; i++) {
+		if (!cap_rows[i].used)
+			continue;
+		if (cap_row_same(&cap_rows[i], metric, probe, comm, lab, nl)) {
+			cap_rows[i].count++;
+			return;
+		}
+	}
+	for (i = 0; i < BPF_SERIES_MAX; i++) {
+		if (cap_rows[i].used)
+			continue;
+		row = &cap_rows[i];
+		break;
+	}
+	if (!row) {
+		/* Keep the existing counters. Recycling a row and emitting count=1
+		 * makes a Prometheus counter go backwards. */
+		cap_note(probe, "lru", 1);
+		return;
+	}
+	memset(row, 0, sizeof(*row));
+	row->used = 1;
+	copy_cap(row->metric, sizeof(row->metric), metric);
+	copy_cap(row->probe, sizeof(row->probe), probe);
+	copy_cap(row->comm, sizeof(row->comm), comm);
+	row->nl = nl;
+	if (nl > BPF_CAP_LABELS)
+		nl = BPF_CAP_LABELS;
+	row->nl = nl;
+	for (i = 0; i < nl; i++) {
+		copy_cap(row->lab[i].k, sizeof(row->lab[i].k), lab[i].k);
+		copy_cap(row->lab[i].v, sizeof(row->lab[i].v), lab[i].v);
+	}
+	row->count = 1;
+}
+
+static int cap_buf(const struct bpf_capture_event *ev, int arg_index, const char **buf, int *blen)
+{
+	int b;
+
+	for (b = 0; b < BPF_CAPTURE_BUFS; b++) {
+		__u32 n;
+		if ((int)ev->arg_index[b] != arg_index)
+			continue;
+		n = ev->len[b];
+		if (n > BPF_CAPTURE_MAX)
+			n = BPF_CAPTURE_MAX;
+		if (!n)
+			continue;
+		*buf = ev->data[b];
+		*blen = (int)n;
+		return 1;
+	}
+	return 0;
+}
+
+/* Returns named-group count, -1 on no match, -2 on a PCRE error. Length is explicit. */
+static int cap_groups(const struct cap_prog *pg, const char *buf, int blen, struct cap_lab *lab, int *clipped)
+{
+	int ovector[60];
+	int rc, i, nl;
+
+	if (!pg || !pg->re || !buf || blen < 0)
+		return -2;
+	if (blen > BPF_CAPTURE_MAX)
+		blen = BPF_CAPTURE_MAX;
+	rc = pcre_exec(pg->re, pg->extra, buf, blen, 0, 0, ovector, 60);
+	if (rc == PCRE_ERROR_NOMATCH)
+		return -1;
+	if (rc <= 0)
+		return -2;
+	nl = 0;
+	if (!pg->nametable || pg->namecount <= 0 || pg->name_entry_size <= 2)
+		return 0;
+	for (i = 0; i < pg->namecount && nl < BPF_CAP_LABELS; i++) {
+		const unsigned char *ent = pg->nametable + (size_t)i * (size_t)pg->name_entry_size;
+		int num = (ent[0] << 8) | ent[1];
+		const char *gname = (const char *)(ent + 2);
+		int s, e;
+		if (num < 0 || num >= rc)
+			continue;
+		s = ovector[2 * num];
+		e = ovector[2 * num + 1];
+		if (s < 0 || e < s || s > blen)
+			continue;
+		if (e > blen)
+			e = blen;
+		if (!label_name_ok(gname))
+			continue;
+		copy_cap(lab[nl].k, sizeof(lab[nl].k), gname);
+		copy_span(lab[nl].v, sizeof(lab[nl].v), buf + s, e - s, clipped);
+		nl++;
+	}
+	return nl;
+}
+
+void bpf_capture_on_event(const struct bpf_capture_event *ev, size_t evlen)
+{
+	const bpf_probe *p = NULL;
+	int pi, i;
+	const char *buf = NULL;
+	int blen = 0;
+	struct cap_lab lab[BPF_CAP_LABELS];
+	int nl = 0;
+	int clipped = 0;
+	char comm[16];
+	const char *metric;
+
+	if (!ev || evlen < sizeof(*ev))
+		return;
+	for (pi = 0; pi < probe_n; pi++) {
+		if (probes[pi].enabled && probes[pi].generic_slot == (int)ev->probe_id) {
+			p = &probes[pi];
+			break;
+		}
+	}
+	if (!p || p->mode != BPF_MODE_CAPTURE)
+		return;
+	memset(lab, 0, sizeof(lab));
+	comm_copy(comm, sizeof(comm), ev->comm);
+	if (p->regex_pattern[0]) {
+		int found = 0;
+		int gr;
+		for (i = 0; i < p->nargs; i++) {
+			if (p->args[i].kind != BPF_ARG_USER_BUFFER)
+				continue;
+			if (p->regex_on[0] && strcmp(p->args[i].label, p->regex_on))
+				continue;
+			if (cap_buf(ev, p->args[i].index, &buf, &blen)) {
+				found = 1;
+				break;
+			}
+		}
+		if (!found || !cap_prog[pi].re) {
+			cap_note(p->name, cap_prog[pi].re ? "regex_nomatch" : "regex_fail", 1);
+			return;
+		}
+		gr = cap_groups(&cap_prog[pi], buf, blen, lab, &clipped);
+		if (gr < 0) {
+			cap_note(p->name, gr == -2 ? "regex_fail" : "regex_nomatch", 1);
+			return;
+		}
+		nl = gr;
+		if (clipped)
+			cap_note(p->name, "trunc", 1);
+	}
+	metric = p->metric[0] ? p->metric : "bpf_us_fn_events_total";
+	cap_bump(metric, p->name, comm, lab, nl);
+}
+
+static void cap_assign_pairs(void)
+{
+	int i, j, next;
+
+	next = 1;
+	for (i = 0; i < probe_n; i++) {
+		int need = probes[i].nsave;
+		int a;
+		probes[i].pair_slot = 0;
+		for (a = 0; a < probes[i].nargs; a++) {
+			if (probes[i].args[a].from_saved || probes[i].args[a].size_src == BPF_SIZE_DEREF_SAVED)
+				need = 1;
+		}
+		if (need && !probes[i].pair_id[0])
+			glog(L_WARN, "bpf: probe '%s' uses save/from=saved without pair_id\n", probes[i].name);
+		if (!probes[i].pair_id[0])
+			continue;
+		for (j = 0; j < i; j++) {
+			if (probes[j].pair_id[0] && !strcmp(probes[j].pair_id, probes[i].pair_id)) {
+				probes[i].pair_slot = probes[j].pair_slot;
+				break;
+			}
+		}
+		if (!probes[i].pair_slot)
+			probes[i].pair_slot = next++;
+	}
+	for (i = 0; i < probe_n; i++) {
+		int need_entry = 0;
+		int a, j;
+		if (probes[i].mode != BPF_MODE_CAPTURE)
+			continue;
+		if (probes[i].kind == BPF_KIND_URETPROBE && probes[i].nsave > 0)
+			glog(L_WARN, "bpf: probe '%s' save on uretprobe does not stash registers; save on the entry probe\n",
+				probes[i].name);
+		for (a = 0; a < probes[i].nargs; a++) {
+			if (probes[i].args[a].from_saved || probes[i].args[a].size_src == BPF_SIZE_DEREF_SAVED)
+				need_entry = 1;
+		}
+		if (!need_entry || !probes[i].pair_id[0])
+			continue;
+		for (j = 0; j < probe_n; j++) {
+			if (j == i || probes[j].kind == BPF_KIND_URETPROBE)
+				continue;
+			if (!probes[j].pair_id[0] || strcmp(probes[j].pair_id, probes[i].pair_id))
+				continue;
+			if (probes[j].nsave > 0)
+				break;
+		}
+		if (j == probe_n)
+			glog(L_WARN, "bpf: probe '%s' reads from=saved without an entry probe that saves arguments\n",
+				probes[i].name);
+	}
+}
+
+#define BPF_PCRE_MATCH_LIMIT 100000
+
+static int cap_eq_ci(const char *a, const char *b)
+{
+	unsigned char ca, cb;
+
+	if (!a || !b)
+		return 0;
+	while (*a && *b) {
+		ca = (unsigned char)*a;
+		cb = (unsigned char)*b;
+		if (ca >= 'A' && ca <= 'Z')
+			ca = (unsigned char)(ca - 'A' + 'a');
+		if (cb >= 'A' && cb <= 'Z')
+			cb = (unsigned char)(cb - 'A' + 'a');
+		if (ca != cb)
+			return 0;
+		a++;
+		b++;
+	}
+	return *a == *b;
+}
+
+/* Named groups that become metric labels. Warn only; the regex still compiles. */
+static int cap_secret_group(const char *name)
+{
+	static const char *const words[] = {
+		"cookie", "authorization", "token", "password", "secret"
+	};
+	size_t i;
+
+	for (i = 0; i < sizeof(words) / sizeof(words[0]); i++) {
+		if (cap_eq_ci(name, words[i]))
+			return 1;
+	}
+	return 0;
+}
+
+static void cap_warn_secret_groups(const char *probe, const unsigned char *nt, int nc, int esz)
+{
+	int g;
+
+	if (!probe || !nt || nc <= 0 || esz <= 2)
+		return;
+	for (g = 0; g < nc; g++) {
+		const unsigned char *ent = nt + (size_t)g * (size_t)esz;
+		const char *gname = (const char *)(ent + 2);
+
+		if (cap_secret_group(gname))
+			glog(L_WARN, "bpf: probe '%s' regex group '%s' may label a secret\n",
+				probe, gname);
+	}
+}
+
+static void cap_compile(void)
+{
+	int i;
+
+	for (i = 0; i < probe_n && i < BPF_PROBE_SLOTS; i++) {
+		const char *err = NULL;
+		const char *study_err = NULL;
+		int off = 0;
+		int nc = 0;
+		int esz = 0;
+		const unsigned char *nt = NULL;
+
+		if (probes[i].mode != BPF_MODE_CAPTURE || !probes[i].regex_pattern[0])
+			continue;
+		cap_prog[i].re = pcre_compile(probes[i].regex_pattern, 0, &err, &off, NULL);
+		if (!cap_prog[i].re) {
+			glog(L_WARN, "bpf: probe '%s' regex failed at %d: %s\n",
+				probes[i].name, off, err ? err : "?");
+			continue;
+		}
+#ifdef PCRE_STUDY_JIT_COMPILE
+		cap_prog[i].extra = pcre_study(cap_prog[i].re, PCRE_STUDY_JIT_COMPILE, &study_err);
+#else
+		cap_prog[i].extra = pcre_study(cap_prog[i].re, 0, &study_err);
+#endif
+		if (study_err)
+			glog(L_WARN, "bpf: probe '%s' regex study: %s\n", probes[i].name, study_err);
+#if defined(PCRE_EXTRA_MATCH_LIMIT)
+		if (cap_prog[i].extra) {
+			cap_prog[i].extra->flags |= PCRE_EXTRA_MATCH_LIMIT;
+			cap_prog[i].extra->match_limit = BPF_PCRE_MATCH_LIMIT;
+		}
+#endif
+#if defined(PCRE_EXTRA_MATCH_LIMIT_RECURSION)
+		if (cap_prog[i].extra) {
+			cap_prog[i].extra->flags |= PCRE_EXTRA_MATCH_LIMIT_RECURSION;
+			cap_prog[i].extra->match_limit_recursion = BPF_PCRE_MATCH_LIMIT;
+		}
+#endif
+		if (pcre_fullinfo(cap_prog[i].re, cap_prog[i].extra, PCRE_INFO_NAMECOUNT, &nc) < 0)
+			nc = 0;
+		if (pcre_fullinfo(cap_prog[i].re, cap_prog[i].extra, PCRE_INFO_NAMEENTRYSIZE, &esz) < 0)
+			esz = 0;
+		if (pcre_fullinfo(cap_prog[i].re, cap_prog[i].extra, PCRE_INFO_NAMETABLE, &nt) < 0)
+			nt = NULL;
+		cap_prog[i].namecount = nc;
+		cap_prog[i].name_entry_size = esz;
+		cap_prog[i].nametable = nt;
+		cap_warn_secret_groups(probes[i].name, nt, nc, esz);
+		if (nc > BPF_CAP_LABELS)
+			glog(L_WARN, "bpf: probe '%s' regex has %d named groups; %d become labels\n",
+				probes[i].name, nc, BPF_CAP_LABELS);
+	}
+}
+
+static void cap_emit(void)
+{
+	int i, a;
+
+	if (!bpf_carg)
+		return;
+	for (i = 0; i < BPF_SERIES_MAX; i++) {
+		alligator_ht *lbl;
+		if (!cap_rows[i].used)
+			continue;
+		namespace_metric_family_set(NULL, bpf_carg, cap_rows[i].metric, METRIC_TYPE_COUNTER,
+			"Userspace function capture events.");
+		lbl = alligator_ht_init(NULL);
+		add_label(lbl, "probe", cap_rows[i].probe);
+		add_label(lbl, "comm", cap_rows[i].comm);
+		for (a = 0; a < cap_rows[i].nl; a++)
+			add_label(lbl, cap_rows[i].lab[a].k, cap_rows[i].lab[a].v);
+		metric_add(cap_rows[i].metric, lbl, &cap_rows[i].count, DATATYPE_UINT, bpf_carg);
+	}
 }
 
 static void add_cgroup_labels(alligator_ht *lbl, uint64_t id)
@@ -850,6 +1359,53 @@ static const char *json_str(json_t *j)
 	return json_string_value(j);
 }
 
+static int json_int_field(json_t *obj, const char *key, int *out)
+{
+	json_t *v;
+
+	if (!obj || !key || !out)
+		return 0;
+	v = json_object_get(obj, key);
+	if (!v)
+		return 0;
+	if (json_is_integer(v)) {
+		*out = (int)json_integer_value(v);
+		return 1;
+	}
+	if (json_is_string(v) && json_string_value(v)) {
+		*out = atoi(json_string_value(v));
+		return 1;
+	}
+	return 0;
+}
+
+static int parse_size_spec(const char *s, int *src, int *argn)
+{
+	if (!s || !s[0] || !src || !argn)
+		return -1;
+	if (!strcmp(s, "retval")) {
+		*src = BPF_SIZE_RETVAL;
+		*argn = 0;
+		return 0;
+	}
+	if (!strncmp(s, "deref:saved_arg", 15)) {
+		*src = BPF_SIZE_DEREF_SAVED;
+		*argn = atoi(s + 15);
+		return (*argn >= 0 && *argn < BPF_ARG_MAX) ? 0 : -1;
+	}
+	if (!strncmp(s, "deref:arg", 9)) {
+		*src = BPF_SIZE_DEREF_ARG;
+		*argn = atoi(s + 9);
+		return (*argn >= 0 && *argn < BPF_ARG_MAX) ? 0 : -1;
+	}
+	if (!strncmp(s, "arg", 3)) {
+		*src = BPF_SIZE_ARG;
+		*argn = atoi(s + 3);
+		return (*argn >= 0 && *argn < BPF_ARG_MAX) ? 0 : -1;
+	}
+	return -1;
+}
+
 static int load_arg(bpf_arg *dst, json_t *j)
 {
 	const char *type, *filter, *label, *value;
@@ -870,6 +1426,8 @@ static int load_arg(bpf_arg *dst, json_t *j)
 		dst->kind = BPF_ARG_KERNEL_STR;
 	else if (!strcmp(type ? type : "", "sockaddr"))
 		dst->kind = BPF_ARG_SOCKADDR;
+	else if (!strcmp(type ? type : "", "user_buffer"))
+		dst->kind = BPF_ARG_USER_BUFFER;
 	else
 		return -1;
 	dst->filter = BPF_FILTER_NONE;
@@ -900,6 +1458,26 @@ static int load_arg(bpf_arg *dst, json_t *j)
 	/* Plain `allow=foo` fills the array without filter=; treat as ALLOW. */
 	if (dst->nallow > 0 && dst->filter == BPF_FILTER_NONE)
 		dst->filter = BPF_FILTER_ALLOW;
+	if (dst->kind == BPF_ARG_USER_BUFFER) {
+		const char *sz = json_str(json_object_get(j, "size"));
+		const char *from = json_str(json_object_get(j, "from"));
+		int mx = 0;
+		if (parse_size_spec(sz, &dst->size_src, &dst->size_arg)) {
+			glog(L_WARN, "bpf: user_buffer requires size=argN|retval|deref:argN|deref:saved_argN\n");
+			return -1;
+		}
+		if (from && !strcmp(from, "saved"))
+			dst->from_saved = 1;
+		if (json_int_field(j, "max", &mx)) {
+			if (mx < 0)
+				mx = 0;
+			if (mx > BPF_CAPTURE_MAX) {
+				glog(L_WARN, "bpf: user_buffer max %d clamped to %d\n", mx, BPF_CAPTURE_MAX);
+				mx = BPF_CAPTURE_MAX;
+			}
+			dst->buf_max = mx;
+		}
+	}
 	if (bpf_path_label(dst->label) && dst->filter == BPF_FILTER_NONE)
 		return -1;
 	return 0;
@@ -923,6 +1501,8 @@ static int load_probe(bpf_probe *dst, json_t *j)
 		dst->kind = BPF_KIND_KPROBE;
 	else if (!strcmp(kind, "uprobe"))
 		dst->kind = BPF_KIND_UPROBE;
+	else if (!strcmp(kind, "uretprobe"))
+		dst->kind = BPF_KIND_URETPROBE;
 	else if (!strcmp(kind, "probe"))
 		dst->kind = BPF_KIND_NAMED;
 	else
@@ -937,7 +1517,7 @@ static int load_probe(bpf_probe *dst, json_t *j)
 			return -1;
 		}
 	}
-	if (dst->kind == BPF_KIND_UPROBE && strchr(dst->symbol, ':')) {
+	if ((dst->kind == BPF_KIND_UPROBE || dst->kind == BPF_KIND_URETPROBE) && strchr(dst->symbol, ':')) {
 		char *colon = strchr(dst->symbol, ':');
 		copy_cap(dst->binary, sizeof(dst->binary), dst->symbol);
 		dst->binary[(size_t)(colon - dst->symbol)] = 0;
@@ -1025,6 +1605,79 @@ static int load_probe(bpf_probe *dst, json_t *j)
 		copy_cap(dst->binary, sizeof(dst->binary), "/lib64/libc.so.6");
 	if (dst->named == BPF_NAMED_DNS && !dst->symbol[0])
 		copy_cap(dst->symbol, sizeof(dst->symbol), "getaddrinfo");
+	{
+		const char *mode = json_str(json_object_get(j, "mode"));
+		const char *metric = json_str(json_object_get(j, "metric"));
+		const char *pair = json_str(json_object_get(j, "pair_id"));
+		const char *when = json_str(json_object_get(j, "when"));
+		const char *ron = json_str(json_object_get(j, "regex_on"));
+		const char *rpat = json_str(json_object_get(j, "regex_pattern"));
+		json_t *saves = json_object_get(j, "saves");
+		if (mode && !strcmp(mode, "capture"))
+			dst->mode = BPF_MODE_CAPTURE;
+		copy_cap(dst->metric, sizeof(dst->metric), metric);
+		copy_cap(dst->pair_id, sizeof(dst->pair_id), pair);
+		copy_cap(dst->regex_on, sizeof(dst->regex_on), ron);
+		copy_cap(dst->regex_pattern, sizeof(dst->regex_pattern), rpat);
+		if (when && !strcmp(when, "retval_gt")) {
+			json_t *wv = json_object_get(j, "when_value");
+			dst->has_when = 1;
+			if (json_is_integer(wv))
+				dst->retval_gt = (int64_t)json_integer_value(wv);
+			else if (json_is_string(wv) && json_string_value(wv))
+				dst->retval_gt = (int64_t)strtoll(json_string_value(wv), NULL, 10);
+		}
+		if (json_is_array(saves)) {
+			for (i = 0; i < json_array_size(saves) && dst->nsave < BPF_ARG_MAX; i++) {
+				json_t *sv = json_array_get(saves, i);
+				int idx = -1;
+				if (json_is_integer(sv))
+					idx = (int)json_integer_value(sv);
+				else if (json_is_string(sv) && json_string_value(sv))
+					idx = atoi(json_string_value(sv));
+				if (idx < 0 || idx >= BPF_ARG_MAX)
+					continue;
+				dst->save_arg[dst->nsave++] = idx;
+			}
+		}
+	}
+	if (dst->mode != BPF_MODE_CAPTURE) {
+		int a;
+		for (a = 0; a < dst->nargs; a++) {
+			if (dst->args[a].kind == BPF_ARG_USER_BUFFER) {
+				glog(L_WARN, "bpf: probe '%s' type=user_buffer requires mode capture; probe not enabled\n",
+					dst->name);
+				return -1;
+			}
+			/* from=saved and size= are only stored on user_buffer today.
+			 * Reject them here too so a count probe cannot arm the stash. */
+			if (dst->args[a].from_saved) {
+				glog(L_WARN, "bpf: probe '%s' from=saved requires mode capture; probe not enabled\n",
+					dst->name);
+				return -1;
+			}
+			if (dst->args[a].size_src != BPF_SIZE_NONE) {
+				glog(L_WARN, "bpf: probe '%s' capture size source requires mode capture; probe not enabled\n",
+					dst->name);
+				return -1;
+			}
+		}
+		if (dst->nsave) {
+			glog(L_WARN, "bpf: probe '%s' save requires mode capture; probe not enabled\n",
+				dst->name);
+			return -1;
+		}
+		if (dst->pair_id[0]) {
+			glog(L_WARN, "bpf: probe '%s' pair_id requires mode capture; probe not enabled\n",
+				dst->name);
+			return -1;
+		}
+	}
+	if (dst->kind == BPF_KIND_URETPROBE) {
+		char nb[96];
+		snprintf(nb, sizeof(nb), "%s:ret", dst->name);
+		copy_cap(dst->name, sizeof(dst->name), nb);
+	}
 	dst->enabled = 1;
 	return 0;
 }
@@ -1040,11 +1693,13 @@ static json_t *probe_to_json(const bpf_probe *p)
 		json_object_set_new(o, "kind", json_string("kprobe"));
 	else if (p->kind == BPF_KIND_UPROBE)
 		json_object_set_new(o, "kind", json_string("uprobe"));
+	else if (p->kind == BPF_KIND_URETPROBE)
+		json_object_set_new(o, "kind", json_string("uretprobe"));
 	else
 		json_object_set_new(o, "kind", json_string("probe"));
 	if (p->kind == BPF_KIND_NAMED)
 		json_object_set_new(o, "name", json_string(p->name));
-	else if (p->kind == BPF_KIND_UPROBE && p->binary[0]) {
+	else if ((p->kind == BPF_KIND_UPROBE || p->kind == BPF_KIND_URETPROBE) && p->binary[0]) {
 		char sym[512];
 		snprintf(sym, sizeof(sym), "%s:%s", p->binary, p->symbol);
 		json_object_set_new(o, "symbol", json_string(sym));
@@ -1061,6 +1716,8 @@ static json_t *probe_to_json(const bpf_probe *p)
 			type = "kernel_str";
 		else if (p->args[i].kind == BPF_ARG_SOCKADDR)
 			type = "sockaddr";
+		else if (p->args[i].kind == BPF_ARG_USER_BUFFER)
+			type = "user_buffer";
 		json_object_set_new(a, "type", json_string(type));
 		if (p->args[i].label[0])
 			json_object_set_new(a, "label", json_string(p->args[i].label));
@@ -1082,6 +1739,24 @@ static json_t *probe_to_json(const bpf_probe *p)
 			for (k = 0; k < p->args[i].nallow; k++)
 				json_array_append_new(allow, json_string(p->args[i].allow[k]));
 			json_object_set_new(a, "allow", allow);
+		}
+		if (p->args[i].kind == BPF_ARG_USER_BUFFER) {
+			char spec[64];
+			spec[0] = 0;
+			if (p->args[i].size_src == BPF_SIZE_RETVAL)
+				snprintf(spec, sizeof(spec), "retval");
+			else if (p->args[i].size_src == BPF_SIZE_DEREF_SAVED)
+				snprintf(spec, sizeof(spec), "deref:saved_arg%d", p->args[i].size_arg);
+			else if (p->args[i].size_src == BPF_SIZE_DEREF_ARG)
+				snprintf(spec, sizeof(spec), "deref:arg%d", p->args[i].size_arg);
+			else if (p->args[i].size_src == BPF_SIZE_ARG)
+				snprintf(spec, sizeof(spec), "arg%d", p->args[i].size_arg);
+			if (spec[0])
+				json_object_set_new(a, "size", json_string(spec));
+			if (p->args[i].buf_max)
+				json_object_set_new(a, "max", json_integer(p->args[i].buf_max));
+			if (p->args[i].from_saved)
+				json_object_set_new(a, "from", json_string("saved"));
 		}
 		json_array_append_new(args, a);
 	}
@@ -1111,6 +1786,26 @@ static json_t *probe_to_json(const bpf_probe *p)
 		json_object_set_new(o, "label_dport", json_true());
 	if (p->latency)
 		json_object_set_new(o, "latency", json_true());
+	if (p->mode == BPF_MODE_CAPTURE)
+		json_object_set_new(o, "mode", json_string("capture"));
+	if (p->metric[0])
+		json_object_set_new(o, "metric", json_string(p->metric));
+	if (p->pair_id[0])
+		json_object_set_new(o, "pair_id", json_string(p->pair_id));
+	if (p->nsave) {
+		json_t *saves = json_array();
+		for (i = 0; i < p->nsave; i++)
+			json_array_append_new(saves, json_integer(p->save_arg[i]));
+		json_object_set_new(o, "saves", saves);
+	}
+	if (p->has_when) {
+		json_object_set_new(o, "when", json_string("retval_gt"));
+		json_object_set_new(o, "when_value", json_integer((json_int_t)p->retval_gt));
+	}
+	if (p->regex_on[0])
+		json_object_set_new(o, "regex_on", json_string(p->regex_on));
+	if (p->regex_pattern[0])
+		json_object_set_new(o, "regex_pattern", json_string(p->regex_pattern));
 	if (p->filter_op) {
 		const char *filter = "eq";
 		if (p->filter_op == BPF_FILTER_PREFIX)
@@ -1136,6 +1831,7 @@ int bpf_config_apply(json_t *obj, int clear)
 
 	if (clear || !obj) {
 		bpf_loader_shutdown();
+		cap_reset();
 		memset(probes, 0, sizeof(probes));
 		probe_n = 0;
 		generic_n = 0;
@@ -1154,6 +1850,7 @@ int bpf_config_apply(json_t *obj, int clear)
 		return 0;
 	}
 	bpf_loader_shutdown();
+	cap_reset();
 	memset(skips, 0, sizeof(skips));
 	memset(probes, 0, sizeof(probes));
 	probe_n = 0;
@@ -1174,6 +1871,8 @@ int bpf_config_apply(json_t *obj, int clear)
 			probes[probe_n++] = tmp;
 		}
 	}
+	cap_assign_pairs();
+	cap_compile();
 	free(applied_json);
 	applied_json = dump;
 	bpf_series_reset();
@@ -1305,18 +2004,45 @@ void bpf_scrape(void)
 		}
 		metric_add("bpf_probe_events_total", lbl, &gens[i].count, DATATYPE_UINT, bpf_carg);
 	}
-	for (i = 0; i < 64; i++) {
-		if (!drops[i].used)
-			continue;
-		{
-			alligator_ht *lbl = alligator_ht_init(NULL);
+	{
+		int user_emitted[64];
+		int u;
+		memset(user_emitted, 0, sizeof(user_emitted));
+		for (i = 0; i < 64; i++) {
+			uint64_t n;
+			alligator_ht *lbl;
+			if (!drops[i].used)
+				continue;
+			n = drops[i].n;
+			for (u = 0; u < 64; u++) {
+				if (!cap_user_drops[u].used)
+					continue;
+				if (same_str(cap_user_drops[u].probe, drops[i].probe) &&
+				    same_str(cap_user_drops[u].reason, drops[i].reason)) {
+					n += cap_user_drops[u].n;
+					user_emitted[u] = 1;
+				}
+			}
+			lbl = alligator_ht_init(NULL);
 			namespace_metric_family_set(NULL, bpf_carg, "bpf_probe_dropped_total", METRIC_TYPE_COUNTER,
 				"BPF samples not stored.");
 			add_label(lbl, "probe", drops[i].probe);
 			add_label(lbl, "reason", drops[i].reason);
-			metric_add("bpf_probe_dropped_total", lbl, &drops[i].n, DATATYPE_UINT, bpf_carg);
+			metric_add("bpf_probe_dropped_total", lbl, &n, DATATYPE_UINT, bpf_carg);
+		}
+		for (u = 0; u < 64; u++) {
+			alligator_ht *lbl;
+			if (!cap_user_drops[u].used || user_emitted[u] || !cap_user_drops[u].n)
+				continue;
+			lbl = alligator_ht_init(NULL);
+			namespace_metric_family_set(NULL, bpf_carg, "bpf_probe_dropped_total", METRIC_TYPE_COUNTER,
+				"BPF samples not stored.");
+			add_label(lbl, "probe", cap_user_drops[u].probe);
+			add_label(lbl, "reason", cap_user_drops[u].reason);
+			metric_add("bpf_probe_dropped_total", lbl, &cap_user_drops[u].n, DATATYPE_UINT, bpf_carg);
 		}
 	}
+	cap_emit();
 	for (i = 0; i < BPF_PROBE_SLOTS; i++) {
 		uint64_t v;
 		alligator_ht *lbl;
@@ -1343,6 +2069,7 @@ void bpf_scrape(void)
 void bpf_cleanup(void)
 {
 	bpf_loader_shutdown();
+	cap_reset();
 	if (bpf_carg) {
 		free(bpf_carg->namespace);
 		free(bpf_carg);

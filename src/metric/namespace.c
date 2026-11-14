@@ -354,8 +354,10 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit, uint64_t max_se
 	if (ns) {
 		if (max_emit)
 			ns->max_emit = max_emit;
-		if (max_series != UINT64_MAX)
+		if (max_series != UINT64_MAX) {
 			ns->max_series = max_series;
+			ns->max_series_set = 1;
+		}
 		return ns;
 	}
 
@@ -363,6 +365,7 @@ namespace_struct *insert_namespace(char *key, uint64_t max_emit, uint64_t max_se
 	ns->key = strdup(key);
 	ns->max_emit = max_emit;
 	ns->max_series = (max_series == UINT64_MAX) ? 0 : max_series;
+	ns->max_series_set = (max_series == UINT64_MAX) ? 0 : 1;
 	ns->max_emit_lock = calloc(1, sizeof(*ns->max_emit_lock));
 	ns->metric_families = alligator_ht_init(NULL);
 	if (ns->max_emit_lock)

@@ -21,6 +21,10 @@ typedef struct bpf_arg {
 	char value[BPF_STR_MAX];
 	char allow[BPF_ALLOW_MAX][BPF_STR_MAX];
 	int nallow;
+	int size_src;
+	int size_arg;
+	int buf_max;
+	int from_saved;
 } bpf_arg;
 
 typedef struct bpf_probe {
@@ -43,6 +47,16 @@ typedef struct bpf_probe {
 	int latency;
 	int filter_op;
 	char filter_value[BPF_STR_MAX];
+	int mode;
+	char metric[64];
+	char pair_id[32];
+	int pair_slot;
+	int save_arg[BPF_ARG_MAX];
+	int nsave;
+	int has_when;
+	int64_t retval_gt;
+	char regex_on[32];
+	char regex_pattern[BPF_REGEX_MAX];
 } bpf_probe;
 
 int bpf_filter_match(int op, const char *rule, const char *text);
@@ -96,6 +110,9 @@ void bpf_pressure_sample(const char *path, const char *kind, double avg10, doubl
 
 void bpf_scrape(void);
 void bpf_cleanup(void);
+
+/* Ingest one capture event (ringbuf callback or unit test). len is the sample size. */
+void bpf_capture_on_event(const struct bpf_capture_event *ev, size_t len);
 
 int bpf_loader_sync(void);
 void bpf_loader_shutdown(void);

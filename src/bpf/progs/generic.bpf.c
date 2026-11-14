@@ -79,6 +79,19 @@ struct {
 	__type(value, struct bpf_lat_start);
 } lat_sv SEC(".maps");
 
+/* Shared by every capture probe. 1MiB holds on the order of a thousand events. */
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1 << 20);
+} capture_rb SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 16384);
+	__type(key, struct bpf_stash_key);
+	__type(value, struct bpf_stash_val);
+} cap_stash SEC(".maps");
+
 struct sa_in {
 	__u16 family;
 	__u16 port;
@@ -574,4 +587,457 @@ SEC("uretprobe")
 int generic_uretprobe(struct pt_regs *ctx)
 {
 	return handle_ret(ctx);
+}
+
+/*
+ * Capture mode is a separate set of programs so the count/latency path above
+ * keeps its verifier budget. Buffers are copied into a ringbuf sample, never
+ * onto the 512-byte stack.
+ */
+
+static __always_inline void note_reason(__u32 id, int which)
+{
+	struct bpf_drop_val *d = bpf_map_lookup_elem(&drops, &id);
+
+	if (!d)
+		return;
+	if (which == 1)
+		__sync_fetch_and_add(&d->trunc, 1);
+	else if (which == 2)
+		__sync_fetch_and_add(&d->ringbuf_full, 1);
+	else if (which == 3)
+		__sync_fetch_and_add(&d->user_read_fail, 1);
+	else if (which == 4)
+		__sync_fetch_and_add(&d->stash_miss, 1);
+}
+
+static __always_inline __u64 reg_u64(const unsigned long *parms, __u8 reg)
+{
+	if (reg == 0)
+		return parms[0];
+	if (reg == 1)
+		return parms[1];
+	if (reg == 2)
+		return parms[2];
+	if (reg == 3)
+		return parms[3];
+	if (reg == 4)
+		return parms[4];
+	return parms[5];
+}
+
+static __always_inline __u64 saved_u64(const struct bpf_stash_val *st, __u8 reg)
+{
+	if (!st)
+		return 0;
+	if (reg == 0)
+		return st->saved[0];
+	if (reg == 1)
+		return st->saved[1];
+	if (reg == 2)
+		return st->saved[2];
+	if (reg == 3)
+		return st->saved[3];
+	if (reg == 4)
+		return st->saved[4];
+	return st->saved[5];
+}
+
+static __always_inline int buf_here(const struct bpf_arg_cfg *a, int is_ret)
+{
+	if (a->kind != BPF_ARG_USER_BUFFER)
+		return 0;
+	if (a->from_saved || a->size_src == BPF_SIZE_RETVAL || a->size_src == BPF_SIZE_DEREF_SAVED)
+		return is_ret;
+	return !is_ret;
+}
+
+struct cap_prep {
+	const unsigned long *parms;
+	const struct bpf_stash_val *st;
+	__s64 retval;
+	__u32 id;
+	unsigned long ptr;
+	__u32 len;
+	__u32 trunc;
+	__u32 fail;
+};
+
+static __noinline void prep_buf(const struct bpf_arg_cfg *a, struct cap_prep *p)
+{
+	__u64 raw = 0;
+	__u32 max;
+	__u8 reg;
+	__u8 sreg;
+
+	p->ptr = 0;
+	p->len = 0;
+	reg = a->reg;
+	if (reg > 5)
+		reg = 5;
+	if (a->from_saved)
+		p->ptr = (unsigned long)saved_u64(p->st, reg);
+	else
+		p->ptr = (unsigned long)reg_u64(p->parms, reg);
+	max = a->max;
+	if (!max || max > BPF_CAPTURE_MAX)
+		max = BPF_CAPTURE_MAX;
+	sreg = a->size_reg;
+	if (sreg > 5)
+		sreg = 5;
+	if (a->size_src == BPF_SIZE_RETVAL) {
+		if (p->retval <= 0)
+			return;
+		raw = (__u64)p->retval;
+	} else if (a->size_src == BPF_SIZE_ARG) {
+		raw = reg_u64(p->parms, sreg);
+	} else if (a->size_src == BPF_SIZE_DEREF_ARG || a->size_src == BPF_SIZE_DEREF_SAVED) {
+		unsigned long sp;
+		__u64 v = 0;
+		if (a->size_src == BPF_SIZE_DEREF_SAVED)
+			sp = (unsigned long)saved_u64(p->st, sreg);
+		else
+			sp = (unsigned long)reg_u64(p->parms, sreg);
+		if (!sp || bpf_probe_read_user(&v, sizeof(v), (void *)sp) < 0) {
+			p->fail = 1;
+			note_reason(p->id, 3);
+			return;
+		}
+		raw = v;
+	} else
+		return;
+	if (raw > max) {
+		p->trunc = 1;
+		p->len = max;
+	} else
+		p->len = (__u32)raw;
+}
+
+/* Constant 512-byte read, or a masked length the verifier can bound. */
+static __noinline int fill0(struct bpf_capture_event *e, unsigned long ptr, __u32 len, __u32 arg_index, __u32 id)
+{
+	__u32 n;
+
+	if (!ptr) {
+		note_reason(id, 3);
+		return -1;
+	}
+	if (!len)
+		return 0;
+	if (len >= BPF_CAPTURE_MAX) {
+		if (bpf_probe_read_user(e->data[0], BPF_CAPTURE_MAX, (void *)ptr) < 0) {
+			note_reason(id, 3);
+			return -1;
+		}
+		e->len[0] = BPF_CAPTURE_MAX;
+		e->arg_index[0] = arg_index;
+		e->nbuf += 1;
+		return 0;
+	}
+	n = len & (BPF_CAPTURE_MAX - 1);
+	if (!n)
+		return 0;
+	if (bpf_probe_read_user(e->data[0], n, (void *)ptr) < 0) {
+		note_reason(id, 3);
+		return -1;
+	}
+	e->len[0] = n;
+	e->arg_index[0] = arg_index;
+	e->nbuf += 1;
+	return 0;
+}
+
+static __noinline int fill1(struct bpf_capture_event *e, unsigned long ptr, __u32 len, __u32 arg_index, __u32 id)
+{
+	__u32 n;
+
+	if (!ptr) {
+		note_reason(id, 3);
+		return -1;
+	}
+	if (!len)
+		return 0;
+	if (len >= BPF_CAPTURE_MAX) {
+		if (bpf_probe_read_user(e->data[1], BPF_CAPTURE_MAX, (void *)ptr) < 0) {
+			note_reason(id, 3);
+			return -1;
+		}
+		e->len[1] = BPF_CAPTURE_MAX;
+		e->arg_index[1] = arg_index;
+		e->nbuf += 1;
+		return 0;
+	}
+	n = len & (BPF_CAPTURE_MAX - 1);
+	if (!n)
+		return 0;
+	if (bpf_probe_read_user(e->data[1], n, (void *)ptr) < 0) {
+		note_reason(id, 3);
+		return -1;
+	}
+	e->len[1] = n;
+	e->arg_index[1] = arg_index;
+	e->nbuf += 1;
+	return 0;
+}
+
+static __noinline void stash_put(__u32 pair, const unsigned long parms[6])
+{
+	struct bpf_stash_key k = {};
+	struct bpf_stash_val v = {};
+
+	if (!pair)
+		return;
+	v.saved[0] = parms[0];
+	v.saved[1] = parms[1];
+	v.saved[2] = parms[2];
+	v.saved[3] = parms[3];
+	v.saved[4] = parms[4];
+	v.saved[5] = parms[5];
+	k.tid = bpf_get_current_pid_tgid();
+	k.pair_id = pair;
+	bpf_map_update_elem(&cap_stash, &k, &v, BPF_ANY);
+}
+
+static __noinline int stash_get(__u32 pair, struct bpf_stash_val *out)
+{
+	struct bpf_stash_key k = {};
+	struct bpf_stash_val *v;
+
+	if (!pair || !out)
+		return 0;
+	k.tid = bpf_get_current_pid_tgid();
+	k.pair_id = pair;
+	v = bpf_map_lookup_elem(&cap_stash, &k);
+	if (!v)
+		return 0;
+	out->saved[0] = v->saved[0];
+	out->saved[1] = v->saved[1];
+	out->saved[2] = v->saved[2];
+	out->saved[3] = v->saved[3];
+	out->saved[4] = v->saved[4];
+	out->saved[5] = v->saved[5];
+	return 1;
+}
+
+static __noinline void stash_del(__u32 pair)
+{
+	struct bpf_stash_key k = {};
+
+	if (!pair)
+		return;
+	k.tid = bpf_get_current_pid_tgid();
+	k.pair_id = pair;
+	bpf_map_delete_elem(&cap_stash, &k);
+}
+
+struct cap_call {
+	const unsigned long *parms;
+	const struct bpf_stash_val *st;
+	__s64 retval;
+	__u32 id;
+	__u32 is_ret;
+};
+
+static __noinline int capture_submit(struct bpf_probe_cfg *cfg, struct cap_call *c)
+{
+	struct bpf_capture_event *e;
+	struct cap_prep prep;
+	int slot = 0;
+	int failed = 0;
+	int want = 0;
+	char comm[16] = {};
+
+	bpf_get_current_comm(comm, sizeof(comm));
+	if (!bpf_comm_ok(cfg->comm, comm))
+		return 0;
+	if (cfg->nargs > 0 && buf_here(&cfg->args[0], (int)c->is_ret))
+		want = 1;
+	if (cfg->nargs > 1 && buf_here(&cfg->args[1], (int)c->is_ret))
+		want = 1;
+	if (cfg->nargs > 2 && buf_here(&cfg->args[2], (int)c->is_ret))
+		want = 1;
+	if (cfg->nargs > 3 && buf_here(&cfg->args[3], (int)c->is_ret))
+		want = 1;
+	if (cfg->nargs > 4 && buf_here(&cfg->args[4], (int)c->is_ret))
+		want = 1;
+	if (cfg->nargs > 5 && buf_here(&cfg->args[5], (int)c->is_ret))
+		want = 1;
+	if (!want)
+		return 0;
+	e = bpf_ringbuf_reserve(&capture_rb, sizeof(*e), 0);
+	if (!e) {
+		note_reason(c->id, 2);
+		return 0;
+	}
+	e->ts = bpf_ktime_get_ns();
+	e->pid_tgid = bpf_get_current_pid_tgid();
+	e->retval = c->retval;
+	e->probe_id = c->id;
+	e->dir = c->is_ret;
+	e->len[0] = 0;
+	e->len[1] = 0;
+	e->arg_index[0] = 0;
+	e->arg_index[1] = 0;
+	e->trunc = 0;
+	e->nbuf = 0;
+	bpf_get_current_comm(e->comm, sizeof(e->comm));
+
+#define CAP_TAKE(N)										\
+	do {											\
+		if (slot < 2 && cfg->nargs > (N) && buf_here(&cfg->args[N], (int)c->is_ret)) {	\
+			prep.parms = c->parms;							\
+			prep.st = c->st;							\
+			prep.retval = c->retval;						\
+			prep.id = c->id;							\
+			prep.ptr = 0;								\
+			prep.len = 0;								\
+			prep.trunc = 0;								\
+			prep.fail = 0;								\
+			prep_buf(&cfg->args[N], &prep);						\
+			if (prep.trunc)								\
+				e->trunc = 1;							\
+			if (prep.fail)								\
+				failed = 1;							\
+			else if (prep.len) {							\
+				int fr;								\
+				if (slot == 0)							\
+					fr = fill0(e, prep.ptr, prep.len, cfg->args[N].reg, c->id); \
+				else								\
+					fr = fill1(e, prep.ptr, prep.len, cfg->args[N].reg, c->id); \
+				if (fr)								\
+					failed = 1;						\
+				else								\
+					slot++;							\
+			}									\
+		}										\
+	} while (0)
+
+	CAP_TAKE(0);
+	CAP_TAKE(1);
+	CAP_TAKE(2);
+	CAP_TAKE(3);
+	CAP_TAKE(4);
+	CAP_TAKE(5);
+#undef CAP_TAKE
+
+	if (failed || !e->nbuf) {
+		bpf_ringbuf_discard(e, 0);
+		return 0;
+	}
+	if (e->trunc)
+		note_reason(c->id, 1);
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+static __noinline int capture_entry(__u32 id, struct bpf_probe_cfg *cfg, const unsigned long parms[6])
+{
+	struct cap_call c = {};
+	char comm[16] = {};
+
+	bpf_get_current_comm(comm, sizeof(comm));
+	if (!bpf_comm_ok(cfg->comm, comm))
+		return 0;
+	if (cfg->save_mask)
+		stash_put(cfg->pair_id, parms);
+	c.parms = parms;
+	c.st = NULL;
+	c.retval = 0;
+	c.id = id;
+	c.is_ret = 0;
+	return capture_submit(cfg, &c);
+}
+
+static __always_inline int needs_stash(const struct bpf_probe_cfg *cfg)
+{
+	if (cfg->nargs > 0 && (cfg->args[0].from_saved || cfg->args[0].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	if (cfg->nargs > 1 && (cfg->args[1].from_saved || cfg->args[1].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	if (cfg->nargs > 2 && (cfg->args[2].from_saved || cfg->args[2].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	if (cfg->nargs > 3 && (cfg->args[3].from_saved || cfg->args[3].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	if (cfg->nargs > 4 && (cfg->args[4].from_saved || cfg->args[4].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	if (cfg->nargs > 5 && (cfg->args[5].from_saved || cfg->args[5].size_src == BPF_SIZE_DEREF_SAVED))
+		return 1;
+	return 0;
+}
+
+static __noinline int capture_return(__u32 id, struct bpf_probe_cfg *cfg, const unsigned long parms[6], __s64 rc)
+{
+	struct cap_call c = {};
+	struct bpf_stash_val st;
+	char comm[16] = {};
+
+	bpf_get_current_comm(comm, sizeof(comm));
+	if (!bpf_comm_ok(cfg->comm, comm)) {
+		stash_del(cfg->pair_id);
+		return 0;
+	}
+	if (cfg->has_when && rc <= cfg->retval_gt) {
+		stash_del(cfg->pair_id);
+		return 0;
+	}
+	c.parms = parms;
+	c.st = NULL;
+	c.retval = rc;
+	c.id = id;
+	c.is_ret = 1;
+	if (needs_stash(cfg)) {
+		if (!stash_get(cfg->pair_id, &st)) {
+			note_reason(id, 4);
+			return 0;
+		}
+		c.st = &st;
+	}
+	capture_submit(cfg, &c);
+	stash_del(cfg->pair_id);
+	return 0;
+}
+
+static __always_inline int capture_begin(struct pt_regs *ctx, int is_ret, unsigned long rc, const unsigned long parms[6])
+{
+	__u64 cookie = bpf_get_attach_cookie(ctx);
+	__u32 id = (__u32)cookie;
+	struct bpf_probe_cfg *cfg;
+
+	if (id >= 32)
+		return 0;
+	cfg = bpf_map_lookup_elem(&probe_cfg, &id);
+	if (!cfg || cfg->mode != BPF_MODE_CAPTURE)
+		return 0;
+	if (is_ret)
+		return capture_return(id, cfg, parms, (__s64)rc);
+	return capture_entry(id, cfg, parms);
+}
+
+SEC("kprobe")
+int generic_kprobe_capture(struct pt_regs *ctx)
+{
+	unsigned long parms[6];
+
+	read_parms(ctx, parms);
+	return capture_begin(ctx, 0, 0, parms);
+}
+
+SEC("uprobe")
+int generic_uprobe_capture(struct pt_regs *ctx)
+{
+	unsigned long parms[6];
+
+	read_parms(ctx, parms);
+	return capture_begin(ctx, 0, 0, parms);
+}
+
+SEC("uretprobe")
+int generic_uretprobe_capture(struct pt_regs *ctx)
+{
+	unsigned long parms[6];
+	unsigned long rc;
+
+	rc = PT_REGS_RC(ctx);
+	read_parms(ctx, parms);
+	return capture_begin(ctx, 1, rc, parms);
 }

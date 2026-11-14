@@ -2,7 +2,7 @@
 
 **Language / Язык:** [English](../bpf.md) | [Русский](bpf.md)
 
-Контекст `bpf` подключает kprobe, uprobe и набор built-in probes, затем публикует события как метрики. Программы остаются attached между scrape; каждый scrape только читает maps.
+Контекст `bpf` подключает kprobe, uprobe и набор built-in probes, затем публикует события как метрики. Программы остаются attached между scrape. Maps count и latency читаются на каждом scrape. События capture снимаются с ring buffer по мере поступления.
 
 Это не меняет `perf_events_total`, `perf_events_scaling_ratio` и `perf_kernel_samples_total` — они остаются на `perf_event_open`. Счётчики сокетов и TCP states — на sock_diag. Имена host PSI метрик не меняются.
 
@@ -138,7 +138,7 @@ bpf {
 
 События, прошедшие filter, увеличивают `bpf_probe_events_total`. Labels: `probe` плюс labels аргументов. Pid, полный command line и raw address не становятся labels, пока их не настроили как аргумент. У каждой generic probe map — 4096 комбинаций labels. Именованные histogram/counter от всех built-in probes делят одну userspace staging table на 4096 записей за scrape. Сверх лимита новые комбинации увеличивают `bpf_probe_dropped_total{probe,reason}`, а самая старая запись переиспользуется. Строка длиннее 64 байт учитывается как truncation на той же метрике.
 
-`latency;` (JSON `"latency": true`) измеряет runtime функции через entry + return probe (`kretprobe` / `uretprobe`). Filters только на entry: неудачный filter не сохраняет timestamp и не увеличивает counter. При успехе counter растёт на entry, а return пишет histogram `bpf_probe_latency_seconds` с теми же labels. Start timestamps ключуются по `(tid, probe_id)`. Без `latency;` — только counter на entry.
+`latency;` (JSON `"latency": true`) измеряет runtime функции через entry + return probe (`kretprobe` / `uretprobe`). Filters только на entry: неудачный filter не сохраняет timestamp и не увеличивает counter. При успехе counter растёт на entry, а return пишет histogram `bpf_probe_latency_seconds` с теми же labels. Start timestamps ключуются по `(tid, probe_id)`. Без `latency;` — только counter на entry. Без `mode` или с `mode count;` работает этот путь. `mode capture;` latency не пишет.
 
 ```
 bpf {
@@ -177,6 +177,103 @@ JSON для одного kprobe:
   }
 }
 ```
+
+## Capture mode
+
+`mode capture;` вешает отдельные capture-программы (`generic_kprobe_capture`, `generic_uprobe_capture`, `generic_uretprobe_capture`), а не программы count и latency. Каждый вызов копирует один буфер в ring buffer на 1MiB. Userspace гоняет PCRE1 по этому буферу. Именованные группы становятся Prometheus labels. Регулярное выражение не компилируется в eBPF, поток байт не склеивается: каждый `read`/`write` — отдельное событие. Кусок сообщения, который не совпал, отбрасывается.
+
+Это не HTTP- и не TLS-парсер. OpenSSL ниже — пример разницы между аргументами на входе и буфером на возврате. Строки `curl -v` вроде `GET / HTTP/2` — логические; при HTTP/2 в `SSL_write` / `SSL_read` лежат client connection preface и бинарные фреймы (SETTINGS, HEADERS с HPACK и т.д.), а не ASCII request/status line.
+
+Шаблоны на write ниже ловят либо HTTP/2 client preface (`PRI * HTTP/2.0…`, label `h2`), либо строку запроса HTTP/1.x (`method`, `path`, `version`). На read — status line HTTP/1.x либо тот же preface, если peer когда-либо шлёт его на чтении (серверы обычно не шлют; status ответа HTTP/2 в HPACK HEADERS и здесь не извлекается). SETTINGS, WINDOW_UPDATE, HEADERS и куски тела по-прежнему дают `regex_nomatch`. Имена named groups в одном pattern должны быть уникальны: повтор имени (например `http_version` в обеих альтернативах) ломает compile PCRE, и каждое событие становится `regex_fail`.
+
+```
+bpf {
+    namespace bpf_usdt;
+
+    uprobe /lib64/libssl.so.3:SSL_write {
+        mode capture;
+        metric bpf_us_fn_events_total;
+        comm curl;
+        arg 1 type=user_buffer size=arg2 max=512 label=buf;
+        regex on=buf pattern="^(?:PRI \* HTTP\/(?P<h2>2)\.0|(?P<method>GET|POST)\s+(?P<path>\S+)\s+HTTP\/(?P<version>\d+(?:\.\d+)?))";
+    }
+    uprobe /lib64/libssl.so.3:SSL_write_ex {
+        mode capture;
+        pair_id ssl_write_ex;
+        save arg1;
+        save arg3;
+    }
+    uretprobe /lib64/libssl.so.3:SSL_write_ex {
+        mode capture;
+        pair_id ssl_write_ex;
+        metric bpf_us_fn_events_total;
+        comm curl;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=deref:saved_arg3 max=512 label=buf from=saved;
+        regex on=buf pattern="^(?:PRI \* HTTP\/(?P<h2>2)\.0|(?P<method>GET|POST)\s+(?P<path>\S+)\s+HTTP\/(?P<version>\d+(?:\.\d+)?))";
+    }
+    uprobe /lib64/libssl.so.3:SSL_read {
+        mode capture;
+        pair_id ssl_read;
+        save arg1;
+    }
+    uretprobe /lib64/libssl.so.3:SSL_read {
+        mode capture;
+        pair_id ssl_read;
+        metric bpf_us_fn_events_total;
+        comm curl;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=512 label=buf from=saved;
+        regex on=buf pattern="^(?:PRI \* HTTP/(?P<h2>2)\.0|HTTP/(?P<version>\d+(?:\.\d+)?)\s+(?P<status>\d{3})\b)";
+    }
+    uprobe /lib64/libssl.so.3:SSL_read_ex {
+        mode capture;
+        pair_id ssl_read_ex;
+        save arg1;
+        save arg3;
+    }
+    uretprobe /lib64/libssl.so.3:SSL_read_ex {
+        mode capture;
+        pair_id ssl_read_ex;
+        metric bpf_us_fn_events_total;
+        comm curl;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=deref:saved_arg3 max=512 label=buf from=saved;
+        regex on=buf pattern="^(?:PRI \* HTTP/(?P<h2>2)\.0|HTTP/(?P<version>\d+(?:\.\d+)?)\s+(?P<status>\d{3})\b)";
+}
+
+namespace {
+    name bpf_usdt;
+    max_series 4096;
+}
+```
+
+В plain-конфиге кавычки сохраняют обратные слэши как написано. PCRE `\s` пишется `\s`. `{` внутри кавычек — часть шаблона, не новый блок. `/` в `HTTP/` экранировать не нужно.
+
+`SSL_write(SSL *, buf, num)` копируется на входе: аргумент 1 — буфер, аргумент 2 — длина. Новые сборки curl/OpenSSL часто вызывают `SSL_write_ex` вместо `SSL_write`; для покрытия вешайте оба. `SSL_read` заполняет буфер до возврата, поэтому entry только делает `save` указателя, а `uretprobe` читает `min(retval, max)` байт. `SSL_write_ex` / `SSL_read_ex` передают `size_t *written` / `size_t *readbytes`; return читает сохранённый указатель (`deref:saved_arg3`, нативное 8-байтное целое). `when retval_gt 0` отбрасывает неположительный возврат до копирования. `pair_id` связывает stash входа с return. Ключ stash — `(tid, pair_id)`. Повторный вход той же пары в одном потоке перезаписывает регистры.
+
+Поля `arg` для `type=user_buffer`:
+
+- `size=argN` — длина в этом целочисленном аргументе
+- `size=retval` — длина в коде возврата (только `uretprobe`)
+- `size=deref:argN` — длина это `u64` по указателю в аргументе N
+- `size=deref:saved_argN` — то же, указатель сохранён на входе
+- `max=N` — не больше N байт, жёсткий потолок 512. Более длинный источник увеличивает `bpf_probe_dropped_total{reason="trunc"}`, событие всё равно уходит
+- `from=saved` — указатель буфера из entry stash
+- `label` — имя для `regex on=...`. Сырой буфер label не становится
+- `type=user_buffer` отклоняется, если у probe нет `mode capture`
+
+`regex on=LABEL pattern="..."` вызывает `pcre_exec` с длиной скопированного буфера, не через `strlen`. Нет совпадения — событие сброшено (`reason="regex_nomatch"`). Шаблон, который не скомпилировался (в том числе из‑за одинаковых имён named groups без `PCRE_DUPNAMES`), сбрасывает все события этого probe (`reason="regex_fail"`); в логе будет `bpf: probe '...' regex failed`. До шести именованных групп становятся labels. У серии также есть `probe` и `comm`. У uretprobe метка `probe` — это `binary:symbol:ret`. Без `metric` имя — `bpf_us_fn_events_total`.
+
+`kprobe` в capture читает user pointer на входе. Return — только `uretprobe`. `latency;` на capture probe игнорируется.
+
+Конфиг без `mode capture` не загружает capture-программы: ошибка верификатора capture не блокирует count и latency. В смешанном конфиге, если capture-программы не загрузились, эти probes пропускаются (`bpf_probe_skipped`), а count и latency всё равно attach. Если ring buffer capture не открылся, capture-ссылки снимаются и эти probes пропускаются. Они не остаются без потребителя.
+
+Ring buffer 1MiB. Userspace читает его постоянно: libuv опрашивает fd ring buffer и за один wakeup забирает ограниченную пачку, а scrape дочитывает остаток. Переполнение — `reason="ringbuf_full"`. Ошибка `bpf_probe_read_user` — `reason="user_read_fail"`. Return просил сохранённый указатель, а stash нет — `reason="stash_miss"`. У capture своя таблица на 4096 комбинаций labels. Дальше новые комбинации отбрасываются и растёт `reason="lru"`. Уже созданные счётчики не сбрасываются и не выглядят так, будто серия началась заново с 1.
+
+Если у namespace bpf нет явного `max_series`, capture ставит 4096. Явное значение, включая `0` (без лимита), сохраняется. Этот предел не даёт capture раздувать дерево метрик без границы.
+
+Именованные группы regex становятся Prometheus labels. Не направляйте это на процесс с секретами: в буфере могут быть cookies, токены, пароли и тела запросов. Неограниченная группа вроде `path` или `.*` — утечка кардинальности. Фильтруйте `comm`, держите regex узким, `max` маленьким и задайте `max_series`. Count mode эти буферы не копирует.
 
 ## Built-in probes
 
@@ -296,9 +393,10 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | Metric | Type | Labels |
 | --- | --- | --- |
 | `bpf_up` | gauge | нет. `1` пока programs attached, `0` если контекст задан, но ничего не attached |
-| `bpf_probe_events_total` | counter | `probe` и labels аргументов custom kprobe/uprobe |
+| `bpf_probe_events_total` | counter | `probe` и labels аргументов custom kprobe/uprobe в count mode |
+| `bpf_us_fn_events_total` | counter | capture mode, если `metric` не задал другое имя. Labels: `probe`, `comm` и именованные группы regex |
 | `bpf_probe_latency_seconds` | histogram | `probe` и labels аргументов custom kprobe/uprobe с `latency;` |
-| `bpf_probe_dropped_total` | counter | `probe`, `reason` (`lru` или truncation) |
+| `bpf_probe_dropped_total` | counter | `probe`, `reason` (`lru`, `trunc`, `ringbuf_full`, `user_read_fail`, `stash_miss`, `regex_nomatch`, `regex_fail`) |
 | `bpf_probe_skipped` | gauge | `probe`. `1`, если probe не attached (старое ядро, load/attach failed). Ошибка одного custom probe не выгружает остальные |
 | `bpf_runqueue_latency_seconds` | histogram | `comm` |
 | `bpf_offcpu_seconds` | histogram | `comm`, плюс cgroup labels при включении |

@@ -14,6 +14,7 @@ typedef uint8_t __u8;
 typedef uint16_t __u16;
 typedef uint32_t __u32;
 typedef uint64_t __u64;
+typedef int64_t __s64;
 #endif
 
 #define BPF_STR_MAX 64
@@ -34,6 +35,23 @@ typedef uint64_t __u64;
 #define BPF_ARG_USER_STR 2
 #define BPF_ARG_KERNEL_STR 3
 #define BPF_ARG_SOCKADDR 4
+#define BPF_ARG_USER_BUFFER 5
+
+/* mode on bpf_probe_cfg. Count is the historical kprobe/uprobe path. */
+#define BPF_MODE_COUNT 0
+#define BPF_MODE_CAPTURE 1
+
+/* Where a user_buffer length comes from. */
+#define BPF_SIZE_NONE 0
+#define BPF_SIZE_ARG 1
+#define BPF_SIZE_RETVAL 2
+#define BPF_SIZE_DEREF_ARG 3
+#define BPF_SIZE_DEREF_SAVED 4
+
+/* Hard cap copied into one ringbuf slot. Config max= is clamped to this. */
+#define BPF_CAPTURE_MAX 512
+#define BPF_CAPTURE_BUFS 2
+#define BPF_REGEX_MAX 512
 
 #define BPF_FILTER_NONE 0
 #define BPF_FILTER_EQ 1
@@ -47,6 +65,7 @@ typedef uint64_t __u64;
 #define BPF_KIND_KPROBE 1
 #define BPF_KIND_UPROBE 2
 #define BPF_KIND_NAMED 3
+#define BPF_KIND_URETPROBE 4
 
 #define BPF_NAMED_RUNQUEUE 1
 #define BPF_NAMED_OFFCPU 2
@@ -73,6 +92,12 @@ struct bpf_arg_cfg {
 	__u8 filter;
 	__u8 reg;
 	__u8 field;
+	__u8 size_src;
+	__u8 size_reg;
+	__u8 from_saved;
+	__u8 pad_arg;
+	__u16 max;
+	__u16 pad_max;
 	char value[BPF_STR_MAX];
 	char allow0[BPF_STR_MAX];
 	char allow1[BPF_STR_MAX];
@@ -85,6 +110,11 @@ struct bpf_probe_cfg {
 	__u32 latency;
 	struct bpf_arg_cfg args[BPF_ARG_MAX];
 	char comm[BPF_COMM_MAX][16];
+	__u32 mode;
+	__u32 pair_id;
+	__u32 has_when;
+	__u32 save_mask;
+	__s64 retval_gt;
 };
 
 /* Entry/return latency start: key is (tid, probe_id) so nested probes do not collide. */
@@ -167,6 +197,38 @@ struct bpf_drop_val {
 	__u64 trunc;
 	__u64 lru;
 	__u64 live;
+	__u64 ringbuf_full;
+	__u64 user_read_fail;
+	__u64 stash_miss;
+};
+
+/* Entry registers kept until the paired uretprobe. Key is (tid, pair_id). */
+struct bpf_stash_key {
+	__u64 tid;
+	__u32 pair_id;
+	__u32 pad;
+};
+
+struct bpf_stash_val {
+	__u64 saved[BPF_ARG_MAX];
+};
+
+/*
+ * One captured call. Buffers are length-delimited (not C strings). Userspace
+ * must honor len[] and must not strlen() data[].
+ */
+struct bpf_capture_event {
+	__u64 ts;
+	__u64 pid_tgid;
+	__s64 retval;
+	__u32 probe_id;
+	__u32 dir;
+	__u32 len[BPF_CAPTURE_BUFS];
+	__u32 arg_index[BPF_CAPTURE_BUFS];
+	__u32 trunc;
+	__u32 nbuf;
+	char comm[16];
+	char data[BPF_CAPTURE_BUFS][BPF_CAPTURE_MAX];
 };
 
 struct bpf_sched_cfg {

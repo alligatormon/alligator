@@ -32,6 +32,9 @@ cmake_install.cmake
 install_manifest.txt
 _CPack_Packages/
 src/build
+src/bpf/*.skel.h
+src/bpf/*.bpf.o
+src/bpf/vmlinux.h
 src/CMakeUserPresets.json
 src/external/drivedb.h
 maillog

@@ -1,23 +1,32 @@
 #include "bpf/bpf.h"
+/* main.h #defines u32 and u64 as printf conversions. sys/epoll.h uses those
+ * names as union members, so this header has to be parsed first. uv_poll
+ * still watches a dup of ring_buffer__epoll_fd; this only fixes the clash. */
+#include <sys/epoll.h>
 #include "main.h"
 #include "common/logs.h"
 #include <bpf/libbpf.h>
 #include "bpf/libbpf_sys.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/utsname.h>
 #include <unistd.h>
-#include "sched.skel.h"
-#include "block.skel.h"
-#include "tcp.skel.h"
-#include "process.skel.h"
-#include "dns.skel.h"
-#include "generic.skel.h"
+#include <uv.h>
+/* Skeletons are generated under the build directory. Angle brackets do not
+ * search src/bpf/, so a leftover generic.skel.h next to this file cannot
+ * hide capture_rb and the capture programs. */
+#include <sched.skel.h>
+#include <block.skel.h>
+#include <tcp.skel.h>
+#include <process.skel.h>
+#include <dns.skel.h>
+#include <generic.skel.h>
 #ifndef BPF_NO_LOCK
-#include "lock.skel.h"
+#include <lock.skel.h>
 #endif
 
 extern aconf *ac;
@@ -32,11 +41,149 @@ static struct generic_bpf *gen_skel;
 static struct lock_bpf *lock_skel;
 #endif
 static struct bpf_link *links[128];
+static unsigned char link_capture[128];
 static int nlinks;
 static int attached;
 static int logged;
 static int print_set;
 static char machine[64];
+/* One wakeup drains at most this many samples so a burst cannot stall the loop.
+ * Returning -1 from the sample callback stops libbpf after that sample is consumed. */
+#define CAP_DRAIN_BUDGET 64
+
+struct cap_watch {
+	uv_poll_t poll;
+	int dupfd;
+};
+
+static struct cap_watch *cap_watch;
+static struct ring_buffer *cap_rb;
+static int cap_budget;
+static int cap_consume_logged;
+
+static int cap_sample(void *ctx, void *data, size_t size)
+{
+	(void)ctx;
+	bpf_capture_on_event(data, size);
+	if (cap_budget > 0 && --cap_budget == 0)
+		return -1;
+	return 0;
+}
+
+static struct ring_buffer *cap_rb_current(void)
+{
+	return cap_rb;
+}
+
+/* budget > 0 stops after that many samples. 0 drains whatever is queued. */
+static int cap_drain(struct ring_buffer *rb, int budget)
+{
+	int n;
+
+	if (!rb)
+		return 0;
+	cap_budget = budget;
+	n = ring_buffer__consume(rb);
+	if (budget > 0 && cap_budget == 0 && n < 0) {
+		errno = 0;
+		return 0;
+	}
+	if (n < 0 && !cap_consume_logged) {
+		cap_consume_logged = 1;
+		glog(L_ERROR, "bpf: capture ring buffer consume failed: %d\n", n);
+	}
+	return n;
+}
+
+static void cap_watch_closed(uv_handle_t *h)
+{
+	struct cap_watch *w = (struct cap_watch *)h;
+
+	if (w->dupfd >= 0)
+		close(w->dupfd);
+	free(w);
+}
+
+static void cap_poll_cb(uv_poll_t *handle, int status, int events)
+{
+	struct epoll_event ev;
+	int fd;
+
+	(void)handle;
+	(void)events;
+	if (!cap_rb)
+		return;
+	if (status < 0) {
+		glog(L_ERROR, "bpf: capture ring buffer poll: %s\n", uv_strerror(status));
+		return;
+	}
+	/* Harvest one inner epoll notification. A partial drain leaves the map
+	 * readable, so libuv calls us again without spinning inside this callback. */
+	fd = ring_buffer__epoll_fd(cap_rb);
+	if (fd >= 0)
+		(void)epoll_wait(fd, &ev, 1, 0);
+	cap_drain(cap_rb, CAP_DRAIN_BUDGET);
+}
+
+static int cap_poll_arm(struct ring_buffer *rb)
+{
+	uv_loop_t *loop;
+	struct cap_watch *w;
+	int fd;
+	int dupfd;
+	int err;
+
+	fd = ring_buffer__epoll_fd(rb);
+	if (fd < 0)
+		return -1;
+	loop = (ac && ac->loop) ? ac->loop : uv_default_loop();
+	if (!loop)
+		return -1;
+	/* libuv watches the fd it is given. Dup so ring_buffer__free can close
+	 * the original while the poll handle is still shutting down. */
+	dupfd = dup(fd);
+	if (dupfd < 0)
+		return -1;
+	fcntl(dupfd, F_SETFD, FD_CLOEXEC);
+	w = calloc(1, sizeof(*w));
+	if (!w) {
+		close(dupfd);
+		return -1;
+	}
+	w->dupfd = dupfd;
+	w->poll.data = w;
+	err = uv_poll_init(loop, &w->poll, dupfd);
+	if (err) {
+		glog(L_ERROR, "bpf: capture uv_poll_init: %s\n", uv_strerror(err));
+		close(dupfd);
+		free(w);
+		return -1;
+	}
+	err = uv_poll_start(&w->poll, UV_READABLE, cap_poll_cb);
+	if (err) {
+		glog(L_ERROR, "bpf: capture uv_poll_start: %s\n", uv_strerror(err));
+		uv_close((uv_handle_t *)&w->poll, cap_watch_closed);
+		return -1;
+	}
+	cap_watch = w;
+	cap_consume_logged = 0;
+	return 0;
+}
+
+static void cap_rb_close(void)
+{
+	struct cap_watch *w = cap_watch;
+	struct ring_buffer *rb = cap_rb;
+
+	cap_watch = NULL;
+	cap_rb = NULL;
+	if (w && !uv_is_closing((uv_handle_t *)&w->poll)) {
+		uv_poll_stop(&w->poll);
+		uv_close((uv_handle_t *)&w->poll, cap_watch_closed);
+	}
+	if (rb)
+		ring_buffer__free(rb);
+}
 
 static int bpf_libbpf_print(enum libbpf_print_level level, const char *fmt, va_list ap)
 {
@@ -74,13 +221,14 @@ static void bpf_libbpf_print_init(void)
 	print_set = 1;
 }
 
-static void keep_link(struct bpf_link *link)
+static void keep_link(struct bpf_link *link, int capture)
 {
 	if (!link || libbpf_get_error(link))
 		return;
-	if (nlinks < 128)
+	if (nlinks < 128) {
+		link_capture[nlinks] = capture ? 1 : 0;
 		links[nlinks++] = link;
-	else
+	} else
 		bpf_link__destroy(link);
 }
 
@@ -95,13 +243,13 @@ static void skip_custom_probes(void)
 	}
 }
 
-static int keep_link_or_fail(struct bpf_link *link, const char *probe, const char *what)
+static int keep_link_or_fail(struct bpf_link *link, const char *probe, const char *what, int capture)
 {
 	long err = libbpf_get_error(link);
 	char errbuf[256];
 
 	if (!err) {
-		keep_link(link);
+		keep_link(link, capture);
 		return 0;
 	}
 	errbuf[0] = 0;
@@ -121,6 +269,7 @@ static void destroy_links(void)
 	for (i = 0; i < nlinks; i++) {
 		bpf_link__destroy(links[i]);
 		links[i] = NULL;
+		link_capture[i] = 0;
 	}
 	nlinks = 0;
 }
@@ -133,6 +282,7 @@ static void drop_links_from(int before)
 		nlinks--;
 		bpf_link__destroy(links[nlinks]);
 		links[nlinks] = NULL;
+		link_capture[nlinks] = 0;
 	}
 }
 
@@ -471,9 +621,9 @@ static int load_named(void)
 			bpf_map__update_elem(dns_skel->maps.dns_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
 			opt.func_name = dns->symbol;
 			opt.retprobe = false;
-			keep_link(bpf_program__attach_uprobe_opts(dns_skel->progs.dns_entry, -1, dns->binary, 0, &opt));
+			keep_link(bpf_program__attach_uprobe_opts(dns_skel->progs.dns_entry, -1, dns->binary, 0, &opt), 0);
 			opt.retprobe = true;
-			keep_link(bpf_program__attach_uprobe_opts(dns_skel->progs.dns_ret, -1, dns->binary, 0, &opt));
+			keep_link(bpf_program__attach_uprobe_opts(dns_skel->progs.dns_ret, -1, dns->binary, 0, &opt), 0);
 			if (nlinks < before + 2) {
 				bpf_skip_set("dns_latency", 1);
 				drop_links_from(before);
@@ -490,11 +640,92 @@ static int load_named(void)
 	return 0;
 }
 
+static int any_capture(void)
+{
+	int i;
+
+	for (i = 0; i < bpf_probe_count(); i++) {
+		const bpf_probe *p = bpf_probe_at(i);
+		if (p && p->enabled && p->kind != BPF_KIND_NAMED && p->mode == BPF_MODE_CAPTURE)
+			return 1;
+	}
+	return 0;
+}
+
+static void skip_capture_probes(void)
+{
+	int i;
+
+	for (i = 0; i < bpf_probe_count(); i++) {
+		const bpf_probe *p = bpf_probe_at(i);
+		if (p && p->mode == BPF_MODE_CAPTURE)
+			bpf_skip_set(p->name, 1);
+	}
+}
+
+static void detach_capture_links(void)
+{
+	int i, w = 0;
+
+	for (i = 0; i < nlinks; i++) {
+		if (link_capture[i]) {
+			bpf_link__destroy(links[i]);
+			links[i] = NULL;
+			link_capture[i] = 0;
+			continue;
+		}
+		if (w != i) {
+			links[w] = links[i];
+			links[i] = NULL;
+		}
+		link_capture[w] = 0;
+		w++;
+	}
+	nlinks = w;
+}
+
+static void generic_prepare(struct generic_bpf *skel, int load_capture)
+{
+	bpf_program__set_autoattach(skel->progs.generic_kprobe, false);
+	bpf_program__set_autoattach(skel->progs.generic_kretprobe, false);
+	bpf_program__set_autoattach(skel->progs.generic_uprobe, false);
+	bpf_program__set_autoattach(skel->progs.generic_uretprobe, false);
+	bpf_program__set_autoattach(skel->progs.generic_kprobe_capture, false);
+	bpf_program__set_autoattach(skel->progs.generic_uprobe_capture, false);
+	bpf_program__set_autoattach(skel->progs.generic_uretprobe_capture, false);
+	/* Count-only configs never verify or load the capture programs. */
+	bpf_program__set_autoload(skel->progs.generic_kprobe_capture, load_capture);
+	bpf_program__set_autoload(skel->progs.generic_uprobe_capture, load_capture);
+	bpf_program__set_autoload(skel->progs.generic_uretprobe_capture, load_capture);
+	if (!load_capture)
+		bpf_map__set_max_entries(skel->maps.capture_rb, 4096);
+}
+
+static int generic_open_load(int load_capture)
+{
+	gen_skel = generic_bpf__open();
+	if (!gen_skel) {
+		glog(L_ERROR, "bpf: generic skeleton open failed: %s\n", strerror(errno));
+		return -1;
+	}
+	generic_prepare(gen_skel, load_capture);
+	if (generic_bpf__load(gen_skel)) {
+		glog(L_ERROR, "bpf: generic programs failed to load%s: %s\n",
+			load_capture ? " with capture" : "", strerror(errno));
+		generic_bpf__destroy(gen_skel);
+		gen_skel = NULL;
+		return -1;
+	}
+	return 0;
+}
+
 static int load_generic(void)
 {
 	int i;
 	int any = 0;
-	int attached_n = 0;
+	int capture;
+	int capture_ok;
+	int links_before;
 	__u32 slot;
 
 	if (!kernel_ok(5, 15)) {
@@ -509,23 +740,25 @@ static int load_generic(void)
 	}
 	if (!any)
 		return 0;
-	gen_skel = generic_bpf__open();
-	if (!gen_skel) {
-		glog(L_ERROR, "bpf: generic skeleton open failed: %s\n", strerror(errno));
-		skip_custom_probes();
-		return 0;
+	capture = any_capture();
+	if (generic_open_load(capture)) {
+		if (!capture) {
+			skip_custom_probes();
+			return 0;
+		}
+		/* Capture verifier failure must not take count/latency with it. */
+		glog(L_ERROR, "bpf: capture programs failed to load; retrying count and latency only\n");
+		skip_capture_probes();
+		if (generic_open_load(0)) {
+			skip_custom_probes();
+			return 0;
+		}
+		capture_ok = 0;
+	} else {
+		capture_ok = capture;
 	}
-	bpf_program__set_autoattach(gen_skel->progs.generic_kprobe, false);
-	bpf_program__set_autoattach(gen_skel->progs.generic_kretprobe, false);
-	bpf_program__set_autoattach(gen_skel->progs.generic_uprobe, false);
-	bpf_program__set_autoattach(gen_skel->progs.generic_uretprobe, false);
-	if (generic_bpf__load(gen_skel)) {
-		glog(L_ERROR, "bpf: generic kprobe/uprobe programs failed to load: %s\n", strerror(errno));
-		generic_bpf__destroy(gen_skel);
-		gen_skel = NULL;
-		skip_custom_probes();
-		return 0;
-	}
+	/* DNS and other named probes already own slots in links[]. */
+	links_before = nlinks;
 	for (i = 0; i < bpf_probe_count(); i++) {
 		const bpf_probe *p = bpf_probe_at(i);
 		struct bpf_probe_cfg cfg;
@@ -536,14 +769,32 @@ static int load_generic(void)
 
 		if (!p || !p->enabled || p->kind == BPF_KIND_NAMED || p->generic_slot < 0)
 			continue;
+		if (p->mode == BPF_MODE_CAPTURE && !capture_ok) {
+			bpf_skip_set(p->name, 1);
+			continue;
+		}
 		memset(&cfg, 0, sizeof(cfg));
 		cfg.nargs = (__u32)p->nargs;
 		cfg.latency = p->latency ? 1 : 0;
+		cfg.mode = p->mode == BPF_MODE_CAPTURE ? BPF_MODE_CAPTURE : BPF_MODE_COUNT;
+		cfg.pair_id = (__u32)p->pair_slot;
+		cfg.has_when = p->has_when ? 1 : 0;
+		cfg.retval_gt = p->retval_gt;
+		cfg.save_mask = 0;
+		for (a = 0; a < p->nsave && a < BPF_ARG_MAX; a++) {
+			int bit = p->save_arg[a];
+			if (bit >= 0 && bit < BPF_ARG_MAX)
+				cfg.save_mask |= (1u << bit);
+		}
 		for (a = 0; a < p->nargs && a < BPF_ARG_MAX; a++) {
 			cfg.args[a].kind = (__u8)p->args[a].kind;
 			cfg.args[a].filter = (__u8)p->args[a].filter;
 			cfg.args[a].reg = (__u8)p->args[a].index;
 			cfg.args[a].field = (__u8)p->args[a].field;
+			cfg.args[a].size_src = (__u8)p->args[a].size_src;
+			cfg.args[a].size_reg = (__u8)p->args[a].size_arg;
+			cfg.args[a].from_saved = p->args[a].from_saved ? 1 : 0;
+			cfg.args[a].max = (p->args[a].buf_max > 0 && p->args[a].buf_max < 65536) ? (__u16)p->args[a].buf_max : 0;
 			snprintf(cfg.args[a].value, BPF_STR_MAX, "%s", p->args[a].value);
 			if (p->args[a].nallow > 0)
 				snprintf(cfg.args[a].allow0, BPF_STR_MAX, "%s", p->args[a].allow[0]);
@@ -566,14 +817,17 @@ static int load_generic(void)
 		before = nlinks;
 		if (p->kind == BPF_KIND_KPROBE) {
 			LIBBPF_OPTS(bpf_kprobe_opts, opt);
+			struct bpf_program *prog = gen_skel->progs.generic_kprobe;
 			opt.bpf_cookie = slot;
 			opt.retprobe = false;
-			ok = keep_link_or_fail(bpf_program__attach_kprobe_opts(gen_skel->progs.generic_kprobe,
-				p->symbol, &opt), p->name, "kprobe attach");
-			if (!ok && p->latency) {
+			if (p->mode == BPF_MODE_CAPTURE)
+				prog = gen_skel->progs.generic_kprobe_capture;
+			ok = keep_link_or_fail(bpf_program__attach_kprobe_opts(prog,
+				p->symbol, &opt), p->name, "kprobe attach", p->mode == BPF_MODE_CAPTURE);
+			if (!ok && p->latency && p->mode != BPF_MODE_CAPTURE) {
 				opt.retprobe = true;
 				ok_ret = keep_link_or_fail(bpf_program__attach_kprobe_opts(gen_skel->progs.generic_kretprobe,
-					p->symbol, &opt), p->name, "kretprobe attach");
+					p->symbol, &opt), p->name, "kretprobe attach", 0);
 				if (ok_ret) {
 					drop_links_from(before);
 					ok = -1;
@@ -581,28 +835,67 @@ static int load_generic(void)
 			}
 		} else if (p->kind == BPF_KIND_UPROBE) {
 			LIBBPF_OPTS(bpf_uprobe_opts, opt);
+			struct bpf_program *prog = gen_skel->progs.generic_uprobe;
 			opt.func_name = p->symbol;
 			opt.bpf_cookie = slot;
 			opt.retprobe = false;
-			ok = keep_link_or_fail(bpf_program__attach_uprobe_opts(gen_skel->progs.generic_uprobe,
-				-1, p->binary, 0, &opt), p->name, "uprobe attach");
-			if (!ok && p->latency) {
+			if (p->mode == BPF_MODE_CAPTURE)
+				prog = gen_skel->progs.generic_uprobe_capture;
+			ok = keep_link_or_fail(bpf_program__attach_uprobe_opts(prog,
+				-1, p->binary, 0, &opt), p->name, "uprobe attach", p->mode == BPF_MODE_CAPTURE);
+			if (!ok && p->latency && p->mode != BPF_MODE_CAPTURE) {
 				opt.retprobe = true;
 				ok_ret = keep_link_or_fail(bpf_program__attach_uprobe_opts(gen_skel->progs.generic_uretprobe,
-					-1, p->binary, 0, &opt), p->name, "uretprobe attach");
+					-1, p->binary, 0, &opt), p->name, "uretprobe attach", 0);
 				if (ok_ret) {
 					drop_links_from(before);
 					ok = -1;
 				}
 			}
+		} else if (p->kind == BPF_KIND_URETPROBE) {
+			LIBBPF_OPTS(bpf_uprobe_opts, opt);
+			if (!p->binary[0] || !p->symbol[0]) {
+				bpf_skip_set(p->name, 1);
+			} else {
+				opt.func_name = p->symbol;
+				opt.bpf_cookie = slot;
+				opt.retprobe = true;
+				ok = keep_link_or_fail(bpf_program__attach_uprobe_opts(gen_skel->progs.generic_uretprobe_capture,
+					-1, p->binary, 0, &opt), p->name, "uretprobe attach", 1);
+			}
 		} else {
 			bpf_skip_set(p->name, 1);
 		}
-		if (!ok)
-			attached_n++;
 	}
-	if (!attached_n) {
-		generic_bpf__destroy(gen_skel);
+	if (capture_ok) {
+		int capture_links = 0;
+		int rfd;
+		struct ring_buffer *rb = NULL;
+
+		for (i = 0; i < nlinks; i++) {
+			if (link_capture[i])
+				capture_links++;
+		}
+		if (capture_links) {
+			rfd = map_fd(gen_skel->maps.capture_rb);
+			cap_rb_close();
+			if (rfd >= 0)
+				rb = ring_buffer__new(rfd, cap_sample, NULL, NULL);
+			if (!rb) {
+				glog(L_ERROR, "bpf: capture ring buffer open failed; detaching capture probes\n");
+				detach_capture_links();
+				skip_capture_probes();
+			} else if (cap_poll_arm(rb)) {
+				glog(L_ERROR, "bpf: capture ring buffer poll failed; scrape will drain it\n");
+			}
+			if (rb)
+				cap_rb = rb;
+		}
+	}
+	if (nlinks == links_before) {
+		cap_rb_close();
+		if (gen_skel)
+			generic_bpf__destroy(gen_skel);
 		gen_skel = NULL;
 		skip_custom_probes();
 	}
@@ -611,6 +904,7 @@ static int load_generic(void)
 
 void bpf_loader_shutdown(void)
 {
+	cap_rb_close();
 	destroy_links();
 	if (sched_skel)
 		sched_bpf__destroy(sched_skel);
@@ -708,6 +1002,8 @@ void bpf_loader_poll(void)
 		poll_hist(map_fd(dns_skel->maps.dns_hist), map_fd(dns_skel->maps.dns_sum), "bpf_dns_latency_seconds", "name");
 	if (gen_skel) {
 		int fd = map_fd(gen_skel->maps.events);
+		/* Safety net for anything the poll wakeup has not drained yet. */
+		cap_drain(cap_rb_current(), 0);
 		struct bpf_event_key cur, next;
 		__u64 val;
 		int err = bpf_map_get_next_key(fd, NULL, &next);
@@ -767,6 +1063,12 @@ void bpf_loader_poll(void)
 				bpf_drop_add(name, "trunc", d.trunc);
 			if (d.lru)
 				bpf_drop_add(name, "lru", d.lru);
+			if (d.ringbuf_full)
+				bpf_drop_add(name, "ringbuf_full", d.ringbuf_full);
+			if (d.user_read_fail)
+				bpf_drop_add(name, "user_read_fail", d.user_read_fail);
+			if (d.stash_miss)
+				bpf_drop_add(name, "stash_miss", d.stash_miss);
 		}
 	}
 }
@@ -796,6 +1098,9 @@ int bpf_loader_selftest(void)
 	bpf_program__set_autoattach(gen->progs.generic_kretprobe, false);
 	bpf_program__set_autoattach(gen->progs.generic_uprobe, false);
 	bpf_program__set_autoattach(gen->progs.generic_uretprobe, false);
+	bpf_program__set_autoattach(gen->progs.generic_kprobe_capture, false);
+	bpf_program__set_autoattach(gen->progs.generic_uprobe_capture, false);
+	bpf_program__set_autoattach(gen->progs.generic_uretprobe_capture, false);
 	if (generic_bpf__load(gen)) {
 		generic_bpf__destroy(gen);
 		return 1;
