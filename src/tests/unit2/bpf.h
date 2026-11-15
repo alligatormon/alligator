@@ -430,6 +430,45 @@ static void test_bpf_capture(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 512, p->args[0].buf_max);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "buf", p->regex_on);
 
+	/* Kernel recv path: kprobe saves the user pointer, kretprobe captures on return. */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    namespace bpf_tcp;\n"
+		"    kprobe __sys_recvfrom {\n"
+		"        mode capture; pair_id redis_recvfrom; save arg1;\n"
+		"    }\n"
+		"    kretprobe __sys_recvfrom {\n"
+		"        mode capture; pair_id redis_recvfrom; metric redis_reply_total; comm redis-cli;\n"
+		"        when retval_gt 0;\n"
+		"        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;\n"
+		"        regex on=buf pattern=\"^(?P<type>[+*$:])\";\n"
+		"    }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_KPROBE, p->kind);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_MODE_CAPTURE, p->mode);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "__sys_recvfrom", p->symbol);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "redis_recvfrom", p->pair_id);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->nsave);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->save_arg[0]);
+	p = bpf_probe_at(1);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_KIND_KRETPROBE, p->kind);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "__sys_recvfrom", p->symbol);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "__sys_recvfrom:ret", p->name);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "redis_recvfrom", p->pair_id);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, bpf_probe_at(0)->pair_slot, p->pair_slot);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->has_when);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)p->retval_gt);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_SIZE_RETVAL, p->args[0].size_src);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->args[0].from_saved);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "redis_reply_total", p->metric);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "^(?P<type>[+*$:])", p->regex_pattern);
+	bpf_apply_plain("bpf { kretprobe __sys_recvfrom { pair_id redis_recvfrom; } }\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+
 	bpf_apply_plain(
 		"bpf {\n"
 		"    namespace bpf_usdt;\n"

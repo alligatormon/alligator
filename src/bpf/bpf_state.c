@@ -894,8 +894,8 @@ static void cap_assign_pairs(void)
 		int a, j;
 		if (probes[i].mode != BPF_MODE_CAPTURE)
 			continue;
-		if (probes[i].kind == BPF_KIND_URETPROBE && probes[i].nsave > 0)
-			glog(L_WARN, "bpf: probe '%s' save on uretprobe does not stash registers; save on the entry probe\n",
+		if ((probes[i].kind == BPF_KIND_URETPROBE || probes[i].kind == BPF_KIND_KRETPROBE) && probes[i].nsave > 0)
+			glog(L_WARN, "bpf: probe '%s' save on return probe does not stash registers; save on the entry probe\n",
 				probes[i].name);
 		for (a = 0; a < probes[i].nargs; a++) {
 			if (probes[i].args[a].from_saved || probes[i].args[a].size_src == BPF_SIZE_DEREF_SAVED)
@@ -904,7 +904,7 @@ static void cap_assign_pairs(void)
 		if (!need_entry || !probes[i].pair_id[0])
 			continue;
 		for (j = 0; j < probe_n; j++) {
-			if (j == i || probes[j].kind == BPF_KIND_URETPROBE)
+			if (j == i || probes[j].kind == BPF_KIND_URETPROBE || probes[j].kind == BPF_KIND_KRETPROBE)
 				continue;
 			if (!probes[j].pair_id[0] || strcmp(probes[j].pair_id, probes[i].pair_id))
 				continue;
@@ -1503,6 +1503,8 @@ static int load_probe(bpf_probe *dst, json_t *j)
 		dst->kind = BPF_KIND_UPROBE;
 	else if (!strcmp(kind, "uretprobe"))
 		dst->kind = BPF_KIND_URETPROBE;
+	else if (!strcmp(kind, "kretprobe"))
+		dst->kind = BPF_KIND_KRETPROBE;
 	else if (!strcmp(kind, "probe"))
 		dst->kind = BPF_KIND_NAMED;
 	else
@@ -1673,7 +1675,7 @@ static int load_probe(bpf_probe *dst, json_t *j)
 			return -1;
 		}
 	}
-	if (dst->kind == BPF_KIND_URETPROBE) {
+	if (dst->kind == BPF_KIND_URETPROBE || dst->kind == BPF_KIND_KRETPROBE) {
 		char nb[96];
 		snprintf(nb, sizeof(nb), "%s:ret", dst->name);
 		copy_cap(dst->name, sizeof(dst->name), nb);
@@ -1695,6 +1697,8 @@ static json_t *probe_to_json(const bpf_probe *p)
 		json_object_set_new(o, "kind", json_string("uprobe"));
 	else if (p->kind == BPF_KIND_URETPROBE)
 		json_object_set_new(o, "kind", json_string("uretprobe"));
+	else if (p->kind == BPF_KIND_KRETPROBE)
+		json_object_set_new(o, "kind", json_string("kretprobe"));
 	else
 		json_object_set_new(o, "kind", json_string("probe"));
 	if (p->kind == BPF_KIND_NAMED)

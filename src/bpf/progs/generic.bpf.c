@@ -1031,6 +1031,17 @@ int generic_uprobe_capture(struct pt_regs *ctx)
 	return capture_begin(ctx, 0, 0, parms);
 }
 
+SEC("kretprobe")
+int generic_kretprobe_capture(struct pt_regs *ctx)
+{
+	unsigned long parms[6];
+	unsigned long rc;
+
+	rc = PT_REGS_RC(ctx);
+	read_parms(ctx, parms);
+	return capture_begin(ctx, 1, rc, parms);
+}
+
 SEC("uretprobe")
 int generic_uretprobe_capture(struct pt_regs *ctx)
 {

@@ -691,10 +691,12 @@ static void generic_prepare(struct generic_bpf *skel, int load_capture)
 	bpf_program__set_autoattach(skel->progs.generic_uprobe, false);
 	bpf_program__set_autoattach(skel->progs.generic_uretprobe, false);
 	bpf_program__set_autoattach(skel->progs.generic_kprobe_capture, false);
+	bpf_program__set_autoattach(skel->progs.generic_kretprobe_capture, false);
 	bpf_program__set_autoattach(skel->progs.generic_uprobe_capture, false);
 	bpf_program__set_autoattach(skel->progs.generic_uretprobe_capture, false);
 	/* Count-only configs never verify or load the capture programs. */
 	bpf_program__set_autoload(skel->progs.generic_kprobe_capture, load_capture);
+	bpf_program__set_autoload(skel->progs.generic_kretprobe_capture, load_capture);
 	bpf_program__set_autoload(skel->progs.generic_uprobe_capture, load_capture);
 	bpf_program__set_autoload(skel->progs.generic_uretprobe_capture, load_capture);
 	if (!load_capture)
@@ -851,6 +853,16 @@ static int load_generic(void)
 					drop_links_from(before);
 					ok = -1;
 				}
+			}
+		} else if (p->kind == BPF_KIND_KRETPROBE) {
+			LIBBPF_OPTS(bpf_kprobe_opts, opt);
+			if (!p->symbol[0]) {
+				bpf_skip_set(p->name, 1);
+			} else {
+				opt.bpf_cookie = slot;
+				opt.retprobe = true;
+				ok = keep_link_or_fail(bpf_program__attach_kprobe_opts(gen_skel->progs.generic_kretprobe_capture,
+					p->symbol, &opt), p->name, "kretprobe attach", 1);
 			}
 		} else if (p->kind == BPF_KIND_URETPROBE) {
 			LIBBPF_OPTS(bpf_uprobe_opts, opt);
@@ -1099,6 +1111,7 @@ int bpf_loader_selftest(void)
 	bpf_program__set_autoattach(gen->progs.generic_uprobe, false);
 	bpf_program__set_autoattach(gen->progs.generic_uretprobe, false);
 	bpf_program__set_autoattach(gen->progs.generic_kprobe_capture, false);
+	bpf_program__set_autoattach(gen->progs.generic_kretprobe_capture, false);
 	bpf_program__set_autoattach(gen->progs.generic_uprobe_capture, false);
 	bpf_program__set_autoattach(gen->progs.generic_uretprobe_capture, false);
 	if (generic_bpf__load(gen)) {

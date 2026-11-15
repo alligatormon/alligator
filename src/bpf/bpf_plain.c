@@ -353,7 +353,7 @@ json_t *bpf_plain_parse(const bpf_plain_tok *toks, uint64_t n, uint64_t *idx)
 				i++;
 				continue;
 			}
-			if (!strcmp(t->s, "kprobe") || !strcmp(t->s, "uprobe") || !strcmp(t->s, "uretprobe") || !strcmp(t->s, "probe")) {
+			if (!strcmp(t->s, "kprobe") || !strcmp(t->s, "kretprobe") || !strcmp(t->s, "uprobe") || !strcmp(t->s, "uretprobe") || !strcmp(t->s, "probe")) {
 				const char *kind = t->s;
 				const bpf_plain_tok *sym;
 				const char *symbol = "";

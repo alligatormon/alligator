@@ -180,7 +180,7 @@ JSON для одного kprobe:
 
 ## Capture mode
 
-`mode capture;` вешает отдельные capture-программы (`generic_kprobe_capture`, `generic_uprobe_capture`, `generic_uretprobe_capture`), а не программы count и latency. Каждый вызов копирует один буфер в ring buffer на 1MiB. Userspace гоняет PCRE1 по этому буферу. Именованные группы становятся Prometheus labels. Регулярное выражение не компилируется в eBPF, поток байт не склеивается: каждый `read`/`write` — отдельное событие. Кусок сообщения, который не совпал, отбрасывается.
+`mode capture;` вешает отдельные capture-программы (`generic_kprobe_capture`, `generic_kretprobe_capture`, `generic_uprobe_capture`, `generic_uretprobe_capture`), а не программы count и latency. Каждый вызов копирует один буфер в ring buffer на 1MiB. Userspace гоняет PCRE1 по этому буферу. Именованные группы становятся Prometheus labels. Регулярное выражение не компилируется в eBPF, поток байт не склеивается: каждый `read`/`write` — отдельное событие. Кусок сообщения, который не совпал, отбрасывается.
 
 Это не HTTP- и не TLS-парсер. OpenSSL ниже — пример разницы между аргументами на входе и буфером на возврате. Строки `curl -v` вроде `GET / HTTP/2` — логические; при HTTP/2 в `SSL_write` / `SSL_read` лежат client connection preface и бинарные фреймы (SETTINGS, HEADERS с HPACK и т.д.), а не ASCII request/status line.
 
@@ -255,7 +255,7 @@ namespace {
 Поля `arg` для `type=user_buffer`:
 
 - `size=argN` — длина в этом целочисленном аргументе
-- `size=retval` — длина в коде возврата (только `uretprobe`)
+- `size=retval` — длина в коде возврата (только `kretprobe` / `uretprobe`)
 - `size=deref:argN` — длина это `u64` по указателю в аргументе N
 - `size=deref:saved_argN` — то же, указатель сохранён на входе
 - `max=N` — не больше N байт, жёсткий потолок 512. Более длинный источник увеличивает `bpf_probe_dropped_total{reason="trunc"}`, событие всё равно уходит
@@ -263,9 +263,9 @@ namespace {
 - `label` — имя для `regex on=...`. Сырой буфер label не становится
 - `type=user_buffer` отклоняется, если у probe нет `mode capture`
 
-`regex on=LABEL pattern="..."` вызывает `pcre_exec` с длиной скопированного буфера, не через `strlen`. Нет совпадения — событие сброшено (`reason="regex_nomatch"`). Шаблон, который не скомпилировался (в том числе из‑за одинаковых имён named groups без `PCRE_DUPNAMES`), сбрасывает все события этого probe (`reason="regex_fail"`); в логе будет `bpf: probe '...' regex failed`. До шести именованных групп становятся labels. У серии также есть `probe` и `comm`. У uretprobe метка `probe` — это `binary:symbol:ret`. Без `metric` имя — `bpf_us_fn_events_total`.
+`regex on=LABEL pattern="..."` вызывает `pcre_exec` с длиной скопированного буфера, не через `strlen`. Нет совпадения — событие сброшено (`reason="regex_nomatch"`). Шаблон, который не скомпилировался (в том числе из‑за одинаковых имён named groups без `PCRE_DUPNAMES`), сбрасывает все события этого probe (`reason="regex_fail"`); в логе будет `bpf: probe '...' regex failed`. До шести именованных групп становятся labels. У серии также есть `probe` и `comm`. У `kretprobe` / `uretprobe` метка `probe` — это `symbol:ret` или `binary:symbol:ret`. Без `metric` имя — `bpf_us_fn_events_total`.
 
-`kprobe` в capture читает user pointer на входе. Return — только `uretprobe`. `latency;` на capture probe игнорируется.
+`kprobe` / `uprobe` в capture могут читать user pointer на входе. Если буфер заполняется только при возврате (`read` / `recv` / `recvfrom`), спарьте entry probe с `save` указателя и `kretprobe` (ядро) или `uretprobe` (userspace) с `from=saved` и `size=retval`. `latency;` на capture probe игнорируется.
 
 Конфиг без `mode capture` не загружает capture-программы: ошибка верификатора capture не блокирует count и latency. В смешанном конфиге, если capture-программы не загрузились, эти probes пропускаются (`bpf_probe_skipped`), а count и latency всё равно attach. Если ring buffer capture не открылся, capture-ссылки снимаются и эти probes пропускаются. Они не остаются без потребителя.
 
@@ -274,6 +274,112 @@ Ring buffer 1MiB. Userspace читает его постоянно: libuv опр
 Если у namespace bpf нет явного `max_series`, capture ставит 4096. Явное значение, включая `0` (без лимита), сохраняется. Этот предел не даёт capture раздувать дерево метрик без границы.
 
 Именованные группы regex становятся Prometheus labels. Не направляйте это на процесс с секретами: в буфере могут быть cookies, токены, пароли и тела запросов. Неограниченная группа вроде `path` или `.*` — утечка кардинальности. Фильтруйте `comm`, держите regex узким, `max` маленьким и задайте `max_series`. Count mode эти буферы не копирует.
+
+### Plaintext TCP capture (Redis, Memcached)
+
+Пример `SSL_write` / `SSL_read` выше работает только потому, что OpenSSL даёт plaintext на границе шифрования. Redis и Memcached обычно — **plaintext TCP** (Redis `6379`, Memcached `11211`); `SSL_write` там нет. Ловим байты, которые процесс кладёт в сокет, через `kprobe` на kernel-функцию с обычным C ABI: буфер — второй аргумент, длина — третий — та же раскладка `arg 1 type=user_buffer size=arg2`, что у `SSL_write`.
+
+Берите `__sys_sendto` (и, если есть, `__sys_send` или `vfs_write`). **Не** используйте `sys_write`, `sys_send`, `sys_sendto` и `__x64_sys_*`: на x86_64 эти обёртки принимают `struct pt_regs *`, а alligator читает `PT_REGS_PARM1..6` как обычные C-аргументы без syscall-unwrap, поэтому `arg 1` / `arg 2` — не `buf` / `len`. Символ проверьте через `grep __sys_sendto /proc/kallsyms` (или `vfs_write`) и bpftrace до выката. `sys_sendmsg` / `sock_sendmsg` читать напрямую нельзя — payload в `msg->msg_iov`, а `user_buffer`-читатель его не разыменовывает.
+
+```
+bpf {
+    namespace bpf_tcp;
+
+    kprobe __sys_sendto {
+        mode capture;
+        metric redis_cmd_total;
+        comm redis-cli;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^\*\d+\r\n\$\d+\r\n(?P<cmd>GET|SET|DEL|HGET|HSET|HEXISTS|INCR|DECR|EXISTS|EXPIRE|TTL|PING|LLEN|LPUSH|RPUSH|SADD|SMEMBERS|ZADD|ZRANGE|FLUSHALL|FLUSHDB|INFO|CONFIG|REPLCONF|AUTH)\r\n";
+    }
+
+    kprobe vfs_write {
+        mode capture;
+        metric redis_reply_total;
+        comm redis-server;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<type>[+\-:*$])";
+    }
+
+    /* Ответы на клиенте: recvfrom заполняет буфер при возврате. Save указателя
+     * на entry; kretprobe копирует min(retval, max) после syscall. */
+    kprobe __sys_recvfrom {
+        mode capture;
+        pair_id redis_recvfrom;
+        save arg1;
+    }
+    kretprobe __sys_recvfrom {
+        mode capture;
+        pair_id redis_recvfrom;
+        metric redis_reply_total;
+        comm redis-cli;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^(?P<type>[+*$:])";
+    }
+
+    kprobe __sys_sendto {
+        mode capture;
+        metric memcached_cmd_total;
+        comm <memcached-client>;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<cmd>get|gets|set|add|replace|append|prepend|incr|decr|cas|touch|flush_all|version|stats|delete|quit)\b";
+    }
+
+    kprobe vfs_write {
+        mode capture;
+        metric memcached_reply_total;
+        comm memcached;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+    }
+
+    kprobe __sys_recvfrom {
+        mode capture;
+        pair_id memcached_recvfrom;
+        save arg1;
+    }
+    kretprobe __sys_recvfrom {
+        mode capture;
+        pair_id memcached_recvfrom;
+        metric memcached_reply_total;
+        comm <memcached-client>;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+    }
+}
+
+namespace {
+    name bpf_tcp;
+    max_series 4096;
+}
+```
+
+**Направление.**
+
+- **Исходящее** (send/write): kprobe на `__sys_sendto` / `vfs_write` — буфер валиден на entry.
+  - **команды** (client → server): `comm` клиента + `__sys_sendto`,
+  - **ответы** (server → client): `comm` сервера + `vfs_write` (или `__sys_sendto`, если сервер шлёт так).
+- **Входящее** (recv/recvfrom/read): ядро копирует в user-буфер *до возврата*. Одного kprobe на entry мало — буфер пустой или старый. Спарьте `kprobe __sys_recvfrom` (`save arg1`) с `kretprobe __sys_recvfrom` (`from=saved`, `size=retval`, `when retval_gt 0`) — тот же stash, что у `SSL_read`, но на kernel-символе, который реально срабатывает у `redis-cli` (libc `uprobe`/`uretprobe` на `recvfrom` часто молчит). Берите `__sys_recvfrom`, не `__x64_sys_recvfrom` (та же проблема с `pt_regs *`, что на send).
+
+Сначала проверьте bpftrace (`kprobe`+`kretprobe` на `__sys_recvfrom`, stash `arg1` на entry, `buf(uptr(...), retval)` на return). Успешные ответы Redis выглядят как `$5\r\nvalue\r\n`; pattern выше оставляет `+` / `$` / `*` / `:` и отбрасывает `-ERR…`.
+
+**Framing.** Один send/write может нести несколько pipelined-команд или только половину одной; Alligator поток не склеивает. Pattern привязан к `^`, поэтому он подписывает **первую** команду в буфере и игнорирует остальное. Половинная команда в начале сбрасывает событие (`reason="regex_nomatch"`). Поэтому pipelined Redis занижает счёт, а pipelined-ответы не дробятся на per-message события.
+
+**Клиенты Redis шлют RESP.** `redis-cli` и большинство библиотек (go-redis, redis-py, hiredis) используют array-форму `*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n`. Ловите её (как в примере). ASCII/inline-pattern вроде `^GET\b` RESP пропускает и даёт только `regex_nomatch`.
+
+**Memcached — ASCII.** Команды вида `get key\r\n` / `set key …\r\n`; lowercase-pattern выше подходит. Binary protocol здесь не разбирается.
+
+**Фильтруйте `comm`.** `__sys_sendto` и особенно `vfs_write` срабатывают на каждый подходящий send/write процесса — другие сокеты, log-файлы, stdout. Без `comm` ловится всё. `comm` — 16-байтное имя задачи; `redis-cli` (9), `redis-server` (12), `memcached` (9) и `redis-sentinel` (14) влезают; более длинное имя клиента — его 15-символьное усечение.
+
+**Секреты.** Эти pattern ловят только глагол (или байт типа RESP), не ключ и не значение, поэтому пароль Redis `AUTH` или секрет `CONFIG SET` в label не попадают. Не добавляйте группу, хватающую значение; неограниченная `path` / `.*` — утечка кардинальности и секрета.
+
+**TLS.** Если соединение по TLS (Redis `tls-port`, Memcached через stunnel), используйте пример `SSL_write` / `SSL_read` выше с теми же pattern вместо socket kprobe.
+
+**Символ.** Смотрите `/proc/kallsyms` на целевом хосте. `__sys_sendto` — обычный send-путь для `redis-cli`; `__sys_recvfrom` — парный receive (entry `save` + `kretprobe`). Если клиент ходит через `send` / `write` / `recv` / `read`, попробуйте `__sys_send` / `vfs_write` / `__sys_recv` / `vfs_read` (те же слоты буфера/длины у C ABI helpers; `vfs_*` ещё и на file/pipe I/O). Это надёжнее libc `uprobe`/`uretprobe` — многие клиенты до динамического libc не доходят.
+
+Для полных метрик Redis/Memcached (hit/miss, `INFO`, `stats`) у alligator есть активные collectors `redis` и `memcached`, которые диалятся в порт и парсят ответ; capture — это пассивный per-message счёт по сети, не замена им.
 
 ## Built-in probes
 

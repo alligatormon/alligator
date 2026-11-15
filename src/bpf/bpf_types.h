@@ -66,6 +66,7 @@ typedef int64_t __s64;
 #define BPF_KIND_UPROBE 2
 #define BPF_KIND_NAMED 3
 #define BPF_KIND_URETPROBE 4
+#define BPF_KIND_KRETPROBE 5
 
 #define BPF_NAMED_RUNQUEUE 1
 #define BPF_NAMED_OFFCPU 2
@@ -202,7 +203,7 @@ struct bpf_drop_val {
 	__u64 stash_miss;
 };
 
-/* Entry registers kept until the paired uretprobe. Key is (tid, pair_id). */
+/* Entry registers kept until the paired kretprobe/uretprobe. Key is (tid, pair_id). */
 struct bpf_stash_key {
 	__u64 tid;
 	__u32 pair_id;

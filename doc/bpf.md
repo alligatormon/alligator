@@ -180,7 +180,7 @@ JSON for one kprobe:
 
 ## Capture mode
 
-`mode capture;` attaches dedicated capture programs (`generic_kprobe_capture`, `generic_uprobe_capture`, `generic_uretprobe_capture`), not the count and latency programs. Each call copies one buffer into a 1MiB ring buffer. Userspace runs a PCRE1 pattern on that buffer. Named groups become Prometheus labels. The pattern is not compiled into eBPF, and Alligator does not reassemble a byte stream: each `read`/`write` is one event. A partial message that does not match is dropped.
+`mode capture;` attaches dedicated capture programs (`generic_kprobe_capture`, `generic_kretprobe_capture`, `generic_uprobe_capture`, `generic_uretprobe_capture`), not the count and latency programs. Each call copies one buffer into a 1MiB ring buffer. Userspace runs a PCRE1 pattern on that buffer. Named groups become Prometheus labels. The pattern is not compiled into eBPF, and Alligator does not reassemble a byte stream: each `read`/`write` is one event. A partial message that does not match is dropped.
 
 This is not an HTTP or TLS parser. OpenSSL below is only an example of entry arguments versus a return-time buffer. `curl -v` lines such as `GET / HTTP/2` are logical; with HTTP/2 the bytes in `SSL_write` / `SSL_read` are the client connection preface and binary frames (SETTINGS, HEADERS with HPACK, and so on), not an ASCII request or status line.
 
@@ -255,7 +255,7 @@ In plain config a quoted pattern keeps the backslashes you write. PCRE `\s` is w
 `arg` fields for `type=user_buffer`:
 
 - `size=argN` — length is that integer argument
-- `size=retval` — length is the return value (`uretprobe` only)
+- `size=retval` — length is the return value (`kretprobe` / `uretprobe` only)
 - `size=deref:argN` — length is a `u64` read from the pointer in argument N
 - `size=deref:saved_argN` — same, using the pointer saved on entry
 - `max=N` — copy at most N bytes, hard-capped at 512. A longer source increments `bpf_probe_dropped_total{reason="trunc"}` and the event is still submitted
@@ -263,9 +263,9 @@ In plain config a quoted pattern keeps the backslashes you write. PCRE `\s` is w
 - `label` — name used by `regex on=...`. The raw buffer is not a label
 - `type=user_buffer` is rejected unless the probe is `mode capture`
 
-`regex on=LABEL pattern="..."` runs `pcre_exec` on that buffer's copied length, not on a C string. No match drops the event (`reason="regex_nomatch"`). A pattern that fails to compile (including duplicate named groups without `PCRE_DUPNAMES`) drops every event from that probe (`reason="regex_fail"`); look for `bpf: probe '...' regex failed` in the log. Up to six named groups become labels. The series also has `probe` and `comm`. On a uretprobe, `probe` is `binary:symbol:ret`. Without `metric`, the name is `bpf_us_fn_events_total`.
+`regex on=LABEL pattern="..."` runs `pcre_exec` on that buffer's copied length, not on a C string. No match drops the event (`reason="regex_nomatch"`). A pattern that fails to compile (including duplicate named groups without `PCRE_DUPNAMES`) drops every event from that probe (`reason="regex_fail"`); look for `bpf: probe '...' regex failed` in the log. Up to six named groups become labels. The series also has `probe` and `comm`. On a `kretprobe` / `uretprobe`, `probe` is `symbol:ret` or `binary:symbol:ret`. Without `metric`, the name is `bpf_us_fn_events_total`.
 
-`kprobe` capture reads a user pointer on entry. Return capture is `uretprobe` only. `latency;` on a capture probe is ignored.
+`kprobe` / `uprobe` capture can read a user pointer on entry. When the buffer is filled only on return (`read` / `recv` / `recvfrom`), pair an entry probe that `save`s the pointer with a `kretprobe` (kernel) or `uretprobe` (userspace) that uses `from=saved` and `size=retval`. `latency;` on a capture probe is ignored.
 
 A config with no `mode capture` does not load the capture programs, so a capture verifier failure cannot block count or latency. In a mixed config, if the capture programs fail to load, those probes are skipped (`bpf_probe_skipped`) and the count and latency probes still attach. If the capture ring buffer cannot be opened, the capture links are detached and those probes are skipped. They are not left running without a consumer.
 
@@ -274,6 +274,112 @@ The ring buffer is 1MiB. Userspace drains it continuously: libuv polls the ring-
 If the bpf namespace has no explicit `max_series`, capture sets it to 4096. An explicit value, including `0` (unlimited), is kept. That cap is what stops capture from growing the metric tree without a bound.
 
 Named regex groups become Prometheus labels. Do not point this at a process that handles secrets: a buffer can contain cookies, tokens, passwords, or request bodies. An unbounded group such as `path` or `.*` is a cardinality leak. Filter with `comm`, keep the regex tight, keep `max` small, and set `max_series`. Count mode never copies these buffers.
+
+### Plaintext TCP capture (Redis, Memcached)
+
+The `SSL_write` / `SSL_read` example above works only because OpenSSL exposes the plaintext at the crypto boundary. Redis and Memcached are usually **plaintext TCP** (Redis `6379`, Memcached `11211`); there is no `SSL_write` to hook. Capture the bytes the process puts on the socket with a `kprobe` on a kernel function that still has a normal C ABI: buffer in the second argument, length in the third — the same `arg 1 type=user_buffer size=arg2` layout as `SSL_write`.
+
+Prefer `__sys_sendto` (and, when present, `__sys_send` or `vfs_write`). Do **not** use `sys_write`, `sys_send`, `sys_sendto`, or `__x64_sys_*`: on x86_64 those wrappers take a `struct pt_regs *`, and alligator reads `PT_REGS_PARM1..6` as ordinary C arguments with no syscall unwrap, so `arg 1` / `arg 2` are not `buf` / `len`. Confirm the symbol with `grep __sys_sendto /proc/kallsyms` (or `vfs_write`) and with bpftrace before deploying. `sys_sendmsg` / `sock_sendmsg` cannot be read directly — the payload lives in `msg->msg_iov`, which the `user_buffer` reader does not dereference.
+
+```
+bpf {
+    namespace bpf_tcp;
+
+    kprobe __sys_sendto {
+        mode capture;
+        metric redis_cmd_total;
+        comm redis-cli;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^\*\d+\r\n\$\d+\r\n(?P<cmd>GET|SET|DEL|HGET|HSET|HEXISTS|INCR|DECR|EXISTS|EXPIRE|TTL|PING|LLEN|LPUSH|RPUSH|SADD|SMEMBERS|ZADD|ZRANGE|FLUSHALL|FLUSHDB|INFO|CONFIG|REPLCONF|AUTH)\r\n";
+    }
+
+    kprobe vfs_write {
+        mode capture;
+        metric redis_reply_total;
+        comm redis-server;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<type>[+\-:*$])";
+    }
+
+    /* Client-side replies: recvfrom fills the buffer on return. Save the user
+     * pointer on entry; kretprobe copies min(retval, max) after the syscall. */
+    kprobe __sys_recvfrom {
+        mode capture;
+        pair_id redis_recvfrom;
+        save arg1;
+    }
+    kretprobe __sys_recvfrom {
+        mode capture;
+        pair_id redis_recvfrom;
+        metric redis_reply_total;
+        comm redis-cli;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^(?P<type>[+*$:])";
+    }
+
+    kprobe __sys_sendto {
+        mode capture;
+        metric memcached_cmd_total;
+        comm <memcached-client>;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<cmd>get|gets|set|add|replace|append|prepend|incr|decr|cas|touch|flush_all|version|stats|delete|quit)\b";
+    }
+
+    kprobe vfs_write {
+        mode capture;
+        metric memcached_reply_total;
+        comm memcached;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+    }
+
+    kprobe __sys_recvfrom {
+        mode capture;
+        pair_id memcached_recvfrom;
+        save arg1;
+    }
+    kretprobe __sys_recvfrom {
+        mode capture;
+        pair_id memcached_recvfrom;
+        metric memcached_reply_total;
+        comm <memcached-client>;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+    }
+}
+
+namespace {
+    name bpf_tcp;
+    max_series 4096;
+}
+```
+
+**Direction.**
+
+- **Outgoing** (send/write): kprobe on `__sys_sendto` / `vfs_write` — buffer is valid on entry.
+  - **commands** (client → server): client `comm` + `__sys_sendto`,
+  - **replies** (server → client): server `comm` + `vfs_write` (or `__sys_sendto` if the server sends that way).
+- **Incoming** (recv/recvfrom/read): the kernel copies into the user buffer *before return*. A kprobe on entry alone sees an empty or stale buffer. Pair `kprobe __sys_recvfrom` (`save arg1`) with `kretprobe __sys_recvfrom` (`from=saved`, `size=retval`, `when retval_gt 0`) — same stash pattern as `SSL_read`, but on the kernel symbol that actually fires for `redis-cli` (a libc `uprobe`/`uretprobe` on `recvfrom` often does not). Prefer `__sys_recvfrom`, not `__x64_sys_recvfrom` (same `pt_regs *` wrapper problem as on the send path).
+
+Verify with bpftrace first (`kprobe`+`kretprobe` on `__sys_recvfrom`, stash `arg1` on entry, print `buf(uptr(...), retval)` on return). Successful Redis replies look like `$5\r\nvalue\r\n`; the pattern above keeps `+` / `$` / `*` / `:` and drops `-ERR…`.
+
+**Framing.** One send/write may carry several pipelined commands or only half of one; Alligator does not reassemble. The pattern is anchored at `^`, so it labels the **first** command in the buffer and ignores the rest. A half command at the start drops the event (`reason="regex_nomatch"`). Pipelined Redis therefore undercounts, and pipelined replies do not split into per-message events.
+
+**Redis clients send RESP.** `redis-cli` and most libraries (go-redis, redis-py, hiredis) use the array form `*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n`. Match that form (as in the example). An ASCII/inline pattern such as `^GET\b` misses RESP and only increments `regex_nomatch`.
+
+**Memcached is ASCII.** Commands look like `get key\r\n` / `set key …\r\n`; the lowercase verb pattern above matches. Binary protocol is not covered here.
+
+**Filter with `comm`.** `__sys_sendto` and especially `vfs_write` fire for every matching send/write of the process — other sockets, log files, stdout. Without `comm` you capture all of it. `comm` is the 16-byte task name; `redis-cli` (9), `redis-server` (12), `memcached` (9), and `redis-sentinel` (14) fit; a longer client name must be the 15-character truncation.
+
+**Secrets.** These patterns match only the verb (or the RESP type byte), never the key or value, so a Redis `AUTH` password or `CONFIG SET` secret does not land in a label. Do not add a group that captures the value; an unbounded `path` / `.*` group is a cardinality and secret leak.
+
+**TLS.** If the connection is TLS (Redis `tls-port`, Memcached over stunnel), use the `SSL_write` / `SSL_read` example above with these same patterns instead of the socket kprobe.
+
+**Symbol.** Check `/proc/kallsyms` on the target host. `__sys_sendto` is the usual send path for `redis-cli`; `__sys_recvfrom` is the matching receive path (entry `save` + `kretprobe`). If the client uses `send` / `write` / `recv` / `read`, try `__sys_send` / `vfs_write` / `__sys_recv` / `vfs_read` (same buffer/length slots on the C ABI helpers; `vfs_*` also fires for file and pipe I/O). Prefer these over libc `uprobe`/`uretprobe` — many clients never hit a dynamic libc symbol.
+
+For full Redis/Memcached metrics (hit/miss ratio, `INFO`, `stats`) alligator ships active `redis` and `memcached` collectors that dial the port and parse the reply; capture is passive per-message counting over the wire, not a substitute for them.
 
 ## Built-in probes
 
