@@ -15,6 +15,7 @@
 #include "common/logs.h"
 #include "metric/metric_types.h"
 #include "dstructures/queue.h"
+#include "dstructures/uv_cache.h"
 #include "events/context_arg.h"
 #include "events/metrics.h"
 #include "common/rtime.h"
@@ -32,6 +33,7 @@ typedef struct pg_data {
 	PGconn *conn;
 	int type;
 	int poll_dup_fd;
+	uv_timer_t *session_timer;
 } pg_data;
 
 typedef struct pg_stale_poll {
@@ -39,6 +41,9 @@ typedef struct pg_stale_poll {
 } pg_stale_poll;
 
 void pg_poll_event(uv_poll_t* handle, int status, int events);
+void run_close(context_arg *carg);
+static void postgresql_error_metric_msg(context_arg *carg, const char *errmsg);
+void postgresql_connect_ok(context_arg *carg, uint64_t ok);
 
 static pg_data *pg_data_new(int type)
 {
@@ -48,6 +53,90 @@ static pg_data *pg_data_new(int type)
 	data->type = type;
 	data->poll_dup_fd = -1;
 	return data;
+}
+
+/* Stop and recycle the one-shot scrape timer. Safe if already stopped/null. */
+static void postgresql_session_timer_stop(pg_data *data)
+{
+	uv_timer_t *timer;
+
+	if (!data || !data->session_timer)
+		return;
+
+	timer = data->session_timer;
+	data->session_timer = NULL;
+	timer->data = NULL;
+	uv_timer_stop(timer);
+	alligator_timer_cache_push(timer);
+}
+
+static void postgresql_session_timeout(uv_timer_t *timer)
+{
+	context_arg *carg;
+	pg_data *data;
+
+	if (!timer)
+		return;
+
+	carg = timer->data;
+	uv_timer_stop(timer);
+
+	if (carg) {
+		data = carg->data;
+		if (data && data->session_timer == timer)
+			data->session_timer = NULL;
+	} else {
+		data = NULL;
+	}
+
+	timer->data = NULL;
+	alligator_timer_cache_push(timer);
+
+	if (!carg)
+		return;
+
+	carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"session timeout\", \"timeout_ms\": %"u64"}\n",
+		carg->fd, carg->key, carg->timeout);
+	carg->timeout_counter++;
+	carg->parser_status = 0;
+	postgresql_error_metric_msg(carg, "timeout expired");
+
+	if (data && data->conn && PQstatus(data->conn) != CONNECTION_OK)
+		postgresql_connect_ok(carg, 0);
+
+	run_close(carg);
+}
+
+static int postgresql_session_timer_arm(context_arg *carg)
+{
+	pg_data *data;
+	uv_timer_t *timer;
+	uint64_t timeout_ms;
+
+	if (!carg || !carg->loop)
+		return 0;
+
+	data = carg->data;
+	if (!data)
+		return 0;
+
+	postgresql_session_timer_stop(data);
+
+	timeout_ms = carg->timeout;
+	if (timeout_ms < 1)
+		timeout_ms = 5000;
+
+	timer = alligator_cache_get(ac->uv_cache_timer, sizeof(uv_timer_t));
+	if (!timer)
+		return 0;
+
+	timer->data = carg;
+	uv_timer_init(carg->loop, timer);
+	data->session_timer = timer;
+	uv_timer_start(timer, postgresql_session_timeout, timeout_ms, 0);
+	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"session timer armed\", \"timeout_ms\": %"u64"}\n",
+		carg->fd, carg->key, timeout_ms);
+	return 1;
 }
 
 /*
@@ -539,6 +628,8 @@ void on_handle_closed(uv_handle_t* handle) {
 	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"closed socket\"}\n",
 		carg->fd, carg->key, data ? (void *)data->conn : NULL);
 
+	postgresql_session_timer_stop(data);
+
 	if (data && data->poll_dup_fd >= 0) {
 		close(data->poll_dup_fd);
 		data->poll_dup_fd = -1;
@@ -585,6 +676,9 @@ static void run_close_internal(void *arg) {
 
 	if (!carg || !carg->dynamic_socket)
 		return;
+
+	/* Stop scrape timer before tearing down poll to avoid racing the timeout cb. */
+	postgresql_session_timer_stop(carg->data);
 
 	if (uv_is_closing((uv_handle_t*)carg->dynamic_socket)) {
 		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run close\", \"function\": \"%s\"}\n", carg->fd, carg->key, "already closing");
@@ -859,6 +953,7 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargname, char *url, char *ns) {
 	context_arg *db_carg = calloc(1, sizeof(*db_carg));
 	db_carg->ttl = db_carg->curr_ttl = carg->ttl;
+	db_carg->timeout = carg->timeout;
 
 	db_carg->parental_carg = carg;
 	db_carg->data = NULL;
@@ -1060,7 +1155,7 @@ int postgresql_set_params(PGconn *conn, context_arg *carg)
 	sec = carg->timeout / 1000;
 	msec = carg->timeout % 1000;
 	timeout.tv_sec = sec;
-	timeout.tv_usec = msec;
+	timeout.tv_usec = msec * 1000;
 
 	setopt_result_1 = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
 	setopt_result_2 = setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
@@ -1352,9 +1447,6 @@ void postgresql_run(void* arg)
 		}
 	}
 
-
-
-	carg->timeout = 1000;
 	if (!carg->loop)
 		carg->loop = ac->loop;
 
@@ -1399,6 +1491,22 @@ void postgresql_run(void* arg)
 		}
 		return;
 	}
+
+	/* Whole-scrape deadline (connect poll + queries). Socket SO_*TIMEO alone
+	 * does not abort hung nonblocking libpq + uv_poll sessions. */
+	if (!postgresql_session_timer_arm(carg)) {
+		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"session timer arm failed\"}\n", carg->fd, carg->key);
+		postgresql_connect_ok(carg, 0);
+		if (carg->dynamic_socket)
+			run_close(carg);
+		else {
+			PQfinish(conn);
+			data->conn = NULL;
+			aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+		}
+		return;
+	}
+
 	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"created socket\"}\n", carg->fd, carg->key);
 	if (data->type == PG_TYPE_PG)
 	{
@@ -1527,6 +1635,7 @@ void postgresql_client_del(context_arg* carg)
 		run_close(carg);
 		return;
 	}
+	postgresql_session_timer_stop(carg->data);
 	free(carg->data);
 	carg->data = NULL;
 	carg_free(carg);

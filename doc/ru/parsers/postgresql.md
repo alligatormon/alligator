@@ -5,7 +5,7 @@
 Поддержка PostgreSQL через пользовательские запросы:
 ```
 aggregate {
-	postgresql postgresql://postgres@localhost/postgres name=pg;
+	postgresql postgresql://postgres@localhost/postgres name=pg timeout=10s;
 }
 
 query {
@@ -27,6 +27,10 @@ query {
 	make postgresql_replication_lag;
 }
 ```
+
+## `timeout`
+
+Параметр агрегата `timeout` — дедлайн всего scrape (connect + queries); по умолчанию **5s**, если не задан. Единицы — как в [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` или целое число миллисекунд). Парсер ставит one-shot `uv_timer` на сессию; одних `SO_RCVTIMEO`/`SO_SNDTIMEO` недостаточно, чтобы оборвать зависший nonblocking libpq + `uv_poll`. По срабатыванию alligator увеличивает `timeout_counter` / session timeout metrics, пишет `postgresql_error{reason="timeout"}` и закрывает сессию, чтобы следующий период мог переподключиться.
 
 `datasource pg/*` выполняет query на каждой базе экземпляра. `except` в блоке query пропускает имена (точные и `/regex/`). Тот же список отбрасывает строки результата с label `dbname` / `datname` / `psql_database`, поэтому он работает и с `datasource pg`, если SQL перечисляет базы в результате. Template и прочие системные базы не пропускаются, пока их нет в `except`. См. [query except](../query.md).
 

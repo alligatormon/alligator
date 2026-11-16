@@ -3,7 +3,7 @@
 PostgreSQL support by user queries:
 ```
 aggregate {
-	postgresql postgresql://postgres@localhost/postgres name=pg;
+	postgresql postgresql://postgres@localhost/postgres name=pg timeout=10s;
 }
 
 query {
@@ -25,6 +25,10 @@ query {
 	make postgresql_replication_lag;
 }
 ```
+
+## `timeout`
+
+Aggregate `timeout` is the whole-scrape deadline for connect + queries (default **5s** when unset). Units follow [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` or integer milliseconds). The parser arms a one-shot `uv_timer` for the session; socket `SO_RCVTIMEO`/`SO_SNDTIMEO` alone do not abort hung nonblocking libpq + `uv_poll` scrapes. On fire, alligator increments `timeout_counter` / session timeout metrics, emits `postgresql_error{reason="timeout"}`, and closes the session so the next period can reconnect.
 
 `datasource pg/*` runs the query on every database listed from the instance. Use `except` on the query block to skip names (exact and `/regex/`). The same list also drops result rows whose `dbname` / `datname` / `psql_database` label matches, so it works with `datasource pg` queries that enumerate databases in SQL. Template and other system databases are not skipped unless listed in `except`. See [query except](../query.md).
 

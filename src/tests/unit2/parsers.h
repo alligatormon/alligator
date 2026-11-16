@@ -4905,6 +4905,9 @@ void api_test_postgresql_error_reason()
         postgresql_error_reason("connection to server at \"x\" (1.2.3.4), port 5432 failed: Connection refused"));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "timeout",
         postgresql_error_reason("timeout expired"));
+    /* libpq/server text; scrape timer uses "timeout expired" (same reason). */
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "timeout",
+        postgresql_error_reason("timed out"));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "auth_failed",
         postgresql_error_reason("password authentication failed for user \"u\""));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hba_rejected",

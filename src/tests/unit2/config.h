@@ -2870,7 +2870,7 @@ void test_config_generators_batch2()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(aggregate));
     json_t *agg0 = json_array_get(aggregate, 0);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://user:*******@example.org/metrics", json_string_value(json_object_get(agg0, "url")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://*******@example.org/metrics", json_string_value(json_object_get(agg0, "url")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_integer_value(json_object_get(agg0, "follow_redirects")));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 7, json_integer_value(json_object_get(agg0, "period")));
     json_t *pquery = json_object_get(agg0, "pquery");
@@ -6806,7 +6806,7 @@ void test_config_tls_revocation_keys()
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "on", json_string_value(json_object_get(g0, "tls_verify")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "/tmp/ca.crl", json_string_value(json_object_get(g0, "tls_crl")));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "hard", json_string_value(json_object_get(g0, "tls_revocation_mode")));
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://user:*******@127.0.0.1:3128", json_string_value(json_object_get(g0, "tls_ocsp_proxy")));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "http://*******@127.0.0.1:3128", json_string_value(json_object_get(g0, "tls_ocsp_proxy")));
     json_decref(dst);
 
     json_error_t perr;
