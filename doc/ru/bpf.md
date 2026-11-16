@@ -309,10 +309,6 @@ Ring buffer 1MiB. Userspace читает его постоянно: libuv опр
 
 ```
 bpf {
-    namespace bpf_tcp;
-
-    /* Проверенный client-side путь для redis-cli: команды на sendto, ответы на
-     * recvfrom (буфер заполняется при возврате). RESP-ошибки — `-WRONGTYPE…` / `-ERR…`. */
     kprobe __sys_sendto {
         mode capture;
         metric redis_cmd_total;
@@ -337,7 +333,6 @@ bpf {
         replace type $=bulk +=simple :=int *=array -=error;
     }
 
-    /* Опционально: ответы на стороне server write. */
     kprobe vfs_write {
         mode capture;
         metric redis_reply_total;
@@ -350,32 +345,24 @@ bpf {
     kprobe __sys_sendto {
         mode capture;
         metric memcached_cmd_total;
-        comm <memcached-client>;
+        comm python3;
         arg 1 type=user_buffer size=arg2 max=128 label=buf;
         regex on=buf pattern="^(?P<cmd>get|gets|set|add|replace|append|prepend|incr|decr|cas|touch|flush_all|version|stats|delete|quit)\b";
     }
 
-    kprobe vfs_write {
-        mode capture;
-        metric memcached_reply_total;
-        comm memcached;
-        arg 1 type=user_buffer size=arg2 max=128 label=buf;
-        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
-    }
-
     kprobe __sys_recvfrom {
         mode capture;
-        pair_id memcached_recvfrom;
+        pair_id mc_recvfrom;
         save arg1;
     }
     kretprobe __sys_recvfrom {
         mode capture;
-        pair_id memcached_recvfrom;
+        pair_id mc_recvfrom;
         metric memcached_reply_total;
-        comm <memcached-client>;
+        comm python3;
         when retval_gt 0;
         arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
-        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|DELETED|EXISTS|VERSION)\b";
     }
 }
 
@@ -398,7 +385,7 @@ namespace {
 
 **Клиенты Redis шлют RESP.** `redis-cli` и большинство библиотек (go-redis, redis-py, hiredis) используют array-форму `*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n`. Ловите её (как в примере). ASCII/inline-pattern вроде `^GET\b` RESP пропускает и даёт только `regex_nomatch`.
 
-**Memcached — ASCII.** Команды вида `get key\r\n` / `set key …\r\n`; lowercase-pattern выше подходит. Binary protocol здесь не разбирается.
+**Memcached — ASCII.** Команды вида `get key\r\n` / `set key …\r\n`; lowercase-pattern выше подходит. Binary protocol здесь не разбирается. Пример — та же пара `__sys_sendto` / `__sys_recvfrom`, что у Redis; берите клиент с `recv`/`recvfrom` (например `python3`), не классический `nc` на TCP (часто читает через `vfs_read`).
 
 **Фильтруйте `comm`.** `__sys_sendto` и особенно `vfs_write` срабатывают на каждый подходящий send/write процесса — другие сокеты, log-файлы, stdout. Без `comm` ловится всё. `comm` — 16-байтное имя задачи; `redis-cli` (9), `redis-server` (12), `memcached` (9) и `redis-sentinel` (14) влезают; более длинное имя клиента — его 15-символьное усечение.
 

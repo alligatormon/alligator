@@ -309,10 +309,6 @@ Prefer `__sys_sendto` (and, when present, `__sys_send` or `vfs_write`). Do **not
 
 ```
 bpf {
-    namespace bpf_tcp;
-
-    /* Verified client-side path for redis-cli: commands on sendto, replies on
-     * recvfrom (buffer filled on return). RESP errors are `-WRONGTYPE…` / `-ERR…`. */
     kprobe __sys_sendto {
         mode capture;
         metric redis_cmd_total;
@@ -337,7 +333,6 @@ bpf {
         replace type $=bulk +=simple :=int *=array -=error;
     }
 
-    /* Optional: replies as seen on the server write path. */
     kprobe vfs_write {
         mode capture;
         metric redis_reply_total;
@@ -350,32 +345,24 @@ bpf {
     kprobe __sys_sendto {
         mode capture;
         metric memcached_cmd_total;
-        comm <memcached-client>;
+        comm python3;
         arg 1 type=user_buffer size=arg2 max=128 label=buf;
         regex on=buf pattern="^(?P<cmd>get|gets|set|add|replace|append|prepend|incr|decr|cas|touch|flush_all|version|stats|delete|quit)\b";
     }
 
-    kprobe vfs_write {
-        mode capture;
-        metric memcached_reply_total;
-        comm memcached;
-        arg 1 type=user_buffer size=arg2 max=128 label=buf;
-        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
-    }
-
     kprobe __sys_recvfrom {
         mode capture;
-        pair_id memcached_recvfrom;
+        pair_id mc_recvfrom;
         save arg1;
     }
     kretprobe __sys_recvfrom {
         mode capture;
-        pair_id memcached_recvfrom;
+        pair_id mc_recvfrom;
         metric memcached_reply_total;
-        comm <memcached-client>;
+        comm python3;
         when retval_gt 0;
         arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
-        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|VERSION|DELETED|EXISTS|NG|CAS|NOKEY)\b";
+        regex on=buf pattern="^(?P<reply>VALUE|END|STORED|NOT_FOUND|NOT_STORED|OK|ERROR|DELETED|EXISTS|VERSION)\b";
     }
 }
 
@@ -398,7 +385,7 @@ Verify with bpftrace first (`kprobe`+`kretprobe` on `__sys_recvfrom`, stash `arg
 
 **Redis clients send RESP.** `redis-cli` and most libraries (go-redis, redis-py, hiredis) use the array form `*2\r\n$3\r\nGET\r\n$3\r\nkey\r\n`. Match that form (as in the example). An ASCII/inline pattern such as `^GET\b` misses RESP and only increments `regex_nomatch`.
 
-**Memcached is ASCII.** Commands look like `get key\r\n` / `set key …\r\n`; the lowercase verb pattern above matches. Binary protocol is not covered here.
+**Memcached is ASCII.** Commands look like `get key\r\n` / `set key …\r\n`; the lowercase verb pattern above matches. Binary protocol is not covered here. The example uses the same `__sys_sendto` / `__sys_recvfrom` pair as Redis; pick a client that calls `recv`/`recvfrom` (for example `python3`), not classic `nc` on TCP (it often reads via `vfs_read`).
 
 **Filter with `comm`.** `__sys_sendto` and especially `vfs_write` fire for every matching send/write of the process — other sockets, log files, stdout. Without `comm` you capture all of it. `comm` is the 16-byte task name; `redis-cli` (9), `redis-server` (12), `memcached` (9), and `redis-sentinel` (14) fit; a longer client name must be the 15-character truncation.
 
