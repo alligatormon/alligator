@@ -212,18 +212,27 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 6, p->nsys);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "openat", p->syscalls[2]);
 
+	/* Parse-only for cgroup_memory: do not leave it enabled across scrape —
+	 * Linux scrape walks cgroupfs and would emit host-wide memory.stat. */
 	bpf_apply_plain("bpf { probe runqueue_latency; probe cgroup_memory; }\n");
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("runqueue_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("cgroup_memory"));
+	bpf_loader_shutdown();
+	bpf_apply_plain("bpf { probe runqueue_latency; }\n");
 	/* Detach so scrape does not wipe injected staging via bpf_loader_poll. */
 	bpf_loader_shutdown();
-	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, 0, 1500);
+	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, NULL, 0, 1500);
 	bpf_drop_add("runqueue_latency", "lru", 4);
 	bpf_pressure_sample("/kubepods/namespace-demo/podabc-def/cri-containerd-cid.scope", "some", 1, 2, 3, 9);
+	bpf_cgroup_memory_sample("/kubepods/namespace-demo/podabc-def/cri-containerd-cid.scope", 4096);
+	bpf_cgroup_memory_stat_sample("/kubepods/namespace-demo/podabc-def/cri-containerd-cid.scope", "anon", 2048, 1);
 	bpf_scrape();
 	metric_test_run_ns(CMP_EQUAL, "bpf_up", "bpf_up", 0, NULL);
 	metric_test_run_ns(CMP_EQUAL, "bpf_runqueue_latency_seconds_count", "bpf_runqueue_latency_seconds_count", 1, NULL);
 	metric_test_run_ns(CMP_EQUAL, "bpf_probe_dropped_total", "bpf_probe_dropped_total", 4, NULL);
 	metric_test_run_ns(CMP_EQUAL, "bpf_cgroup_memory_pressure_waiting_seconds_total", "bpf_cgroup_memory_pressure_waiting_seconds_total", 9, NULL);
+	metric_test_run_ns(CMP_EQUAL, "bpf_cgroup_memory_current_bytes", "bpf_cgroup_memory_current_bytes", 4096, NULL);
+	metric_test_run_ns(CMP_EQUAL, "bpf_cgroup_memory_stat_bytes{stat=\"anon\"}", "bpf_cgroup_memory_stat_bytes", 2048, NULL);
 
 	/* Staging table is shared across probes. When full, recycle oldest so a
 	 * later metric (e.g. tcp_connect) is still emitted instead of dropped.
@@ -235,9 +244,9 @@ static void test_bpf_config_and_scrape(void)
 		char comm[16];
 		for (i = 0; i < BPF_SERIES_MAX; i++) {
 			snprintf(comm, sizeof(comm), "c%d", i);
-			bpf_hist_observe("bpf_offcpu_seconds", comm, NULL, NULL, NULL, 0, 1000);
+			bpf_hist_observe("bpf_offcpu_seconds", comm, NULL, NULL, NULL, NULL, 0, 1000);
 		}
-		bpf_hist_observe("bpf_tcp_connect_latency_seconds", "curl", NULL, NULL, NULL, 0, 2000);
+		bpf_hist_observe("bpf_tcp_connect_latency_seconds", "curl", NULL, NULL, NULL, NULL, 0, 2000);
 	}
 	bpf_scrape();
 	metric_test_run_ns(CMP_EQUAL, "bpf_tcp_connect_latency_seconds_count{comm=\"curl\"}", "bpf_tcp_connect_latency_seconds_count", 1, NULL);
@@ -249,7 +258,7 @@ static void test_bpf_config_and_scrape(void)
 
 	bpf_apply_plain("bpf { namespace custom; probe runqueue_latency; }\n");
 	bpf_loader_shutdown();
-	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, 0, 1500);
+	bpf_hist_observe("bpf_runqueue_latency_seconds", "bash", NULL, NULL, NULL, NULL, 0, 1500);
 	bpf_scrape();
 	metric_test_run_ns(CMP_EQUAL, "bpf_up", "bpf_up", 0, "custom");
 	metric_test_run_ns(CMP_EQUAL, "bpf_runqueue_latency_seconds_count", "bpf_runqueue_latency_seconds_count", 1, "custom");
@@ -259,6 +268,8 @@ static void test_bpf_config_and_scrape(void)
 	json_decref(cfg);
 
 	bpf_apply_plain("bpf { probe offcpu { comm nginx; comm searchd; } kprobe tcp_v4_connect { comm nginx; } }\n");
+	/* Config asserts only — detach before any further work (no live kprobes). */
+	bpf_loader_shutdown();
 	p = NULL;
 	{
 		int i;
@@ -277,8 +288,91 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->ncomm);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nginx", p->comm[0]);
 
-	/* Per-probe skip gauge: marking one custom probe skipped leaves the other unset. */
+	/* Off-CPU state (+ opt-in waker) and switches; lock type; page_faults/oom_kill. */
+	bpf_series_reset();
+	bpf_hist_observe("bpf_offcpu_seconds", "nginx", "sleep", "state", "ksoftirqd", "waker", 0, 5000);
+	bpf_counter_set_keys("bpf_offcpu_switches_total", "nginx", "sleep", "state", "ksoftirqd", "waker", 0, 3);
+	bpf_hist_observe("bpf_lock_contention_seconds", "nginx", "mutex", "type", NULL, NULL, 0, 2000);
+	bpf_counter_set_keys("bpf_lock_contentions_total", "nginx", "mutex", "type", NULL, NULL, 0, 7);
+	bpf_counter_set_keys("bpf_page_faults_total", "nginx", "minor", "type", NULL, NULL, 0, 11);
+	bpf_counter_set("bpf_oom_kills_total", "nginx", NULL, NULL, NULL, 0, 0, 0, 0, 0, 2);
+	bpf_scrape();
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_offcpu_seconds_count{comm=\"nginx\",state=\"sleep\",waker=\"ksoftirqd\"}",
+		"bpf_offcpu_seconds_count", 1, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_offcpu_switches_total{comm=\"nginx\",state=\"sleep\",waker=\"ksoftirqd\"}",
+		"bpf_offcpu_switches_total", 3, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_lock_contention_seconds_count{comm=\"nginx\",type=\"mutex\"}",
+		"bpf_lock_contention_seconds_count", 1, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_lock_contentions_total{comm=\"nginx\",type=\"mutex\"}",
+		"bpf_lock_contentions_total", 7, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_page_faults_total{comm=\"nginx\",type=\"minor\"}",
+		"bpf_page_faults_total", 11, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_oom_kills_total{comm=\"nginx\"}",
+		"bpf_oom_kills_total", 2, NULL);
+
+	/* Empty waker with dev_key=waker → sentinel unknown; block_io still uses `dev`. */
 	bpf_loader_shutdown();
+	bpf_series_reset();
+	bpf_hist_observe("bpf_offcpu_seconds", "nginx", "sleep", "state", "", "waker", 0, 4000);
+	bpf_counter_set_keys("bpf_offcpu_switches_total", "nginx", "sleep", "state", "", "waker", 0, 2);
+	bpf_hist_observe("bpf_block_io_latency_seconds", "nginx", "read", "op", "8:0", NULL, 0, 1000);
+	bpf_scrape();
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_offcpu_seconds_count{comm=\"nginx\",state=\"sleep\",waker=\"unknown\"}",
+		"bpf_offcpu_seconds_count", 1, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_offcpu_switches_total{comm=\"nginx\",state=\"sleep\",waker=\"unknown\"}",
+		"bpf_offcpu_switches_total", 2, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_block_io_latency_seconds_count{comm=\"nginx\",op=\"read\",dev=\"8:0\"}",
+		"bpf_block_io_latency_seconds_count", 1, NULL);
+
+	bpf_apply_plain("bpf { probe offcpu; }\n");
+	bpf_loader_shutdown();
+	p = NULL;
+	{
+		int i;
+		for (i = 0; i < bpf_probe_count(); i++) {
+			const bpf_probe *q = bpf_probe_at(i);
+			if (q && q->named == BPF_NAMED_OFFCPU)
+				p = q;
+		}
+	}
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, p->want_waker);
+	bpf_apply_plain("bpf { probe offcpu { label waker; } }\n");
+	bpf_loader_shutdown();
+	p = NULL;
+	{
+		int i;
+		for (i = 0; i < bpf_probe_count(); i++) {
+			const bpf_probe *q = bpf_probe_at(i);
+			if (q && q->named == BPF_NAMED_OFFCPU)
+				p = q;
+		}
+	}
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->want_waker);
+
+	/* page_faults without comm is rejected; never leave handle_mm_fault attached. */
+	bpf_apply_plain("bpf { probe page_faults; }\n");
+	bpf_loader_shutdown();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_on_name("page_faults"));
+	bpf_apply_plain("bpf { probe page_faults { comm nginx; } probe oom_kill; probe lock_contention; }\n");
+	bpf_loader_shutdown();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("page_faults"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("oom_kill"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("lock_contention"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_PAGE_FAULT, bpf_named_id("page_faults"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_OOM_KILL, bpf_named_id("oom_kill"));
+
+	/* Per-probe skip gauge: marking one custom probe skipped leaves the other unset. */
 	bpf_apply_plain(
 		"bpf {\n"
 		"    kprobe tcp_v4_connect {\n"
@@ -288,6 +382,7 @@ static void test_bpf_config_and_scrape(void)
 		"        arg 0 type=user_str label=name filter=suffix value=.example.com;\n"
 		"    }\n"
 		"}\n");
+	bpf_loader_shutdown();
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, bpf_probe_count());
 	bpf_skip_set("tcp_v4_connect", 1);
 	bpf_scrape();

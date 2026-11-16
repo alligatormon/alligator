@@ -284,6 +284,8 @@ static const struct named_row named_rows[] = {
 	{ "udp_activity", BPF_NAMED_UDP, "bpf_udp_activity_total", 0 },
 	{ "priv_change", BPF_NAMED_PRIV, "bpf_priv_change_total", 0 },
 	{ "cgroup_memory", BPF_NAMED_CGROUP_MEM, "bpf_cgroup_memory_pressure_waiting_seconds_total", 0 },
+	{ "page_faults", BPF_NAMED_PAGE_FAULT, "bpf_page_faults_total", 0 },
+	{ "oom_kill", BPF_NAMED_OOM_KILL, "bpf_oom_kills_total", 0 },
 };
 
 int bpf_named_id(const char *name)

@@ -162,6 +162,8 @@ static void statement_to_probe(json_t *probe, json_t *stmt)
 		const char *lab = json_string_value(json_array_get(stmt, 1));
 		if (lab && !strcmp(lab, "dport"))
 			json_object_set_new(probe, "label_dport", json_true());
+		else if (lab && !strcmp(lab, "waker"))
+			json_object_set_new(probe, "label_waker", json_true());
 		return;
 	}
 	if (!strcmp(w0, "latency")) {

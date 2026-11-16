@@ -16,6 +16,59 @@ The process needs `CAP_BPF` and `CAP_PERFMON`, or `CAP_SYS_ADMIN`. That is separ
 
 If BTF is missing, the kernel is too old, or the load is denied, alligator logs that once, publishes `bpf_up 0`, and keeps every other collector running. `bpf_up` is omitted when no `bpf` context is configured.
 
+## Capabilities (and what this is not)
+
+Alligator BPF is a **Prometheus metrics** collector (counters and histograms), not a continuous profiler. It does **not** collect stack traces, flamegraphs, USDT, or per-pid / per-connection event streams. “Process” in practice means the 16-byte task name `comm`, not `pid`. Enable only the probes you need; named hist/counter series share a **4096**-entry staging table per scrape (`bpf_probe_dropped_total{reason="lru"}` when it fills).
+
+| Kind | Status | Probes / metrics | Notes |
+| --- | --- | --- | --- |
+| CPU profiling (where CPU time goes) | **No** | — | No on-CPU sampling, no stacks |
+| Off-CPU (where a task waits) | **Partial** | `offcpu` → `bpf_offcpu_seconds`, `bpf_offcpu_switches_total` | Duration + `state`; opt-in `label waker;` (cardinality risk). No stacks / wait reason beyond `state` |
+| Memory | **Partial** | `cgroup_memory`, `page_faults` (requires `comm`), `oom_kill` | PSI + `memory.current` / small `memory.stat`; faults are hot — always filter `comm`. Not alloc/heap profiling |
+| Lock contention | **Partial** | `lock_contention` (kernel ≥5.17) | Kernel locks only (`type` label). Not pthread/userspace mutex names; use `syscall_latency` + `futex` as a coarse hint |
+| Scheduler | **Yes (metrics)** | `runqueue_latency` / `sched_latency`, `offcpu` | `runqueue_latency` has no cgroup labels |
+| I/O | **Yes (metrics)** | `block_io`, `process_io`, `syscall_latency`, `file_access` | Latency / bytes / opens — not full request tracing |
+| TCP | **Yes (metrics)** | `tcp_retransmit`, `tcp_connect_latency`, `tcp_rtt`, `tcp_reset` (+ UDP/DNS) | By `comm` (optional `dport`); not a 4-tuple sniffer |
+
+**Scopes:** filter with `comm name;` (up to 8) or omit for host-wide; `cgroup_labels;` adds `cgroup` / `pod` / `namespace` / `container` where supported (not on `runqueue_latency`).
+
+Latency starter (scheduling + block + TCP connect/RTT):
+
+```
+bpf {
+    cgroup_labels;
+    probe runqueue_latency;
+    probe offcpu;
+    probe block_io;
+    probe tcp_connect_latency;
+    probe tcp_rtt;
+}
+```
+
+Memory / contention starter (keep `page_faults` narrow; leave `label waker;` off unless needed):
+
+```
+bpf {
+    cgroup_labels;
+    probe offcpu;
+    probe lock_contention;
+    probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
+}
+```
+
+Reading histograms (bucket edges are ~1µs…~1s, then `+Inf`):
+
+```promql
+histogram_quantile(0.99, sum by (le, comm) (rate(bpf_offcpu_seconds_bucket[5m])))
+rate(bpf_lock_contentions_total[5m])
+rate(bpf_page_faults_total{type="major"}[5m])
+rate(bpf_tcp_retransmits_total[5m])
+```
+
+Probe reference, labels, and hard requirements are under [Built-in probes](#built-in-probes) below.
+
 ## Configuration
 
 A probe is off until it is listed. The context replaces the previous bpf configuration as a whole.
@@ -48,6 +101,8 @@ bpf {
     probe net_activity;
     probe priv_change;
     probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
 
     uprobe /lib64/libcurl.so.4:curl_easy_perform {
         latency;
@@ -409,6 +464,7 @@ Built-in probes publish **counters and histograms by `comm`**, not an audit log 
 Hard requirements:
 
 - `fd_track` **must** have at least one `comm`; otherwise the probe is rejected.
+- `page_faults` **must** have at least one `comm`; otherwise the probe is rejected. The hook is hot — always filter.
 - `file_access` without a prefix allowlist (`prefix /etc;` or `filter=prefix value=/etc;`) **counts nothing**.
 
 ```
@@ -416,6 +472,7 @@ bpf {
     probe offcpu { comm nginx; comm searchd; }
     probe tcp_retransmit { comm nginx; label dport; }
     probe fd_track { comm nginx; }
+    probe page_faults { comm nginx; }
     probe file_access { prefix /etc; }
     kprobe tcp_v4_connect { comm nginx; arg 1 type=sockaddr label=daddr filter=prefix value=10.; }
 }
@@ -434,9 +491,11 @@ bpf {
 
 - `runqueue_latency` — time from wakeup until the task is next on a CPU. Histogram `bpf_runqueue_latency_seconds`. This series has no cgroup label: the wakeup event runs in the waking task.
 - `sched_latency` — the same interval and the same histogram. It does not add a second series.
-- `offcpu` — time the task is off CPU until it runs again. Histogram `bpf_offcpu_seconds`. With `cgroup_labels`, the cgroup is the task that left the CPU. A task that is exiting is not recorded.
+- `offcpu` — time the task is off CPU until it runs again. Histogram `bpf_offcpu_seconds` and counter `bpf_offcpu_switches_total`. Labels: `comm`, `state` (`sleep`, `disk_sleep`, `parked`, or `other` from `prev_state`). Opt-in `label waker;` adds `waker` (comm of the waking task from `sched_wakeup` / `sched_wakeup_new`, best-effort; missing wakeup → `unknown`). The BPF `last_waker` map is updated only when the woken pid already has an `off_ts` start and passes the offcpu `comm` allowlist; `sched_switch` deletes the entry for `next` even if `off_ts` is gone (HASH, not LRU). **Cardinality risk:** every distinct waker `comm` multiplies series; leave it off unless you need it. With `cgroup_labels`, the cgroup is the task that left the CPU. A task that is exiting is not recorded.
 - `block_io` — time from a block request issue to its completion. Histogram `bpf_block_io_latency_seconds` with `dev` (`major:minor`) and `op` (`read`, `write`, or `other`).
-- `lock_contention` — time spent waiting on a kernel lock. Histogram `bpf_lock_contention_seconds` by `comm`. There is no lock-name label. On kernels older than 5.17 the probe is skipped and `bpf_probe_skipped{probe="lock_contention"}` is 1.
+- `lock_contention` — time spent waiting on a kernel lock. Histogram `bpf_lock_contention_seconds` and counter `bpf_lock_contentions_total` by `comm` and `type`. `type` priority when several LCB flags are set: `mutex` > `spin` > `rwlock` (READ|WRITE) > `rt` > `percpu` > `other`. Supports `cgroup_labels`. There is no lock-address or symbol label. On kernels older than 5.17 the probe is skipped and `bpf_probe_skipped{probe="lock_contention"}` is 1.
+
+Enabling `offcpu` (especially with `label waker;`) together with `lock_contention`, `page_faults`, and `cgroup_memory` shares the 4096-series staging table and can raise `bpf_probe_dropped_total{reason="lru"}`.
 
 ### TCP, UDP, and DNS
 
@@ -497,26 +556,36 @@ bpf {
 - `net_activity` — `connect` and `accept`. Counter `bpf_net_activity_total` by `comm` and `event`.
 - `priv_change` — credential commit. Counter `bpf_priv_change_total` by `comm` and `changed` (`0` or `1`). The uid is not a label.
 
-### Cgroup memory pressure
+### Cgroup memory and page faults
 
 ```
 bpf {
     probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
 }
 ```
 
-This reads `memory.pressure` from cgroupfs. It does not attach a BPF program. Host PSI metrics are left as they are.
+`cgroup_memory` reads cgroupfs. It does not attach a BPF program. Host PSI metrics are left as they are. The same walk also reads `memory.current` and a fixed subset of `memory.stat` when those files exist.
 
 - `bpf_cgroup_memory_pressure_waiting_seconds_total`
 - `bpf_cgroup_memory_pressure_stalled_seconds_total`
 - `bpf_cgroup_memory_pressure_waiting_avg_percent{window="10|60|300"}`
 - `bpf_cgroup_memory_pressure_stalled_avg_percent{window="10|60|300"}`
+- `bpf_cgroup_memory_current_bytes`
+- `bpf_cgroup_memory_stat_bytes{stat="anon|file|kernel|sock|shmem|slab"}` (gauges; byte fields only)
+- `bpf_cgroup_memory_stat_total{stat="pgfault|pgmajfault"}` (counters)
+
+Exact `memory.stat` keys emitted: `anon`, `file`, `kernel`, `sock`, `shmem`, `slab`, `pgfault`, `pgmajfault`. Other keys in the file are ignored.
 
 Labels are `cgroup` and, when the path is a Kubernetes cgroup, `pod`, `namespace`, and `container`.
 
+- `page_faults` — `kretprobe` on `handle_mm_fault`. **Requires at least one `comm`.** Counter `bpf_page_faults_total` with `type` `minor` or `major` and `comm` (plus cgroup labels when enabled). Faults with `VM_FAULT_ERROR` are not counted. Hot path — always filter with `comm`. Do not double-count with cgroup `pgfault`/`pgmajfault` (`bpf_cgroup_memory_stat_total`): per-task BPF faults and cgroupfs stats are different sources and will not match. Skipped with `bpf_probe_skipped{probe="page_faults"}` when the attach fails; rejected (not enabled) without `comm`.
+- `oom_kill` — `tracepoint/oom/mark_victim`. Counter `bpf_oom_kills_total` by `comm` (plus cgroup when enabled). Skipped when the tracepoint is missing.
+
 ## Cgroup labels
 
-`cgroup_labels;` adds `cgroup`, `pod`, `namespace`, and `container` to the scheduling, block, TCP, and process series when the cgroup id can be resolved. The id is the cgroup directory inode. The path is taken from a capped walk of cgroupfs and from cgroups that cadvisor has already seen. There is no kubelet client.
+`cgroup_labels;` adds `cgroup`, `pod`, `namespace`, and `container` to the scheduling, block, lock, TCP, process, page-fault, and OOM series when the cgroup id can be resolved. The id is the cgroup directory inode. The path is taken from a capped walk of cgroupfs and from cgroups that cadvisor has already seen. There is no kubelet client.
 
 `runqueue_latency` does not get these labels. If the id is known but the path is not, the label is the numeric cgroup id.
 
@@ -533,9 +602,13 @@ Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in 
 | `bpf_probe_dropped_total` | counter | `probe`, `reason` (`lru`, `trunc`, `ringbuf_full`, `user_read_fail`, `stash_miss`, `regex_nomatch`, `regex_fail`) |
 | `bpf_probe_skipped` | gauge | `probe`. `1` when that probe was not attached (kernel too old, program load failed, or attach failed). Custom kprobe/uprobe failures are reported per probe and do not unload other attached custom probes. |
 | `bpf_runqueue_latency_seconds` | histogram | `comm` |
-| `bpf_offcpu_seconds` | histogram | `comm`, and cgroup labels when enabled |
+| `bpf_offcpu_seconds` | histogram | `comm`, `state`, optional `waker` (`label waker;`), and cgroup labels when enabled |
+| `bpf_offcpu_switches_total` | counter | same labels as `bpf_offcpu_seconds` |
 | `bpf_block_io_latency_seconds` | histogram | `comm`, `dev`, `op` |
-| `bpf_lock_contention_seconds` | histogram | `comm` |
+| `bpf_lock_contention_seconds` | histogram | `comm`, `type`, and cgroup labels when enabled |
+| `bpf_lock_contentions_total` | counter | same labels as `bpf_lock_contention_seconds` |
+| `bpf_page_faults_total` | counter | `comm`, `type` (`minor`/`major`), optional cgroup |
+| `bpf_oom_kills_total` | counter | `comm`, optional cgroup |
 | `bpf_tcp_retransmits_total` | counter | `comm`, optional `dport` |
 | `bpf_tcp_connect_latency_seconds` | histogram | `comm` |
 | `bpf_tcp_rtt_seconds` | histogram | `comm` |
@@ -551,5 +624,8 @@ Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in 
 | `bpf_udp_activity_total` | counter | `comm`, `event` (`send` or `recv`) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter and gauge | `cgroup`, `pod`, `namespace`, `container`, `window` on the averages |
+| `bpf_cgroup_memory_current_bytes` | gauge | `cgroup`, `pod`, `namespace`, `container` |
+| `bpf_cgroup_memory_stat_bytes` | gauge | same plus `stat` |
+| `bpf_cgroup_memory_stat_total` | counter | same plus `stat` (fault-like fields) |
 
 The collector does not attach USDT probes, does not collect stack traces, and does not load a BPF object supplied in the configuration.

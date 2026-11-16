@@ -25,6 +25,7 @@
 #include <process.skel.h>
 #include <dns.skel.h>
 #include <udp.skel.h>
+#include <mem.skel.h>
 #include <generic.skel.h>
 #ifndef BPF_NO_LOCK
 #include <lock.skel.h>
@@ -38,6 +39,7 @@ static struct tcp_bpf *tcp_skel;
 static struct process_bpf *proc_skel;
 static struct dns_bpf *dns_skel;
 static struct udp_bpf *udp_skel;
+static struct mem_bpf *mem_skel;
 static struct generic_bpf *gen_skel;
 #ifndef BPF_NO_LOCK
 static struct lock_bpf *lock_skel;
@@ -247,9 +249,14 @@ static void skip_custom_probes(void)
 
 static int keep_link_or_fail(struct bpf_link *link, const char *probe, const char *what, int capture)
 {
-	long err = libbpf_get_error(link);
+	long err;
 	char errbuf[256];
 
+	/* libbpf ≥1.0 returns NULL + errno; older builds return ERR_PTR. */
+	if (!link)
+		err = errno ? -errno : -1;
+	else
+		err = libbpf_get_error(link);
 	if (!err) {
 		keep_link(link, capture);
 		return 0;
@@ -303,7 +310,8 @@ static int map_fd(const struct bpf_map *map)
 	return bpf_map__fd(map);
 }
 
-static void poll_hist(int hist_fd, int sum_fd, const char *metric, const char *extra_key)
+static void poll_hist(int hist_fd, int sum_fd, const char *metric, const char *extra_key,
+	const char *dev_key, const char *ctr_metric, const char *ctr_event_key, const char *ctr_parent_key)
 {
 	struct bpf_hist_key cur, next;
 	struct bpf_sum_key scur, snext;
@@ -320,7 +328,8 @@ static void poll_hist(int hist_fd, int sum_fd, const char *metric, const char *e
 		if (!bpf_map_lookup_elem(hist_fd, &next, &count)) {
 			if (extra_key && !strcmp(extra_key, "syscall"))
 				named = bpf_syscall_name(atoi(next.extra), machine);
-			bpf_hist_add_bucket(metric, next.comm, named ? named : extra, extra_key, next.dev, next.cgroup, next.bucket, count);
+			bpf_hist_add_bucket(metric, next.comm, named ? named : extra, extra_key,
+				next.dev, dev_key, next.cgroup, next.bucket, count);
 		}
 		cur = next;
 		err = bpf_map_get_next_key(hist_fd, &cur, &next);
@@ -328,10 +337,16 @@ static void poll_hist(int hist_fd, int sum_fd, const char *metric, const char *e
 	err = bpf_map_get_next_key(sum_fd, NULL, &snext);
 	while (!err) {
 		const char *named = NULL;
+		const char *extra;
 		if (!bpf_map_lookup_elem(sum_fd, &snext, &sum)) {
 			if (extra_key && !strcmp(extra_key, "syscall"))
 				named = bpf_syscall_name(atoi(snext.extra), machine);
-			bpf_hist_set_sum(metric, snext.comm, named ? named : snext.extra, snext.dev, snext.cgroup, sum.sum_ns, sum.count);
+			extra = named ? named : snext.extra;
+			bpf_hist_set_sum(metric, snext.comm, extra, extra_key, snext.dev, dev_key,
+				snext.cgroup, sum.sum_ns, sum.count);
+			if (ctr_metric)
+				bpf_counter_set_keys(ctr_metric, snext.comm, extra, ctr_event_key,
+					snext.dev, ctr_parent_key, snext.cgroup, sum.count);
 		}
 		scur = snext;
 		err = bpf_map_get_next_key(sum_fd, &scur, &snext);
@@ -473,6 +488,11 @@ static int load_named(void)
 		cfg.runq_on = want(BPF_NAMED_RUNQUEUE) || want(BPF_NAMED_SCHED);
 		cfg.off_on = want(BPF_NAMED_OFFCPU);
 		cfg.cgroup_labels = bpf_cgroup_labels_on();
+		for (err = 0; err < bpf_probe_count(); err++) {
+			const bpf_probe *p = bpf_probe_at(err);
+			if (p && p->named == BPF_NAMED_OFFCPU && p->want_waker)
+				cfg.waker_on = 1;
+		}
 		append_comm(cfg.runq_comm, BPF_NAMED_RUNQUEUE);
 		append_comm(cfg.runq_comm, BPF_NAMED_SCHED);
 		append_comm(cfg.off_comm, BPF_NAMED_OFFCPU);
@@ -523,6 +543,7 @@ static int load_named(void)
 		} else {
 			struct bpf_lock_cfg cfg;
 			memset(&cfg, 0, sizeof(cfg));
+			cfg.cgroup_labels = bpf_cgroup_labels_on();
 			append_comm(cfg.comm, BPF_NAMED_LOCK);
 			lock_skel = lock_bpf__open();
 			if (!lock_skel || lock_bpf__load(lock_skel)) {
@@ -544,6 +565,53 @@ static int load_named(void)
 	if (want(BPF_NAMED_LOCK))
 		bpf_skip_set("lock_contention", 1);
 #endif
+	if (want(BPF_NAMED_PAGE_FAULT) || want(BPF_NAMED_OOM_KILL)) {
+		struct bpf_mem_cfg cfg;
+		int fault_ok = 0;
+		int oom_ok = 0;
+
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.fault_on = want(BPF_NAMED_PAGE_FAULT);
+		cfg.oom_on = want(BPF_NAMED_OOM_KILL);
+		cfg.cgroup_labels = bpf_cgroup_labels_on();
+		append_comm(cfg.fault_comm, BPF_NAMED_PAGE_FAULT);
+		append_comm(cfg.oom_comm, BPF_NAMED_OOM_KILL);
+		mem_skel = mem_bpf__open();
+		if (mem_skel) {
+			bpf_program__set_autoattach(mem_skel->progs.on_mm_fault, false);
+			bpf_program__set_autoattach(mem_skel->progs.on_oom_mark, false);
+		}
+		if (mem_skel && !mem_bpf__load(mem_skel)) {
+			int links_before_mem = nlinks;
+
+			bpf_map__update_elem(mem_skel->maps.mem_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+			if (cfg.fault_on) {
+				LIBBPF_OPTS(bpf_kprobe_opts, opt);
+				opt.retprobe = true;
+				/* handle_mm_fault is hot; unit tests must detach right after parse. */
+				fault_ok = !keep_link_or_fail(bpf_program__attach_kprobe_opts(
+					mem_skel->progs.on_mm_fault, "handle_mm_fault", &opt),
+					"page_faults", "kretprobe attach", 0);
+			}
+			if (cfg.oom_on) {
+				oom_ok = !keep_link_or_fail(bpf_program__attach(mem_skel->progs.on_oom_mark),
+					"oom_kill", "tracepoint attach", 0);
+			}
+			if (!fault_ok && !oom_ok) {
+				drop_links_from(links_before_mem);
+				mem_bpf__destroy(mem_skel);
+				mem_skel = NULL;
+			}
+		} else {
+			if (want(BPF_NAMED_PAGE_FAULT))
+				bpf_skip_set("page_faults", 1);
+			if (want(BPF_NAMED_OOM_KILL))
+				bpf_skip_set("oom_kill", 1);
+			if (mem_skel)
+				mem_bpf__destroy(mem_skel);
+			mem_skel = NULL;
+		}
+	}
 	if (want(BPF_NAMED_TCP_RETRANS) || want(BPF_NAMED_TCP_CONNECT) || want(BPF_NAMED_TCP_RTT) || want(BPF_NAMED_TCP_RESET)) {
 		struct bpf_tcp_cfg cfg;
 		memset(&cfg, 0, sizeof(cfg));
@@ -971,6 +1039,8 @@ void bpf_loader_shutdown(void)
 		dns_bpf__destroy(dns_skel);
 	if (udp_skel)
 		udp_bpf__destroy(udp_skel);
+	if (mem_skel)
+		mem_bpf__destroy(mem_skel);
 	if (gen_skel)
 		generic_bpf__destroy(gen_skel);
 #ifndef BPF_NO_LOCK
@@ -984,6 +1054,7 @@ void bpf_loader_shutdown(void)
 	proc_skel = NULL;
 	dns_skel = NULL;
 	udp_skel = NULL;
+	mem_skel = NULL;
 	gen_skel = NULL;
 	attached = 0;
 }
@@ -1008,17 +1079,17 @@ int bpf_loader_sync(void)
 	bpf_loader_shutdown();
 	logged = 0;
 #ifndef BPF_NO_LOCK
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !lock_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel && !lock_skel)
 		return -1;
 #else
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel)
 		return -1;
 #endif
 	load_generic();
 #ifndef BPF_NO_LOCK
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || gen_skel || lock_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel || gen_skel || lock_skel || nlinks > 0;
 #else
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || gen_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel || gen_skel || nlinks > 0;
 #endif
 	return attached ? 0 : -1;
 }
@@ -1029,23 +1100,38 @@ void bpf_loader_poll(void)
 		return;
 	bpf_series_reset();
 	if (sched_skel) {
-		poll_hist(map_fd(sched_skel->maps.runq_hist), map_fd(sched_skel->maps.runq_sum), "bpf_runqueue_latency_seconds", NULL);
-		poll_hist(map_fd(sched_skel->maps.off_hist), map_fd(sched_skel->maps.off_sum), "bpf_offcpu_seconds", NULL);
+		const char *waker_key = NULL;
+		int i;
+
+		for (i = 0; i < bpf_probe_count(); i++) {
+			const bpf_probe *p = bpf_probe_at(i);
+			if (p && p->named == BPF_NAMED_OFFCPU && p->want_waker)
+				waker_key = "waker";
+		}
+		poll_hist(map_fd(sched_skel->maps.runq_hist), map_fd(sched_skel->maps.runq_sum),
+			"bpf_runqueue_latency_seconds", NULL, NULL, NULL, NULL, NULL);
+		poll_hist(map_fd(sched_skel->maps.off_hist), map_fd(sched_skel->maps.off_sum),
+			"bpf_offcpu_seconds", "state", waker_key, "bpf_offcpu_switches_total", "state", waker_key);
 	}
 	if (block_skel)
-		poll_hist(map_fd(block_skel->maps.block_hist), map_fd(block_skel->maps.block_sum), "bpf_block_io_latency_seconds", "op");
+		poll_hist(map_fd(block_skel->maps.block_hist), map_fd(block_skel->maps.block_sum),
+			"bpf_block_io_latency_seconds", "op", NULL, NULL, NULL, NULL);
 #ifndef BPF_NO_LOCK
 	if (lock_skel)
-		poll_hist(map_fd(lock_skel->maps.lock_hist), map_fd(lock_skel->maps.lock_sum), "bpf_lock_contention_seconds", NULL);
+		poll_hist(map_fd(lock_skel->maps.lock_hist), map_fd(lock_skel->maps.lock_sum),
+			"bpf_lock_contention_seconds", "type", NULL, "bpf_lock_contentions_total", "type", NULL);
 #endif
 	if (tcp_skel) {
 		poll_ctr(map_fd(tcp_skel->maps.retrans_ctr), "bpf_tcp_retransmits_total", 1);
 		poll_ctr(map_fd(tcp_skel->maps.reset_ctr), "bpf_tcp_resets_total", 1);
-		poll_hist(map_fd(tcp_skel->maps.connect_hist), map_fd(tcp_skel->maps.connect_sum), "bpf_tcp_connect_latency_seconds", NULL);
-		poll_hist(map_fd(tcp_skel->maps.rtt_hist), map_fd(tcp_skel->maps.rtt_sum), "bpf_tcp_rtt_seconds", NULL);
+		poll_hist(map_fd(tcp_skel->maps.connect_hist), map_fd(tcp_skel->maps.connect_sum),
+			"bpf_tcp_connect_latency_seconds", NULL, NULL, NULL, NULL, NULL);
+		poll_hist(map_fd(tcp_skel->maps.rtt_hist), map_fd(tcp_skel->maps.rtt_sum),
+			"bpf_tcp_rtt_seconds", NULL, NULL, NULL, NULL, NULL);
 	}
 	if (proc_skel) {
-		poll_hist(map_fd(proc_skel->maps.sys_hist), map_fd(proc_skel->maps.sys_sum), "bpf_syscall_latency_seconds", "syscall");
+		poll_hist(map_fd(proc_skel->maps.sys_hist), map_fd(proc_skel->maps.sys_sum),
+			"bpf_syscall_latency_seconds", "syscall", NULL, NULL, NULL, NULL);
 		poll_ctr(map_fd(proc_skel->maps.life_ctr), "bpf_process_events_total", 0);
 		poll_ctr(map_fd(proc_skel->maps.fd_ctr), "bpf_process_fds", 0);
 		poll_ctr(map_fd(proc_skel->maps.io_ctr), "bpf_process_io_bytes_total", 0);
@@ -1055,9 +1141,30 @@ void bpf_loader_poll(void)
 		poll_ctr(map_fd(proc_skel->maps.priv_ctr), "bpf_priv_change_total", 2);
 	}
 	if (dns_skel)
-		poll_hist(map_fd(dns_skel->maps.dns_hist), map_fd(dns_skel->maps.dns_sum), "bpf_dns_latency_seconds", "name");
+		poll_hist(map_fd(dns_skel->maps.dns_hist), map_fd(dns_skel->maps.dns_sum),
+			"bpf_dns_latency_seconds", "name", NULL, NULL, NULL, NULL);
 	if (udp_skel)
 		poll_ctr(map_fd(udp_skel->maps.udp_ctr), "bpf_udp_activity_total", 0);
+	if (mem_skel) {
+		struct bpf_ctr_key cur, next;
+		__u64 val;
+		int fd;
+		int err;
+
+		fd = map_fd(mem_skel->maps.fault_ctr);
+		if (fd >= 0) {
+			err = bpf_map_get_next_key(fd, NULL, &next);
+			while (!err) {
+				if (!bpf_map_lookup_elem(fd, &next, &val))
+					bpf_counter_set_keys("bpf_page_faults_total", next.comm,
+						next.extra[0] ? next.extra : NULL, "type",
+						NULL, NULL, next.cgroup, val);
+				cur = next;
+				err = bpf_map_get_next_key(fd, &cur, &next);
+			}
+		}
+		poll_ctr(map_fd(mem_skel->maps.oom_ctr), "bpf_oom_kills_total", 0);
+	}
 	if (gen_skel) {
 		int fd = map_fd(gen_skel->maps.events);
 		/* Safety net for anything the poll wakeup has not drained yet. */

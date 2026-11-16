@@ -34,6 +34,7 @@ struct hist_row {
 	char extra[BPF_STR_MAX];
 	char extra_key[16];
 	char dev[16];
+	char dev_key[16];
 	uint64_t cgroup;
 	uint64_t raw[BPF_HIST_BUCKETS];
 	uint64_t sum_ns;
@@ -45,8 +46,10 @@ struct ctr_row {
 	char metric[64];
 	char comm[16];
 	char event[BPF_STR_MAX];
+	char event_key[16];
 	char path[BPF_STR_MAX];
 	char parent[16];
+	char parent_key[16];
 	uint64_t cgroup;
 	int has_dport;
 	uint32_t dport;
@@ -208,7 +211,7 @@ static struct hist_row *hist_find(const char *metric, const char *comm, const ch
 }
 
 void bpf_hist_add_bucket(const char *metric, const char *comm, const char *extra, const char *extra_key,
-	const char *dev, uint64_t cgroup, uint32_t bucket, uint64_t count)
+	const char *dev, const char *dev_key, uint64_t cgroup, uint32_t bucket, uint64_t count)
 {
 	struct hist_row *row;
 
@@ -219,21 +222,27 @@ void bpf_hist_add_bucket(const char *metric, const char *comm, const char *extra
 		return;
 	if (extra_key && extra_key[0])
 		copy_cap(row->extra_key, sizeof(row->extra_key), extra_key);
+	if (dev_key && dev_key[0])
+		copy_cap(row->dev_key, sizeof(row->dev_key), dev_key);
 	row->raw[bucket] = count;
 }
 
-void bpf_hist_set_sum(const char *metric, const char *comm, const char *extra, const char *dev,
-	uint64_t cgroup, uint64_t sum_ns, uint64_t count)
+void bpf_hist_set_sum(const char *metric, const char *comm, const char *extra, const char *extra_key,
+	const char *dev, const char *dev_key, uint64_t cgroup, uint64_t sum_ns, uint64_t count)
 {
 	struct hist_row *row = hist_find(metric, comm, extra, dev, cgroup, 1);
 	if (!row)
 		return;
+	if (extra_key && extra_key[0])
+		copy_cap(row->extra_key, sizeof(row->extra_key), extra_key);
+	if (dev_key && dev_key[0])
+		copy_cap(row->dev_key, sizeof(row->dev_key), dev_key);
 	row->sum_ns = sum_ns;
 	row->count = count;
 }
 
 void bpf_hist_observe(const char *metric, const char *comm, const char *extra, const char *extra_key,
-	const char *dev, uint64_t cgroup, uint64_t ns)
+	const char *dev, const char *dev_key, uint64_t cgroup, uint64_t ns)
 {
 	struct hist_row *row;
 	int b;
@@ -243,6 +252,8 @@ void bpf_hist_observe(const char *metric, const char *comm, const char *extra, c
 		return;
 	if (extra_key && extra_key[0])
 		copy_cap(row->extra_key, sizeof(row->extra_key), extra_key);
+	if (dev_key && dev_key[0])
+		copy_cap(row->dev_key, sizeof(row->dev_key), dev_key);
 	b = bpf_hist_bucket(ns);
 	row->raw[b]++;
 	row->sum_ns += ns;
@@ -302,6 +313,29 @@ void bpf_counter_set(const char *metric, const char *comm, const char *event, co
 	free_row->has_changed = has_changed;
 	free_row->changed = changed;
 	free_row->value = value;
+}
+
+void bpf_counter_set_keys(const char *metric, const char *comm, const char *event, const char *event_key,
+	const char *parent, const char *parent_key, uint64_t cgroup, uint64_t value)
+{
+	int i;
+	struct ctr_row *row = NULL;
+
+	bpf_counter_set(metric, comm, event, NULL, parent, cgroup, 0, 0, 0, 0, value);
+	for (i = 0; i < BPF_SERIES_MAX; i++) {
+		if (!ctrs[i].used)
+			continue;
+		if (ctr_same(&ctrs[i], metric, comm, event, NULL, parent, cgroup, 0, 0, 0, 0)) {
+			row = &ctrs[i];
+			break;
+		}
+	}
+	if (!row)
+		return;
+	if (event_key && event_key[0])
+		copy_cap(row->event_key, sizeof(row->event_key), event_key);
+	if (parent_key && parent_key[0])
+		copy_cap(row->parent_key, sizeof(row->parent_key), parent_key);
 }
 
 void bpf_generic_set(int slot, const char *l0, const char *l1, const char *l2, const char *l3, const char *l4, const char *l5, uint64_t count)
@@ -1086,6 +1120,22 @@ static void add_cgroup_labels(alligator_ht *lbl, uint64_t id)
 	add_label(lbl, "container", cg->container);
 }
 
+static const char *hist_dev_key(const struct hist_row *row)
+{
+	return row->dev_key[0] ? row->dev_key : "dev";
+}
+
+/* Opt-in waker must always appear; missing wakeup → sentinel. Other empty
+ * dev values (e.g. no device) stay omitted so runqueue stays label-light. */
+static const char *hist_dev_value(const struct hist_row *row)
+{
+	if (row->dev[0])
+		return row->dev;
+	if (row->dev_key[0] && !strcmp(row->dev_key, "waker"))
+		return "unknown";
+	return NULL;
+}
+
 static void emit_hist_row(struct hist_row *row)
 {
 	uint64_t acc = 0;
@@ -1094,9 +1144,13 @@ static void emit_hist_row(struct hist_row *row)
 	char le[32];
 	char metric[80];
 	double sum;
+	const char *dkey;
+	const char *dval;
 
 	if (!row->used || !bpf_carg)
 		return;
+	dkey = (char *)hist_dev_key(row);
+	dval = hist_dev_value(row);
 	namespace_metric_family_set_prom_type(bpf_carg, row->metric, METRIC_TYPE_HISTOGRAM);
 	for (i = 0; i < BPF_HIST_BUCKETS; i++)
 		total += row->raw[i];
@@ -1110,7 +1164,8 @@ static void emit_hist_row(struct hist_row *row)
 		add_label(lbl, "comm", row->comm);
 		if (row->extra_key[0])
 			add_label(lbl, row->extra_key, row->extra);
-		add_label(lbl, "dev", row->dev);
+		if (dval)
+			add_label(lbl, (char *)dkey, dval);
 		add_cgroup_labels(lbl, row->cgroup);
 		snprintf(metric, sizeof(metric), "%s_bucket", row->metric);
 		metric_add(metric, lbl, &acc, DATATYPE_UINT, bpf_carg);
@@ -1122,7 +1177,8 @@ static void emit_hist_row(struct hist_row *row)
 		add_label(lbl, "comm", row->comm);
 		if (row->extra_key[0])
 			add_label(lbl, row->extra_key, row->extra);
-		add_label(lbl, "dev", row->dev);
+		if (dval)
+			add_label(lbl, (char *)dkey, dval);
 		add_cgroup_labels(lbl, row->cgroup);
 		snprintf(metric, sizeof(metric), "%s_bucket", row->metric);
 		metric_add(metric, lbl, &acc, DATATYPE_UINT, bpf_carg);
@@ -1133,7 +1189,8 @@ static void emit_hist_row(struct hist_row *row)
 		add_label(lbl, "comm", row->comm);
 		if (row->extra_key[0])
 			add_label(lbl, row->extra_key, row->extra);
-		add_label(lbl, "dev", row->dev);
+		if (dval)
+			add_label(lbl, (char *)dkey, dval);
 		add_cgroup_labels(lbl, row->cgroup);
 		snprintf(metric, sizeof(metric), "%s_sum", row->metric);
 		metric_add(metric, lbl, &sum, DATATYPE_DOUBLE, bpf_carg);
@@ -1144,7 +1201,8 @@ static void emit_hist_row(struct hist_row *row)
 		add_label(lbl, "comm", row->comm);
 		if (row->extra_key[0])
 			add_label(lbl, row->extra_key, row->extra);
-		add_label(lbl, "dev", row->dev);
+		if (dval)
+			add_label(lbl, (char *)dkey, dval);
 		add_cgroup_labels(lbl, row->cgroup);
 		snprintf(metric, sizeof(metric), "%s_count", row->metric);
 		metric_add(metric, lbl, &count, DATATYPE_UINT, bpf_carg);
@@ -1226,11 +1284,23 @@ static void emit_gen_hist_row(struct gen_hist_row *row)
 	}
 }
 
+static const char *ctr_parent_value(const struct ctr_row *row)
+{
+	if (row->parent[0])
+		return row->parent;
+	if (row->parent_key[0] && !strcmp(row->parent_key, "waker"))
+		return "unknown";
+	return NULL;
+}
+
 static void emit_ctr_row(struct ctr_row *row)
 {
 	alligator_ht *lbl;
 	char port[16];
 	char changed[8];
+	const char *ekey;
+	const char *pkey;
+	const char *pval;
 
 	uint8_t mtype = METRIC_TYPE_COUNTER;
 
@@ -1240,10 +1310,14 @@ static void emit_ctr_row(struct ctr_row *row)
 		mtype = METRIC_TYPE_GAUGE;
 	namespace_metric_family_set(NULL, bpf_carg, row->metric, mtype, row->metric);
 	lbl = alligator_ht_init(NULL);
+	ekey = row->event_key[0] ? row->event_key : "event";
+	pkey = row->parent_key[0] ? row->parent_key : "parent";
+	pval = ctr_parent_value(row);
 	add_label(lbl, "comm", row->comm);
-	add_label(lbl, "event", row->event);
+	add_label(lbl, (char *)ekey, row->event);
 	add_label(lbl, "path", row->path);
-	add_label(lbl, "parent", row->parent);
+	if (pval)
+		add_label(lbl, (char *)pkey, pval);
 	if (row->has_dport) {
 		snprintf(port, sizeof(port), "%u", row->dport);
 		add_label(lbl, "dport", port);
@@ -1299,8 +1373,90 @@ void bpf_pressure_sample(const char *path, const char *kind, double avg10, doubl
 	}
 }
 
+static void cgroup_mem_labels(alligator_ht *lbl, const char *path)
+{
+	char pod[64], ns[64], container[128];
+
+	bpf_cgroup_parse(path, pod, sizeof(pod), ns, sizeof(ns), container, sizeof(container));
+	add_label(lbl, "cgroup", path);
+	add_label(lbl, "pod", pod);
+	add_label(lbl, "namespace", ns);
+	add_label(lbl, "container", container);
+}
+
+void bpf_cgroup_memory_sample(const char *path, uint64_t current_bytes)
+{
+	alligator_ht *lbl;
+
+	if (!bpf_carg || !path)
+		return;
+	namespace_metric_family_set(NULL, bpf_carg, "bpf_cgroup_memory_current_bytes", METRIC_TYPE_GAUGE,
+		"Cgroup memory.current usage.");
+	lbl = alligator_ht_init(NULL);
+	cgroup_mem_labels(lbl, path);
+	metric_add("bpf_cgroup_memory_current_bytes", lbl, &current_bytes, DATATYPE_UINT, bpf_carg);
+}
+
+void bpf_cgroup_memory_stat_sample(const char *path, const char *stat, uint64_t value, int is_bytes)
+{
+	alligator_ht *lbl;
+	const char *metric;
+
+	if (!bpf_carg || !path || !stat || !stat[0])
+		return;
+	metric = is_bytes ? "bpf_cgroup_memory_stat_bytes" : "bpf_cgroup_memory_stat_total";
+	namespace_metric_family_set(NULL, bpf_carg, metric, is_bytes ? METRIC_TYPE_GAUGE : METRIC_TYPE_COUNTER,
+		"Cgroup memory.stat field.");
+	lbl = alligator_ht_init(NULL);
+	cgroup_mem_labels(lbl, path);
+	add_label(lbl, "stat", stat);
+	metric_add((char *)metric, lbl, &value, DATATYPE_UINT, bpf_carg);
+}
+
 #ifdef __linux__
 static int walk_left;
+
+static int mem_stat_is_bytes(const char *key)
+{
+	if (!key)
+		return 1;
+	if (!strcmp(key, "pgfault") || !strcmp(key, "pgmajfault"))
+		return 0;
+	return 1;
+}
+
+static void read_cgroup_memory_files(const char *dir)
+{
+	char file[512];
+	FILE *fp;
+	char line[256];
+
+	snprintf(file, sizeof(file), "%s/memory.current", dir);
+	fp = fopen(file, "r");
+	if (fp) {
+		uint64_t cur = 0;
+		if (fscanf(fp, "%" SCNu64, &cur) == 1)
+			bpf_cgroup_memory_sample(dir, cur);
+		fclose(fp);
+	}
+	snprintf(file, sizeof(file), "%s/memory.stat", dir);
+	fp = fopen(file, "r");
+	if (!fp)
+		return;
+	while (fgets(line, sizeof(line), fp)) {
+		char key[64];
+		uint64_t val = 0;
+		if (sscanf(line, "%63s %" SCNu64, key, &val) != 2)
+			continue;
+		/* Small stable subset only — see doc/bpf.md. */
+		if (strcmp(key, "anon") && strcmp(key, "file") && strcmp(key, "kernel") &&
+		    strcmp(key, "sock") && strcmp(key, "shmem") && strcmp(key, "slab") &&
+		    strcmp(key, "pgfault") && strcmp(key, "pgmajfault"))
+			continue;
+		bpf_cgroup_memory_stat_sample(dir, key, val, mem_stat_is_bytes(key));
+	}
+	fclose(fp);
+}
 
 static void walk_cgroup(const char *dir, int depth, int want_pressure)
 {
@@ -1328,6 +1484,7 @@ static void walk_cgroup(const char *dir, int depth, int want_pressure)
 			}
 			fclose(fp);
 		}
+		read_cgroup_memory_files(dir);
 	}
 	d = opendir(dir);
 	if (!d)
@@ -1561,6 +1718,7 @@ static int load_probe(bpf_probe *dst, json_t *j)
 		copy_cap(dst->filter_value, sizeof(dst->filter_value), fval);
 	}
 	dst->want_dport = json_bool(json_object_get(j, "label_dport"));
+	dst->want_waker = json_bool(json_object_get(j, "label_waker"));
 	dst->latency = json_bool(json_object_get(j, "latency"));
 	args = json_object_get(j, "args");
 	if (json_is_array(args)) {
@@ -1621,6 +1779,10 @@ static int load_probe(bpf_probe *dst, json_t *j)
 	}
 	if (dst->named == BPF_NAMED_FD && !dst->ncomm) {
 		glog(L_WARN, "bpf: fd_track requires a comm allowlist; probe not enabled\n");
+		return -1;
+	}
+	if (dst->named == BPF_NAMED_PAGE_FAULT && !dst->ncomm) {
+		glog(L_WARN, "bpf: page_faults requires a comm allowlist; probe not enabled\n");
 		return -1;
 	}
 	if (dst->named == BPF_NAMED_DNS && !dst->binary[0])
@@ -1839,6 +2001,8 @@ static json_t *probe_to_json(const bpf_probe *p)
 	}
 	if (p->want_dport)
 		json_object_set_new(o, "label_dport", json_true());
+	if (p->want_waker)
+		json_object_set_new(o, "label_waker", json_true());
 	if (p->latency)
 		json_object_set_new(o, "latency", json_true());
 	if (p->mode == BPF_MODE_CAPTURE)

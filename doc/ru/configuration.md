@@ -9,7 +9,7 @@
 | Сбор метрик (pull) | [aggregate.md](aggregate.md) |
 | Приём метрик (push) и scrape | [entrypoint.md](entrypoint.md) |
 | Метрики хоста | [system.md](system.md) |
-| eBPF collectors (kprobe / uprobe / built-in probes) | [bpf.md](../bpf.md) |
+| eBPF collectors (метрики, не continuous profiler) | [bpf.md](bpf.md) — [возможности](bpf.md#возможности-и-чем-это-не-является) |
 | PromQL / SQL запросы | [query.md](query.md) |
 | Экспорт и автоматизация | [action.md](action.md), [scheduler.md](scheduler.md) |
 | Пространства имён метрик | [namespace.md](namespace.md) |
@@ -36,7 +36,7 @@
 | `entrypoint` | Адреса прослушивания, handlers, scrape/export endpoints |
 | `aggregate` | Poll внешних targets и запуск parsers |
 | `system` | Сбор метрик хоста и контейнеров |
-| `bpf` | eBPF kprobe, uprobe и built-in probes; см. [bpf.md](../bpf.md) |
+| `bpf` | eBPF kprobe/uprobe и built-in probes как Prometheus-метрики (не flamegraphs); см. [bpf.md](../bpf.md) |
 | `query` | PromQL или SQL по расписанию |
 | `action` | Экспорт метрик или запуск команд |
 | `scheduler` | Trigger actions по интервалу |

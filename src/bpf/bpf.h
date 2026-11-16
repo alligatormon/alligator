@@ -50,6 +50,7 @@ typedef struct bpf_probe {
 	char syscalls[BPF_SYSCALL_SLOTS][16];
 	int nsys;
 	int want_dport;
+	int want_waker;
 	int latency;
 	int filter_op;
 	char filter_value[BPF_STR_MAX];
@@ -96,14 +97,19 @@ int bpf_cgroup_labels_on(void);
 int bpf_any_enabled(void);
 
 void bpf_hist_add_bucket(const char *metric, const char *comm, const char *extra, const char *extra_key,
-	const char *dev, uint64_t cgroup, uint32_t bucket, uint64_t count);
-void bpf_hist_set_sum(const char *metric, const char *comm, const char *extra, const char *dev,
-	uint64_t cgroup, uint64_t sum_ns, uint64_t count);
+	const char *dev, const char *dev_key, uint64_t cgroup, uint32_t bucket, uint64_t count);
+void bpf_hist_set_sum(const char *metric, const char *comm, const char *extra, const char *extra_key,
+	const char *dev, const char *dev_key, uint64_t cgroup, uint64_t sum_ns, uint64_t count);
 void bpf_hist_observe(const char *metric, const char *comm, const char *extra, const char *extra_key,
-	const char *dev, uint64_t cgroup, uint64_t ns);
+	const char *dev, const char *dev_key, uint64_t cgroup, uint64_t ns);
 void bpf_counter_set(const char *metric, const char *comm, const char *event, const char *path,
 	const char *parent, uint64_t cgroup, int has_dport, uint32_t dport, int has_changed,
 	uint32_t changed, uint64_t value);
+/* Like bpf_counter_set but remaps empty-default event/parent label names (e.g. state/waker). */
+void bpf_counter_set_keys(const char *metric, const char *comm, const char *event, const char *event_key,
+	const char *parent, const char *parent_key, uint64_t cgroup, uint64_t value);
+void bpf_cgroup_memory_sample(const char *path, uint64_t current_bytes);
+void bpf_cgroup_memory_stat_sample(const char *path, const char *stat, uint64_t value, int is_bytes);
 void bpf_generic_set(int slot, const char *l0, const char *l1, const char *l2, const char *l3, const char *l4, const char *l5, uint64_t count);
 void bpf_generic_hist_bucket(int slot, const char *l0, const char *l1, const char *l2, const char *l3, const char *l4, const char *l5,
 	uint32_t bucket, uint64_t count);

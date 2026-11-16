@@ -91,6 +91,8 @@ typedef int64_t __s64;
 #define BPF_NAMED_PRIV 18
 #define BPF_NAMED_CGROUP_MEM 19
 #define BPF_NAMED_UDP 20
+#define BPF_NAMED_PAGE_FAULT 21
+#define BPF_NAMED_OOM_KILL 22
 
 struct bpf_arg_cfg {
 	__u8 kind;
@@ -240,7 +242,7 @@ struct bpf_sched_cfg {
 	__u32 runq_on;
 	__u32 off_on;
 	__u32 cgroup_labels;
-	__u32 pad;
+	__u32 waker_on;
 	char runq_comm[BPF_COMM_MAX][16];
 	char off_comm[BPF_COMM_MAX][16];
 };
@@ -316,7 +318,18 @@ struct bpf_udp_cfg {
 };
 
 struct bpf_lock_cfg {
+	__u32 cgroup_labels;
+	__u32 pad;
 	char comm[BPF_COMM_MAX][16];
+};
+
+struct bpf_mem_cfg {
+	__u32 fault_on;
+	__u32 oom_on;
+	__u32 cgroup_labels;
+	__u32 pad;
+	char fault_comm[BPF_COMM_MAX][16];
+	char oom_comm[BPF_COMM_MAX][16];
 };
 
 struct bpf_ts_val {
@@ -324,6 +337,18 @@ struct bpf_ts_val {
 	__u64 cgroup;
 	char comm[16];
 	char extra[32];
+};
+
+/* Separate from off_ts so wakeup never mutates a map value another CPU may delete. */
+struct bpf_waker_val {
+	char waker[16];
+};
+
+/* Stored at contention_begin so end can label by lock type. */
+struct bpf_lock_start {
+	__u64 ts;
+	__u32 flags;
+	__u32 pad;
 };
 
 struct bpf_sum_val {

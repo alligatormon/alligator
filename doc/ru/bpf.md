@@ -16,6 +16,59 @@
 
 Если BTF нет, ядро слишком старое или load запрещён, alligator один раз пишет в лог, публикует `bpf_up 0` и продолжает остальные collectors. Без контекста `bpf` метрика `bpf_up` не публикуется.
 
+## Возможности (и чем это не является)
+
+Alligator BPF — это коллектор **Prometheus-метрик** (counters и histograms), а не continuous profiler. Он **не** собирает stack traces, flamegraphs, USDT и не пишет поток событий по pid / connection 4-tuple. «Процесс» на практике — 16-байтное имя задачи `comm`, не `pid`. Включайте только нужные probes; именованные hist/counter делят staging-таблицу на **4096** записей за scrape (`bpf_probe_dropped_total{reason="lru"}` при переполнении).
+
+| Вид | Статус | Probes / метрики | Замечания |
+| --- | --- | --- | --- |
+| CPU profiling (куда уходит CPU) | **Нет** | — | Нет on-CPU sampling, нет стеков |
+| Off-CPU (где задача ждёт) | **Частично** | `offcpu` → `bpf_offcpu_seconds`, `bpf_offcpu_switches_total` | Длительность + `state`; opt-in `label waker;` (риск кардинальности). Нет стеков / причины ожидания сверх `state` |
+| Memory | **Частично** | `cgroup_memory`, `page_faults` (нужен `comm`), `oom_kill` | PSI + `memory.current` / узкий `memory.stat`; faults горячие — всегда фильтруйте `comm`. Не alloc/heap profiling |
+| Lock contention | **Частично** | `lock_contention` (ядро ≥5.17) | Только kernel locks (label `type`). Не имена pthread/userspace mutex; грубый намёк — `syscall_latency` + `futex` |
+| Scheduler | **Да (метрики)** | `runqueue_latency` / `sched_latency`, `offcpu` | У `runqueue_latency` нет cgroup labels |
+| I/O | **Да (метрики)** | `block_io`, `process_io`, `syscall_latency`, `file_access` | Latency / байты / open — не полный request tracing |
+| TCP | **Да (метрики)** | `tcp_retransmit`, `tcp_connect_latency`, `tcp_rtt`, `tcp_reset` (+ UDP/DNS) | По `comm` (опционально `dport`); не сниффер 4-tuple |
+
+**Разрезы:** фильтр `comm name;` (до 8) или без него — весь хост; `cgroup_labels;` добавляет `cgroup` / `pod` / `namespace` / `container` где поддерживается (не у `runqueue_latency`).
+
+Стартер latency (scheduling + block + TCP connect/RTT):
+
+```
+bpf {
+    cgroup_labels;
+    probe runqueue_latency;
+    probe offcpu;
+    probe block_io;
+    probe tcp_connect_latency;
+    probe tcp_rtt;
+}
+```
+
+Стартер memory / contention (`page_faults` узко; `label waker;` не включать без нужды):
+
+```
+bpf {
+    cgroup_labels;
+    probe offcpu;
+    probe lock_contention;
+    probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
+}
+```
+
+Как читать histograms (границы ~1µs…~1s, затем `+Inf`):
+
+```promql
+histogram_quantile(0.99, sum by (le, comm) (rate(bpf_offcpu_seconds_bucket[5m])))
+rate(bpf_lock_contentions_total[5m])
+rate(bpf_page_faults_total{type="major"}[5m])
+rate(bpf_tcp_retransmits_total[5m])
+```
+
+Справочник probes, labels и жёстких ограничений — в [Built-in probes](#built-in-probes) ниже.
+
 ## Конфигурация
 
 Probe выключен, пока его нет в списке. Контекст целиком заменяет предыдущую bpf-конфигурацию.
@@ -48,6 +101,8 @@ bpf {
     probe net_activity;
     probe priv_change;
     probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
 
     uprobe /lib64/libcurl.so.4:curl_easy_perform {
         latency;
@@ -409,6 +464,7 @@ Built-in probes публикуют **counters и histograms по `comm`**, не 
 Обязательные ограничения:
 
 - `fd_track` **обязан** иметь хотя бы один `comm`; иначе probe отклоняется.
+- `page_faults` **обязан** иметь хотя бы один `comm`; иначе probe отклоняется. Хук горячий — всегда фильтруйте.
 - `file_access` без prefix allowlist (`prefix /etc;` или `filter=prefix value=/etc;`) **ничего не считает**.
 
 ```
@@ -416,6 +472,7 @@ bpf {
     probe offcpu { comm nginx; comm searchd; }
     probe tcp_retransmit { comm nginx; label dport; }
     probe fd_track { comm nginx; }
+    probe page_faults { comm nginx; }
     probe file_access { prefix /etc; }
     kprobe tcp_v4_connect { comm nginx; arg 1 type=sockaddr label=daddr filter=prefix value=10.; }
 }
@@ -434,9 +491,11 @@ bpf {
 
 - `runqueue_latency` — от wakeup до следующего запуска на CPU. Histogram `bpf_runqueue_latency_seconds`. Без cgroup label: wakeup идёт в контексте waking task.
 - `sched_latency` — тот же интервал и тот же histogram; второй серии не добавляет.
-- `offcpu` — время вне CPU до следующего запуска. Histogram `bpf_offcpu_seconds`. С `cgroup_labels` cgroup — у задачи, ушедшей с CPU. Exiting task не пишется.
+- `offcpu` — время вне CPU до следующего запуска. Histogram `bpf_offcpu_seconds` и counter `bpf_offcpu_switches_total`. Labels: `comm`, `state` (`sleep`, `disk_sleep`, `parked` или `other` из `prev_state`). Опционально `label waker;` добавляет `waker` (comm задачи, сделавшей wakeup, из `sched_wakeup` / `sched_wakeup_new`, best-effort; без wakeup → `unknown`). BPF-карта `last_waker` обновляется только если у woken pid уже есть старт в `off_ts` и он проходит allowlist `comm` для offcpu; `sched_switch` удаляет запись для `next` даже без `off_ts` (HASH, не LRU). **Риск кардинальности:** каждый уникальный waker `comm` умножает серии; по умолчанию выключен. С `cgroup_labels` cgroup — у задачи, ушедшей с CPU. Exiting task не пишется.
 - `block_io` — от issue block request до completion. Histogram `bpf_block_io_latency_seconds` с `dev` (`major:minor`) и `op` (`read`, `write`, `other`).
-- `lock_contention` — ожидание kernel lock. Histogram `bpf_lock_contention_seconds` по `comm`. Label имени lock нет. На ядрах старше 5.17 probe пропускается, `bpf_probe_skipped{probe="lock_contention"}` = 1.
+- `lock_contention` — ожидание kernel lock. Histogram `bpf_lock_contention_seconds` и counter `bpf_lock_contentions_total` по `comm` и `type`. Приоритет `type`, если выставлено несколько LCB flags: `mutex` > `spin` > `rwlock` (READ|WRITE) > `rt` > `percpu` > `other`. Поддерживает `cgroup_labels`. Label адреса/символа lock нет. На ядрах старше 5.17 probe пропускается, `bpf_probe_skipped{probe="lock_contention"}` = 1.
+
+Включение `offcpu` (особенно с `label waker;`) вместе с `lock_contention`, `page_faults` и `cgroup_memory` делит staging-таблицу на 4096 серий и может поднять `bpf_probe_dropped_total{reason="lru"}`.
 
 ### TCP, UDP и DNS
 
@@ -497,26 +556,36 @@ bpf {
 - `net_activity` — `connect` и `accept`. Counter `bpf_net_activity_total` по `comm` и `event`.
 - `priv_change` — credential commit. Counter `bpf_priv_change_total` по `comm` и `changed` (`0` или `1`). uid не label.
 
-### Cgroup memory pressure
+### Cgroup memory и page faults
 
 ```
 bpf {
     probe cgroup_memory;
+    probe page_faults { comm nginx; }
+    probe oom_kill;
 }
 ```
 
-Читает `memory.pressure` из cgroupfs. BPF-программу не attach'ит. Host PSI метрики не трогает.
+`cgroup_memory` читает cgroupfs. BPF-программу не attach'ит. Host PSI метрики не трогает. Тот же обход читает `memory.current` и фиксированное подмножество `memory.stat`, если файлы есть.
 
 - `bpf_cgroup_memory_pressure_waiting_seconds_total`
 - `bpf_cgroup_memory_pressure_stalled_seconds_total`
 - `bpf_cgroup_memory_pressure_waiting_avg_percent{window="10|60|300"}`
 - `bpf_cgroup_memory_pressure_stalled_avg_percent{window="10|60|300"}`
+- `bpf_cgroup_memory_current_bytes`
+- `bpf_cgroup_memory_stat_bytes{stat="anon|file|kernel|sock|shmem|slab"}` (gauges; только байтовые поля)
+- `bpf_cgroup_memory_stat_total{stat="pgfault|pgmajfault"}` (counters)
+
+Точный список ключей `memory.stat`: `anon`, `file`, `kernel`, `sock`, `shmem`, `slab`, `pgfault`, `pgmajfault`. Остальные ключи в файле игнорируются.
 
 Labels: `cgroup`, и при Kubernetes path — `pod`, `namespace`, `container`.
 
+- `page_faults` — `kretprobe` на `handle_mm_fault`. **Нужен хотя бы один `comm`.** Counter `bpf_page_faults_total` с `type` `minor` или `major` и `comm` (плюс cgroup labels при включении). Ошибки с `VM_FAULT_ERROR` не считаются. Горячий путь — всегда фильтруйте через `comm`. Не суммируйте с cgroup `pgfault`/`pgmajfault` (`bpf_cgroup_memory_stat_total`): per-task BPF и cgroupfs — разные источники и не совпадут. При неудачном attach — `bpf_probe_skipped{probe="page_faults"}`; без `comm` probe не включается.
+- `oom_kill` — `tracepoint/oom/mark_victim`. Counter `bpf_oom_kills_total` по `comm` (плюс cgroup при включении). Пропускается, если tracepoint отсутствует.
+
 ## Cgroup labels
 
-`cgroup_labels;` добавляет `cgroup`, `pod`, `namespace`, `container` к scheduling, block, TCP и process сериям, когда cgroup id резолвится. Id — inode каталога cgroup. Путь берётся из ограниченного обхода cgroupfs и из cgroup, которые уже видел cadvisor. Клиента kubelet нет.
+`cgroup_labels;` добавляет `cgroup`, `pod`, `namespace`, `container` к scheduling, block, lock, TCP, process, page-fault и OOM сериям, когда cgroup id резолвится. Id — inode каталога cgroup. Путь берётся из ограниченного обхода cgroupfs и из cgroup, которые уже видел cadvisor. Клиента kubelet нет.
 
 `runqueue_latency` эти labels не получает. Если id известен, а путь нет — label равен числовому cgroup id.
 
@@ -533,9 +602,13 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | `bpf_probe_dropped_total` | counter | `probe`, `reason` (`lru`, `trunc`, `ringbuf_full`, `user_read_fail`, `stash_miss`, `regex_nomatch`, `regex_fail`) |
 | `bpf_probe_skipped` | gauge | `probe`. `1`, если probe не attached (старое ядро, load/attach failed). Ошибка одного custom probe не выгружает остальные |
 | `bpf_runqueue_latency_seconds` | histogram | `comm` |
-| `bpf_offcpu_seconds` | histogram | `comm`, плюс cgroup labels при включении |
+| `bpf_offcpu_seconds` | histogram | `comm`, `state`, optional `waker` (`label waker;`), плюс cgroup labels при включении |
+| `bpf_offcpu_switches_total` | counter | те же labels, что у `bpf_offcpu_seconds` |
 | `bpf_block_io_latency_seconds` | histogram | `comm`, `dev`, `op` |
-| `bpf_lock_contention_seconds` | histogram | `comm` |
+| `bpf_lock_contention_seconds` | histogram | `comm`, `type`, плюс cgroup labels при включении |
+| `bpf_lock_contentions_total` | counter | те же labels, что у `bpf_lock_contention_seconds` |
+| `bpf_page_faults_total` | counter | `comm`, `type` (`minor`/`major`), optional cgroup |
+| `bpf_oom_kills_total` | counter | `comm`, optional cgroup |
 | `bpf_tcp_retransmits_total` | counter | `comm`, optional `dport` |
 | `bpf_tcp_connect_latency_seconds` | histogram | `comm` |
 | `bpf_tcp_rtt_seconds` | histogram | `comm` |
@@ -551,5 +624,8 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | `bpf_udp_activity_total` | counter | `comm`, `event` (`send` или `recv`) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter и gauge | `cgroup`, `pod`, `namespace`, `container`, `window` на averages |
+| `bpf_cgroup_memory_current_bytes` | gauge | `cgroup`, `pod`, `namespace`, `container` |
+| `bpf_cgroup_memory_stat_bytes` | gauge | то же плюс `stat` |
+| `bpf_cgroup_memory_stat_total` | counter | то же плюс `stat` (fault-подобные поля) |
 
 Collector не attach'ит USDT, не собирает stack traces и не загружает BPF object из конфигурации.
