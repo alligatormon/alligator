@@ -814,7 +814,7 @@ endif()
 		COMMAND ${CMAKE_COMMAND} -DBPFTOOL=${BPFTOOL} -DOUT=${BPF_VMLINUX} -P ${BPF_SCRIPT_DIR}/dump_btf.cmake
 		VERBATIM
 	)
-	set(BPF_PROG_NAMES generic sched block tcp process dns)
+	set(BPF_PROG_NAMES generic sched block tcp process dns udp)
 	execute_process(COMMAND grep -q trace_event_raw_contention_begin /sys/kernel/btf/vmlinux
 		RESULT_VARIABLE BPF_LOCK_GREP)
 	if(BPF_LOCK_GREP EQUAL 0)

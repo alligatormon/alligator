@@ -33,6 +33,7 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe udp_activity { comm dns; }
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -399,14 +400,23 @@ namespace {
 
 ## Built-in probes
 
-`comm` — 16-байтное имя задачи (15 символов + NUL). Эти probes не создают серию на pid, argv или connection 4-tuple.
+Built-in probes публикуют **counters и histograms по `comm`**, не audit log и не поток сырых событий. Серии не создаются на pid, argv или connection 4-tuple.
 
-`comm name;` внутри probe оставляет только это имя. Повторять можно до 8 имён. Без `comm` пишутся все процессы. Исключение — `fd_track`: без хотя бы одного `comm` probe отклоняется.
+`comm` — 16-байтное имя задачи (15 символов + NUL).
+
+`comm name;` внутри probe оставляет только это имя. Повторять можно до 8 имён. Без `comm` пишутся все процессы.
+
+Обязательные ограничения:
+
+- `fd_track` **обязан** иметь хотя бы один `comm`; иначе probe отклоняется.
+- `file_access` без prefix allowlist (`prefix /etc;` или `filter=prefix value=/etc;`) **ничего не считает**.
 
 ```
 bpf {
     probe offcpu { comm nginx; comm searchd; }
     probe tcp_retransmit { comm nginx; label dport; }
+    probe fd_track { comm nginx; }
+    probe file_access { prefix /etc; }
     kprobe tcp_v4_connect { comm nginx; arg 1 type=sockaddr label=daddr filter=prefix value=10.; }
 }
 ```
@@ -428,7 +438,7 @@ bpf {
 - `block_io` — от issue block request до completion. Histogram `bpf_block_io_latency_seconds` с `dev` (`major:minor`) и `op` (`read`, `write`, `other`).
 - `lock_contention` — ожидание kernel lock. Histogram `bpf_lock_contention_seconds` по `comm`. Label имени lock нет. На ядрах старше 5.17 probe пропускается, `bpf_probe_skipped{probe="lock_contention"}` = 1.
 
-### TCP и DNS
+### TCP, UDP и DNS
 
 Адрес или порт становятся label только если probe это запросил.
 
@@ -438,6 +448,7 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe udp_activity { comm dns; }
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -449,6 +460,7 @@ bpf {
 - `tcp_connect_latency` — от `SYN_SENT` до established или `CLOSE`. Histogram `bpf_tcp_connect_latency_seconds`.
 - `tcp_rtt` — smoothed RTT один раз при established. Histogram `bpf_tcp_rtt_seconds`.
 - `tcp_reset` — отправленные и полученные TCP reset. Counter `bpf_tcp_resets_total`. `label dport;` добавляет destination port, когда он доступен.
+- `udp_activity` — UDP send и receive через `udp_sendmsg` / `udp_recvmsg` и IPv6-аналоги. Counter `bpf_udp_activity_total` по `comm` и `event` (`send` или `recv`). `send` считается на entry; `recv` — kretprobe и только при return value `> 0`, так что non-blocking `-EAGAIN` poll не попадает в счётчик. Это не захват пакетов и без labels адреса или порта.
 - `dns_latency` — `getaddrinfo` в указанном binary. По умолчанию `/lib64/libc.so.6`. Histogram `bpf_dns_latency_seconds`. Имя запроса — label только при совпадении с `filter`. Остальные lookups остаются в unlabeled серии и не считаются дважды. Имя хранится не больше 31 байта.
 
 ### Processes
@@ -536,6 +548,7 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | `bpf_exec_total` | counter | `comm`, `parent`, optional `path` |
 | `bpf_file_access_total` | counter | `comm`, `path` |
 | `bpf_net_activity_total` | counter | `comm`, `event` |
+| `bpf_udp_activity_total` | counter | `comm`, `event` (`send` или `recv`) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter и gauge | `cgroup`, `pod`, `namespace`, `container`, `window` на averages |
 

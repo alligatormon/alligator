@@ -84,9 +84,12 @@ static void test_bpf_filters_and_buckets(void)
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "cri-containerd-cid", container);
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_RUNQUEUE, bpf_named_id("runqueue_latency"));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_SCHED, bpf_named_id("sched_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_UDP, bpf_named_id("udp_activity"));
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_runqueue_latency_seconds", (char *)bpf_named_metric(BPF_NAMED_SCHED));
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_runqueue_latency_seconds", (char *)bpf_named_metric(BPF_NAMED_RUNQUEUE));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_udp_activity_total", (char *)bpf_named_metric(BPF_NAMED_UDP));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_named_is_hist(BPF_NAMED_OFFCPU));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_named_is_hist(BPF_NAMED_UDP));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_loader_selftest());
 }
 

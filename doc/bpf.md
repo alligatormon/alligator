@@ -33,6 +33,7 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe udp_activity { comm dns; }
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -399,14 +400,23 @@ For full Redis/Memcached metrics (hit/miss ratio, `INFO`, `stats`) alligator shi
 
 ## Built-in probes
 
-`comm` is the 16-byte task name (15 characters plus a NUL). These probes do not create a series per pid, per argv, or per connection 4-tuple.
+Built-in probes publish **counters and histograms by `comm`**, not an audit log and not a stream of raw events. They do not create a series per pid, per argv, or per connection 4-tuple.
 
-`comm name;` inside a probe keeps only that task name. Repeat it for up to 8 names. With no `comm` line the probe records every process. `fd_track` is the exception: it is rejected unless at least one `comm` is set.
+`comm` is the 16-byte task name (15 characters plus a NUL).
+
+`comm name;` inside a probe keeps only that task name. Repeat it for up to 8 names. With no `comm` line the probe records every process.
+
+Hard requirements:
+
+- `fd_track` **must** have at least one `comm`; otherwise the probe is rejected.
+- `file_access` without a prefix allowlist (`prefix /etc;` or `filter=prefix value=/etc;`) **counts nothing**.
 
 ```
 bpf {
     probe offcpu { comm nginx; comm searchd; }
     probe tcp_retransmit { comm nginx; label dport; }
+    probe fd_track { comm nginx; }
+    probe file_access { prefix /etc; }
     kprobe tcp_v4_connect { comm nginx; arg 1 type=sockaddr label=daddr filter=prefix value=10.; }
 }
 ```
@@ -428,7 +438,7 @@ bpf {
 - `block_io` — time from a block request issue to its completion. Histogram `bpf_block_io_latency_seconds` with `dev` (`major:minor`) and `op` (`read`, `write`, or `other`).
 - `lock_contention` — time spent waiting on a kernel lock. Histogram `bpf_lock_contention_seconds` by `comm`. There is no lock-name label. On kernels older than 5.17 the probe is skipped and `bpf_probe_skipped{probe="lock_contention"}` is 1.
 
-### TCP and DNS
+### TCP, UDP, and DNS
 
 An address or port is a label only when that probe asks for it.
 
@@ -438,6 +448,7 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe udp_activity { comm dns; }
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -449,6 +460,7 @@ bpf {
 - `tcp_connect_latency` — from `SYN_SENT` until the socket is established or the attempt reaches `CLOSE`. Histogram `bpf_tcp_connect_latency_seconds`.
 - `tcp_rtt` — smoothed RTT sampled once when a TCP socket becomes established. Histogram `bpf_tcp_rtt_seconds`.
 - `tcp_reset` — sent and received TCP resets. Counter `bpf_tcp_resets_total`. `label dport;` adds the destination port when it is available.
+- `udp_activity` — UDP send and receive via `udp_sendmsg` / `udp_recvmsg` and the IPv6 counterparts. Counter `bpf_udp_activity_total` by `comm` and `event` (`send` or `recv`). `send` is counted on entry; `recv` is a kretprobe and counts only when the return value is `> 0`, so non-blocking `-EAGAIN` polls are dropped. This is not packet capture and has no address or port labels.
 - `dns_latency` — `getaddrinfo` in the given binary. The default binary is `/lib64/libc.so.6`. Histogram `bpf_dns_latency_seconds`. The query name is a label only when it matches `filter`. Other lookups stay in the unlabeled series and are not counted twice. The stored name is at most 31 bytes.
 
 ### Processes
@@ -536,6 +548,7 @@ Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in 
 | `bpf_exec_total` | counter | `comm`, `parent`, optional `path` |
 | `bpf_file_access_total` | counter | `comm`, `path` |
 | `bpf_net_activity_total` | counter | `comm`, `event` |
+| `bpf_udp_activity_total` | counter | `comm`, `event` (`send` or `recv`) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter and gauge | `cgroup`, `pod`, `namespace`, `container`, `window` on the averages |
 

@@ -281,6 +281,7 @@ static const struct named_row named_rows[] = {
 	{ "exec", BPF_NAMED_EXEC, "bpf_exec_total", 0 },
 	{ "file_access", BPF_NAMED_FILE, "bpf_file_access_total", 0 },
 	{ "net_activity", BPF_NAMED_NET, "bpf_net_activity_total", 0 },
+	{ "udp_activity", BPF_NAMED_UDP, "bpf_udp_activity_total", 0 },
 	{ "priv_change", BPF_NAMED_PRIV, "bpf_priv_change_total", 0 },
 	{ "cgroup_memory", BPF_NAMED_CGROUP_MEM, "bpf_cgroup_memory_pressure_waiting_seconds_total", 0 },
 };

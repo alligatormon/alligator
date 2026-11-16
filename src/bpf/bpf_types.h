@@ -90,6 +90,7 @@ typedef int64_t __s64;
 #define BPF_NAMED_NET 17
 #define BPF_NAMED_PRIV 18
 #define BPF_NAMED_CGROUP_MEM 19
+#define BPF_NAMED_UDP 20
 
 struct bpf_arg_cfg {
 	__u8 kind;
@@ -305,6 +306,12 @@ struct bpf_dns_cfg {
 	__u8 filter_op;
 	__u8 pad[3];
 	char value[BPF_STR_MAX];
+	char comm[BPF_COMM_MAX][16];
+};
+
+struct bpf_udp_cfg {
+	__u32 on;
+	__u32 cgroup_labels;
 	char comm[BPF_COMM_MAX][16];
 };
 

@@ -24,6 +24,7 @@
 #include <tcp.skel.h>
 #include <process.skel.h>
 #include <dns.skel.h>
+#include <udp.skel.h>
 #include <generic.skel.h>
 #ifndef BPF_NO_LOCK
 #include <lock.skel.h>
@@ -36,6 +37,7 @@ static struct block_bpf *block_skel;
 static struct tcp_bpf *tcp_skel;
 static struct process_bpf *proc_skel;
 static struct dns_bpf *dns_skel;
+static struct udp_bpf *udp_skel;
 static struct generic_bpf *gen_skel;
 #ifndef BPF_NO_LOCK
 static struct lock_bpf *lock_skel;
@@ -637,6 +639,45 @@ static int load_named(void)
 			dns_skel = NULL;
 		}
 	}
+	if (want(BPF_NAMED_UDP)) {
+		struct bpf_udp_cfg cfg;
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.on = 1;
+		cfg.cgroup_labels = bpf_cgroup_labels_on();
+		append_comm(cfg.comm, BPF_NAMED_UDP);
+		udp_skel = udp_bpf__open();
+		if (udp_skel) {
+			bpf_program__set_autoattach(udp_skel->progs.udp_send, false);
+			bpf_program__set_autoattach(udp_skel->progs.udp_recv, false);
+		}
+		if (udp_skel && !udp_bpf__load(udp_skel)) {
+			int before = nlinks;
+			static const char *const send_syms[] = { "udp_sendmsg", "udpv6_sendmsg" };
+			static const char *const recv_syms[] = { "udp_recvmsg", "udpv6_recvmsg" };
+			size_t si;
+
+			bpf_map__update_elem(udp_skel->maps.udp_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+			for (si = 0; si < sizeof(send_syms) / sizeof(send_syms[0]); si++) {
+				LIBBPF_OPTS(bpf_kprobe_opts, opt);
+				keep_link(bpf_program__attach_kprobe_opts(udp_skel->progs.udp_send, send_syms[si], &opt), 0);
+			}
+			for (si = 0; si < sizeof(recv_syms) / sizeof(recv_syms[0]); si++) {
+				LIBBPF_OPTS(bpf_kprobe_opts, opt);
+				opt.retprobe = true;
+				keep_link(bpf_program__attach_kprobe_opts(udp_skel->progs.udp_recv, recv_syms[si], &opt), 0);
+			}
+			if (nlinks <= before) {
+				bpf_skip_set("udp_activity", 1);
+				udp_bpf__destroy(udp_skel);
+				udp_skel = NULL;
+			}
+		} else {
+			bpf_skip_set("udp_activity", 1);
+			if (udp_skel)
+				udp_bpf__destroy(udp_skel);
+			udp_skel = NULL;
+		}
+	}
 	return 0;
 }
 
@@ -928,6 +969,8 @@ void bpf_loader_shutdown(void)
 		process_bpf__destroy(proc_skel);
 	if (dns_skel)
 		dns_bpf__destroy(dns_skel);
+	if (udp_skel)
+		udp_bpf__destroy(udp_skel);
 	if (gen_skel)
 		generic_bpf__destroy(gen_skel);
 #ifndef BPF_NO_LOCK
@@ -940,6 +983,7 @@ void bpf_loader_shutdown(void)
 	tcp_skel = NULL;
 	proc_skel = NULL;
 	dns_skel = NULL;
+	udp_skel = NULL;
 	gen_skel = NULL;
 	attached = 0;
 }
@@ -964,17 +1008,17 @@ int bpf_loader_sync(void)
 	bpf_loader_shutdown();
 	logged = 0;
 #ifndef BPF_NO_LOCK
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !lock_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !lock_skel)
 		return -1;
 #else
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel)
 		return -1;
 #endif
 	load_generic();
 #ifndef BPF_NO_LOCK
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || gen_skel || lock_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || gen_skel || lock_skel || nlinks > 0;
 #else
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || gen_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || gen_skel || nlinks > 0;
 #endif
 	return attached ? 0 : -1;
 }
@@ -1012,6 +1056,8 @@ void bpf_loader_poll(void)
 	}
 	if (dns_skel)
 		poll_hist(map_fd(dns_skel->maps.dns_hist), map_fd(dns_skel->maps.dns_sum), "bpf_dns_latency_seconds", "name");
+	if (udp_skel)
+		poll_ctr(map_fd(udp_skel->maps.udp_ctr), "bpf_udp_activity_total", 0);
 	if (gen_skel) {
 		int fd = map_fd(gen_skel->maps.events);
 		/* Safety net for anything the poll wakeup has not drained yet. */
