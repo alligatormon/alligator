@@ -809,6 +809,25 @@ static int cap_groups(const struct cap_prog *pg, const char *buf, int blen, stru
 	return nl;
 }
 
+/* Rewrite named-group values that match a configured replace from→to. */
+static void cap_apply_replace(const bpf_probe *p, struct cap_lab *lab, int nl)
+{
+	int i, r;
+
+	if (!p || !lab || nl <= 0 || p->nreplace <= 0)
+		return;
+	for (i = 0; i < nl; i++) {
+		for (r = 0; r < p->nreplace; r++) {
+			if (strcmp(lab[i].k, p->replace[r].label))
+				continue;
+			if (strcmp(lab[i].v, p->replace[r].from))
+				continue;
+			copy_cap(lab[i].v, sizeof(lab[i].v), p->replace[r].to);
+			break;
+		}
+	}
+}
+
 void bpf_capture_on_event(const struct bpf_capture_event *ev, size_t evlen)
 {
 	const bpf_probe *p = NULL;
@@ -856,6 +875,7 @@ void bpf_capture_on_event(const struct bpf_capture_event *ev, size_t evlen)
 			return;
 		}
 		nl = gr;
+		cap_apply_replace(p, lab, nl);
 		if (clipped)
 			cap_note(p->name, "trunc", 1);
 	}
@@ -1642,6 +1662,32 @@ static int load_probe(bpf_probe *dst, json_t *j)
 				dst->save_arg[dst->nsave++] = idx;
 			}
 		}
+		{
+			json_t *reps = json_object_get(j, "replaces");
+			if (json_is_array(reps)) {
+				size_t nrep = json_array_size(reps);
+				int capped = 0;
+				for (i = 0; i < nrep; i++) {
+					json_t *one = json_array_get(reps, i);
+					const char *lab = json_str(json_object_get(one, "label"));
+					const char *from = json_str(json_object_get(one, "from"));
+					const char *to = json_str(json_object_get(one, "to"));
+					if (dst->nreplace >= BPF_REPLACE_MAX) {
+						capped = 1;
+						break;
+					}
+					if (!lab || !lab[0] || !from || !from[0] || !to || !to[0])
+						continue;
+					copy_cap(dst->replace[dst->nreplace].label, sizeof(dst->replace[0].label), lab);
+					copy_cap(dst->replace[dst->nreplace].from, sizeof(dst->replace[0].from), from);
+					copy_cap(dst->replace[dst->nreplace].to, sizeof(dst->replace[0].to), to);
+					dst->nreplace++;
+				}
+				if (capped || nrep > BPF_REPLACE_MAX)
+					glog(L_WARN, "bpf: probe '%s' replace capped at %d mappings; extra ignored\n",
+						dst->name, BPF_REPLACE_MAX);
+			}
+		}
 	}
 	if (dst->mode != BPF_MODE_CAPTURE) {
 		int a;
@@ -1671,6 +1717,11 @@ static int load_probe(bpf_probe *dst, json_t *j)
 		}
 		if (dst->pair_id[0]) {
 			glog(L_WARN, "bpf: probe '%s' pair_id requires mode capture; probe not enabled\n",
+				dst->name);
+			return -1;
+		}
+		if (dst->nreplace) {
+			glog(L_WARN, "bpf: probe '%s' replace requires mode capture; probe not enabled\n",
 				dst->name);
 			return -1;
 		}
@@ -1810,6 +1861,17 @@ static json_t *probe_to_json(const bpf_probe *p)
 		json_object_set_new(o, "regex_on", json_string(p->regex_on));
 	if (p->regex_pattern[0])
 		json_object_set_new(o, "regex_pattern", json_string(p->regex_pattern));
+	if (p->nreplace) {
+		json_t *reps = json_array();
+		for (i = 0; i < p->nreplace; i++) {
+			json_t *one = json_object();
+			json_object_set_new(one, "label", json_string(p->replace[i].label));
+			json_object_set_new(one, "from", json_string(p->replace[i].from));
+			json_object_set_new(one, "to", json_string(p->replace[i].to));
+			json_array_append_new(reps, one);
+		}
+		json_object_set_new(o, "replaces", reps);
+	}
 	if (p->filter_op) {
 		const char *filter = "eq";
 		if (p->filter_op == BPF_FILTER_PREFIX)

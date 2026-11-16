@@ -471,6 +471,51 @@ static void test_bpf_capture(void)
 
 	bpf_apply_plain(
 		"bpf {\n"
+		"    namespace bpf_tcp;\n"
+		"    uprobe /lib/x:f {\n"
+		"        mode capture;\n"
+		"        metric redis_reply_total;\n"
+		"        arg 1 type=user_buffer size=arg2 max=64 label=buf;\n"
+		"        regex on=buf pattern=\"^(?P<type>[+*$:])\";\n"
+		"        replace type $=bulk +=simple :=int *=array;\n"
+		"    }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 4, p->nreplace);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "type", p->replace[0].label);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "$", p->replace[0].from);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bulk", p->replace[0].to);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "+", p->replace[1].from);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "simple", p->replace[1].to);
+	bpf_loader_shutdown();
+	bpf_capture_event(0, 1, "redis-cli", "$5\r\nvalue\r\n", 11);
+	bpf_scrape();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+		bpf_query_n("redis_reply_total{type=\"bulk\",comm=\"redis-cli\"}", "bpf_tcp"));
+	bpf_apply_plain("bpf { uprobe /lib/x:f { replace type $=bulk; } }\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_probe_count());
+
+	/* Extra replace pairs beyond BPF_REPLACE_MAX are dropped (with a warning). */
+	bpf_apply_plain(
+		"bpf {\n"
+		"    uprobe /lib/x:f {\n"
+		"        mode capture;\n"
+		"        arg 1 type=user_buffer size=arg2 max=16 label=buf;\n"
+		"        regex on=buf pattern=\"^(?P<type>.)\";\n"
+		"        replace type a=1 b=2 c=3 d=4 e=5 f=6 g=7 h=8 i=9 j=10 k=11 l=12 m=13 n=14 o=15 p=16 q=17;\n"
+		"    }\n"
+		"}\n");
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_count());
+	p = bpf_probe_at(0);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_REPLACE_MAX, p->nreplace);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "a", p->replace[0].from);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "p", p->replace[BPF_REPLACE_MAX - 1].from);
+
+	bpf_apply_plain(
+		"bpf {\n"
 		"    namespace bpf_usdt;\n"
 		"    uprobe /lib64/libssl.so.3:SSL_write {\n"
 		"        mode capture;\n"

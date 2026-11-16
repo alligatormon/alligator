@@ -1034,11 +1034,14 @@ int generic_uprobe_capture(struct pt_regs *ctx)
 SEC("kretprobe")
 int generic_kretprobe_capture(struct pt_regs *ctx)
 {
-	unsigned long parms[6];
-	unsigned long rc;
+	/*
+	 * Entry argument registers are not preserved on kretprobe. Capture on
+	 * return uses from=saved / size=retval only; skip PT_REGS_PARM* so the
+	 * verifier does not reject this program (unlike uretprobe).
+	 */
+	unsigned long parms[6] = {};
+	unsigned long rc = PT_REGS_RC(ctx);
 
-	rc = PT_REGS_RC(ctx);
-	read_parms(ctx, parms);
 	return capture_begin(ctx, 1, rc, parms);
 }
 

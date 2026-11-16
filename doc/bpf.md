@@ -265,6 +265,32 @@ In plain config a quoted pattern keeps the backslashes you write. PCRE `\s` is w
 
 `regex on=LABEL pattern="..."` runs `pcre_exec` on that buffer's copied length, not on a C string. No match drops the event (`reason="regex_nomatch"`). A pattern that fails to compile (including duplicate named groups without `PCRE_DUPNAMES`) drops every event from that probe (`reason="regex_fail"`); look for `bpf: probe '...' regex failed` in the log. Up to six named groups become labels. The series also has `probe` and `comm`. On a `kretprobe` / `uretprobe`, `probe` is `symbol:ret` or `binary:symbol:ret`. Without `metric`, the name is `bpf_us_fn_events_total`.
 
+`replace LABEL from=to …;` rewrites a named-group value after the match and before the series is created. PCRE always captures the bytes in the buffer (for example `$`); it cannot emit a different string by itself. Unmapped values stay as captured. Repeat `replace` lines or put several `from=to` pairs on one line (up to 16 total). Capture-only.
+
+```
+    regex on=buf pattern="^(?P<type>[+*$:-])";
+    replace type $=bulk +=simple :=int *=array -=error;
+```
+
+Without `replace`, split traffic across metrics with separate probes and patterns that need no named group (each pair needs its own `pair_id` on the recv path so stashes do not collide):
+
+```
+    kprobe __sys_recvfrom { mode capture; pair_id redis_bulk; save arg1; }
+    kretprobe __sys_recvfrom {
+        mode capture; pair_id redis_bulk; metric redis_reply_bulk_total; comm redis-cli;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^\$";
+    }
+    kprobe __sys_recvfrom { mode capture; pair_id redis_err; save arg1; }
+    kretprobe __sys_recvfrom {
+        mode capture; pair_id redis_err; metric redis_reply_error_total; comm redis-cli;
+        when retval_gt 0;
+        arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
+        regex on=buf pattern="^-";
+    }
+```
+
 `kprobe` / `uprobe` capture can read a user pointer on entry. When the buffer is filled only on return (`read` / `recv` / `recvfrom`), pair an entry probe that `save`s the pointer with a `kretprobe` (kernel) or `uretprobe` (userspace) that uses `from=saved` and `size=retval`. `latency;` on a capture probe is ignored.
 
 A config with no `mode capture` does not load the capture programs, so a capture verifier failure cannot block count or latency. In a mixed config, if the capture programs fail to load, those probes are skipped (`bpf_probe_skipped`) and the count and latency probes still attach. If the capture ring buffer cannot be opened, the capture links are detached and those probes are skipped. They are not left running without a consumer.
@@ -285,24 +311,16 @@ Prefer `__sys_sendto` (and, when present, `__sys_send` or `vfs_write`). Do **not
 bpf {
     namespace bpf_tcp;
 
+    /* Verified client-side path for redis-cli: commands on sendto, replies on
+     * recvfrom (buffer filled on return). RESP errors are `-WRONGTYPE…` / `-ERR…`. */
     kprobe __sys_sendto {
         mode capture;
         metric redis_cmd_total;
         comm redis-cli;
         arg 1 type=user_buffer size=arg2 max=128 label=buf;
-        regex on=buf pattern="^\*\d+\r\n\$\d+\r\n(?P<cmd>GET|SET|DEL|HGET|HSET|HEXISTS|INCR|DECR|EXISTS|EXPIRE|TTL|PING|LLEN|LPUSH|RPUSH|SADD|SMEMBERS|ZADD|ZRANGE|FLUSHALL|FLUSHDB|INFO|CONFIG|REPLCONF|AUTH)\r\n";
+        regex on=buf pattern="^\*\d+\r\n\$\d+\r\n(?P<cmd>GET|SET|DEL|HGET|HSET|INCR|DECR|EXISTS|PING|INFO|AUTH|TTL|EXPIRE)\r\n";
     }
 
-    kprobe vfs_write {
-        mode capture;
-        metric redis_reply_total;
-        comm redis-server;
-        arg 1 type=user_buffer size=arg2 max=128 label=buf;
-        regex on=buf pattern="^(?P<type>[+\-:*$])";
-    }
-
-    /* Client-side replies: recvfrom fills the buffer on return. Save the user
-     * pointer on entry; kretprobe copies min(retval, max) after the syscall. */
     kprobe __sys_recvfrom {
         mode capture;
         pair_id redis_recvfrom;
@@ -315,7 +333,18 @@ bpf {
         comm redis-cli;
         when retval_gt 0;
         arg 1 type=user_buffer size=retval max=128 label=buf from=saved;
-        regex on=buf pattern="^(?P<type>[+*$:])";
+        regex on=buf pattern="^(?P<type>[+*$:-])";
+        replace type $=bulk +=simple :=int *=array -=error;
+    }
+
+    /* Optional: replies as seen on the server write path. */
+    kprobe vfs_write {
+        mode capture;
+        metric redis_reply_total;
+        comm redis-server;
+        arg 1 type=user_buffer size=arg2 max=128 label=buf;
+        regex on=buf pattern="^(?P<type>[+*$:-])";
+        replace type $=bulk +=simple :=int *=array -=error;
     }
 
     kprobe __sys_sendto {
@@ -363,7 +392,7 @@ namespace {
   - **replies** (server → client): server `comm` + `vfs_write` (or `__sys_sendto` if the server sends that way).
 - **Incoming** (recv/recvfrom/read): the kernel copies into the user buffer *before return*. A kprobe on entry alone sees an empty or stale buffer. Pair `kprobe __sys_recvfrom` (`save arg1`) with `kretprobe __sys_recvfrom` (`from=saved`, `size=retval`, `when retval_gt 0`) — same stash pattern as `SSL_read`, but on the kernel symbol that actually fires for `redis-cli` (a libc `uprobe`/`uretprobe` on `recvfrom` often does not). Prefer `__sys_recvfrom`, not `__x64_sys_recvfrom` (same `pt_regs *` wrapper problem as on the send path).
 
-Verify with bpftrace first (`kprobe`+`kretprobe` on `__sys_recvfrom`, stash `arg1` on entry, print `buf(uptr(...), retval)` on return). Successful Redis replies look like `$5\r\nvalue\r\n`; the pattern above keeps `+` / `$` / `*` / `:` and drops `-ERR…`.
+Verify with bpftrace first (`kprobe`+`kretprobe` on `__sys_recvfrom`, stash `arg1` on entry, print `buf(uptr(...), retval)` on return). Redis replies start with one RESP type byte: `$5\r\nvalue\r\n` (bulk), `:1\r\n` (int), `+OK\r\n` (simple), or `-WRONGTYPE …\r\n` / `-ERR …\r\n` (error). With the `replace` line above those become `type="bulk"|"int"|"simple"|"array"|"error"`. Without `-` in the pattern, errors only increment `bpf_probe_dropped_total{reason="regex_nomatch"}`.
 
 **Framing.** One send/write may carry several pipelined commands or only half of one; Alligator does not reassemble. The pattern is anchored at `^`, so it labels the **first** command in the buffer and ignores the rest. A half command at the start drops the event (`reason="regex_nomatch"`). Pipelined Redis therefore undercounts, and pipelined replies do not split into per-message events.
 

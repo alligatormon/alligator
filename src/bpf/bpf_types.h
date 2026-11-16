@@ -52,6 +52,9 @@ typedef int64_t __s64;
 #define BPF_CAPTURE_MAX 512
 #define BPF_CAPTURE_BUFS 2
 #define BPF_REGEX_MAX 512
+/* Max from→to remaps of regex named-group values into Prometheus labels. */
+#define BPF_REPLACE_MAX 16
+#define BPF_REPLACE_VAL 32
 
 #define BPF_FILTER_NONE 0
 #define BPF_FILTER_EQ 1

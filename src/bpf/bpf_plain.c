@@ -256,6 +256,38 @@ static void statement_to_probe(json_t *probe, json_t *stmt)
 			json_object_set_new(probe, "regex_pattern", json_string(pat));
 		return;
 	}
+	/*
+	 * replace LABEL from=to from2=to2;
+	 * Maps a regex named-group value after the match (e.g. type $=bulk).
+	 */
+	if (!strcmp(w0, "replace") && n >= 3) {
+		const char *lab = json_string_value(json_array_get(stmt, 1));
+		json_t *arr;
+		if (!lab || !lab[0])
+			return;
+		arr = json_object_get(probe, "replaces");
+		if (!arr) {
+			arr = json_array();
+			json_object_set_new(probe, "replaces", arr);
+		}
+		for (i = 2; i < n; i++) {
+			char from[BPF_REPLACE_VAL], to[BPF_REPLACE_VAL];
+			const char *w = json_string_value(json_array_get(stmt, i));
+			json_t *one;
+			if (json_array_size(arr) >= BPF_REPLACE_MAX)
+				break;
+			if (!w || !split_kv(w, from, sizeof(from), to, sizeof(to)))
+				continue;
+			if (!from[0] || !to[0])
+				continue;
+			one = json_object();
+			json_object_set_new(one, "label", json_string(lab));
+			json_object_set_new(one, "from", json_string(from));
+			json_object_set_new(one, "to", json_string(to));
+			json_array_append_new(arr, one);
+		}
+		return;
+	}
 	item = json_array_get(stmt, 0);
 	if (item && json_is_string(item) && strchr(json_string_value(item), '=')) {
 		char key[32], val[BPF_STR_MAX];

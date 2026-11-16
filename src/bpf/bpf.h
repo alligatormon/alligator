@@ -27,6 +27,12 @@ typedef struct bpf_arg {
 	int from_saved;
 } bpf_arg;
 
+typedef struct bpf_replace {
+	char label[32];
+	char from[BPF_REPLACE_VAL];
+	char to[BPF_REPLACE_VAL];
+} bpf_replace;
+
 typedef struct bpf_probe {
 	int kind;
 	int named;
@@ -57,6 +63,8 @@ typedef struct bpf_probe {
 	int64_t retval_gt;
 	char regex_on[32];
 	char regex_pattern[BPF_REGEX_MAX];
+	bpf_replace replace[BPF_REPLACE_MAX];
+	int nreplace;
 } bpf_probe;
 
 int bpf_filter_match(int op, const char *rule, const char *text);
