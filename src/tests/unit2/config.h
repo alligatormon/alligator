@@ -1148,7 +1148,17 @@ void test_mask_password_and_parse_url()
 {
     char *masked = mask_password("https://user:secret@example.org:443/path");
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, masked);
-    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://user:*******@example.org:443/path", masked);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "https://*******@example.org:443/path", masked);
+    free(masked);
+
+    masked = mask_password("postgresql://xxxx:zzzz@1.2.3.4:9000/console");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, masked);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "postgresql://*******@1.2.3.4:9000/console", masked);
+    free(masked);
+
+    masked = mask_password("tcp://user@example.com");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, masked);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp://*******@example.com", masked);
     free(masked);
 
     masked = mask_password("http://example.org/no-auth");

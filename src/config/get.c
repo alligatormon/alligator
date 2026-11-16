@@ -231,24 +231,24 @@ char *mask_password(const char *url) {
 	if (!scheme_end)
 		return strdup(url);
 
-	const char *colon = strchr(scheme_end + 2, ':');
 	const char *at = strchr(scheme_end + 2, '@');
-
-	if (!colon || !at || colon > at)
+	if (!at)
 		return strdup(url);
 
+	/* Redact full userinfo (login and/or password) before '@'. */
 	const char *mask = "*******";
-
-	size_t prefix_len = colon - url + 1;
+	size_t prefix_len = (size_t)(scheme_end + 2 - url);
 	size_t suffix_len = strlen(at);
+	size_t mask_len = strlen(mask);
 
-	char *result = malloc(prefix_len + strlen(mask) + suffix_len + 1);
+	char *result = malloc(prefix_len + mask_len + suffix_len + 1);
+	if (!result)
+		return NULL;
 
 	memcpy(result, url, prefix_len);
-	memcpy(result + prefix_len, mask, strlen(mask));
-	memcpy(result + prefix_len + strlen(mask), at, suffix_len);
-
-	result[prefix_len + strlen(mask) + suffix_len] = '\0';
+	memcpy(result + prefix_len, mask, mask_len);
+	memcpy(result + prefix_len + mask_len, at, suffix_len);
+	result[prefix_len + mask_len + suffix_len] = '\0';
 
 	return result;
 }

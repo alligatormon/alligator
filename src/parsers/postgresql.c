@@ -20,6 +20,8 @@
 #include "common/rtime.h"
 #include <main.h>
 
+char *mask_password(const char *url);
+
 
 #define PG_TYPE_PG 0
 #define PG_TYPE_PGBOUNCER 1
@@ -1367,7 +1369,12 @@ void postgresql_run(void* arg)
 
 	PGconn *conn = PQconnectStart(carg->url);
 	carg->connect_time = setrtime();
-	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"connection start\", \"arg\": \"%s\"}\n", carg->fd, carg->key, carg->url);
+	{
+		char *safe_url = mask_password(carg->url);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"connection start\", \"arg\": \"%s\"}\n",
+			carg->fd, carg->key, safe_url ? safe_url : "");
+		free(safe_url);
+	}
 
 	if (!conn) {
 		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
