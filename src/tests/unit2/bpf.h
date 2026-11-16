@@ -288,6 +288,22 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->ncomm);
 	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "nginx", p->comm[0]);
 
+	/* Glued `{comm` must not drop the allowlist (plain tokenizer brace advance). */
+	bpf_apply_plain("bpf { probe runqueue_latency {comm redis-cli; } }\n");
+	bpf_loader_shutdown();
+	p = NULL;
+	{
+		int i;
+		for (i = 0; i < bpf_probe_count(); i++) {
+			const bpf_probe *q = bpf_probe_at(i);
+			if (q && q->named == BPF_NAMED_RUNQUEUE)
+				p = q;
+		}
+	}
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, p->ncomm);
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "redis-cli", p->comm[0]);
+
 	/* Off-CPU state (+ opt-in waker) and switches; lock type; page_faults/oom_kill. */
 	bpf_series_reset();
 	bpf_hist_observe("bpf_offcpu_seconds", "nginx", "sleep", "state", "ksoftirqd", "waker", 0, 5000);

@@ -126,7 +126,24 @@ void plain_get_word(char *str, config_parser_stat *ret)
 	char tmp[1000];
 
 	ret->length = strcspn(str, " \r\t\n;\"'{}");
-	ret->fact_length = strcspn(str, " \r\t\n");
+	/*
+	 * fact_length is how far the tokenizer advances. It must not swallow the
+	 * next glued word: `{comm` and `foo;bar` are two tokens, not one. Consume
+	 * the word and at most one trailing control character from `;{}`.
+	 * Bare quotes keep fact_length 1 so the scan below can set quotas*;
+	 * plain_get_quotas_word then rewrites the real advance.
+	 */
+	if (ret->length == 0) {
+		if (str[0] == '{' || str[0] == '}' || str[0] == ';' ||
+		    str[0] == '"' || str[0] == '\'')
+			ret->fact_length = 1;
+		else
+			ret->fact_length = str[0] ? 1 : 0;
+	} else if (str[ret->length] == ';' || str[ret->length] == '{' ||
+		   str[ret->length] == '}')
+		ret->fact_length = ret->length + 1;
+	else
+		ret->fact_length = ret->length;
 
 	ret->quotas1 = 0;
 	ret->quotas2 = 0;
