@@ -423,6 +423,10 @@ static vrl_status fn_http_request(vrl_call_args *a, vrl_value **out, char **err)
 		*err = vrl_errf("http_request: not available outside an alligator vrl stream");
 		return VRL_ERR;
 	}
+	if (st->sync_only) {
+		*err = vrl_errf("http_request: not available on sync OTLP log ingest remap");
+		return VRL_ERR;
+	}
 
 	vrl_value *arg = vrl_arg(a, NULL, 0);
 	if (!arg || arg->type != VRL_BYTES || !arg->u.bytes.data) {

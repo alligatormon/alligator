@@ -20,11 +20,14 @@
 #include "metric/metric_types.h"
 #include "parsers/http_proto.h"
 #include "metric/labels.h"
+#include "vrl/type.h"
 #include "main.h"
 
 #define OTLP_KEY_MAX 256
 #define OTLP_VAL_MAX 1024
 #define OTLP_NAME_MAX 1024
+#define OTLP_LOGS_MAX_RECORDS 10000
+#define OTLP_LOGS_MAX_ATTRS 128
 
 static void otlp_sanitize_attr_key(char *k, size_t len)
 {
@@ -89,10 +92,24 @@ static int otlp_anyvalue_to_buf(json_t *wrap, char *buf, size_t bufsz)
 		snprintf(buf, bufsz, "%" JSON_INTEGER_FORMAT, json_integer_value(v));
 		return 1;
 	}
+	if (v && json_is_string(v))
+	{
+		const char *s = json_string_value(v);
+		if (strlcpy(buf, s ? s : "", bufsz) >= bufsz)
+			return 0;
+		return 1;
+	}
 	v = json_object_get(wrap, "doubleValue");
 	if (v && json_is_real(v))
 	{
 		snprintf(buf, bufsz, "%.17g", json_real_value(v));
+		return 1;
+	}
+	if (v && json_is_string(v))
+	{
+		const char *s = json_string_value(v);
+		if (strlcpy(buf, s ? s : "", bufsz) >= bufsz)
+			return 0;
 		return 1;
 	}
 	return 0;
@@ -1090,6 +1107,744 @@ void otlp_protobuf_serialize(metric_node *x, serializer_context *sc, alligator_h
 	string_free(req);
 	if (new_name)
 		free(new_name);
+}
+
+/* ---------------- OTLP logs ingest (POST /v1/logs) ---------------- */
+
+static void otlp_logs_metric_inc(context_arg *carg, const char *name, const char *lname, const char *lval)
+{
+	uint64_t one = 1;
+	alligator_ht *lbl;
+	context_arg *mc = carg ? carg : (ac ? ac->system_carg : NULL);
+
+	if (!mc || !name || !lname || !lval)
+		return;
+	namespace_metric_family_set(NULL, mc, name, METRIC_TYPE_COUNTER, NULL);
+	lbl = alligator_ht_init(NULL);
+	if (!lbl)
+		return;
+	labels_hash_insert_nocache(lbl, (char *)lname, (char *)lval);
+	metric_update((char *)name, lbl, &one, DATATYPE_UINT, mc);
+}
+
+static void otlp_logs_metric_add(context_arg *carg, const char *name, const char *lname, const char *lval, uint64_t n)
+{
+	alligator_ht *lbl;
+	context_arg *mc = carg ? carg : (ac ? ac->system_carg : NULL);
+
+	if (!mc || !name || !lname || !lval || !n)
+		return;
+	namespace_metric_family_set(NULL, mc, name, METRIC_TYPE_COUNTER, NULL);
+	lbl = alligator_ht_init(NULL);
+	if (!lbl)
+		return;
+	labels_hash_insert_nocache(lbl, (char *)lname, (char *)lval);
+	metric_update((char *)name, lbl, &n, DATATYPE_UINT, mc);
+}
+
+static void otlp_nanos_to_rfc3339(uint64_t nanos, char *buf, size_t bufsz)
+{
+	time_t sec = (time_t)(nanos / 1000000000ULL);
+	unsigned ms = (unsigned)((nanos % 1000000000ULL) / 1000000ULL);
+	struct tm tm_now;
+
+	if (!buf || !bufsz)
+		return;
+#if defined(_WIN32)
+	gmtime_s(&tm_now, &sec);
+#else
+	gmtime_r(&sec, &tm_now);
+#endif
+	snprintf(buf, bufsz, "%04d-%02d-%02dT%02d:%02d:%02d.%03uZ",
+		tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+		tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec, ms);
+}
+
+static int otlp_json_nanos(json_t *j, uint64_t *out)
+{
+	double d;
+
+	if (!j || !out)
+		return 0;
+	if (json_is_integer(j))
+	{
+		*out = (uint64_t)json_integer_value(j);
+		return 1;
+	}
+	if (json_is_string(j))
+	{
+		const char *s = json_string_value(j);
+		char *end = NULL;
+		unsigned long long v;
+
+		if (!s || !*s)
+			return 0;
+		v = strtoull(s, &end, 10);
+		if (end == s)
+			return 0;
+		*out = (uint64_t)v;
+		return 1;
+	}
+	if (otlp_json_scalar_to_double(j, &d))
+	{
+		if (d < 0)
+			return 0;
+		*out = (uint64_t)d;
+		return 1;
+	}
+	return 0;
+}
+
+static void otlp_bytes_to_hex(const uint8_t *p, size_t len, char *buf, size_t bufsz)
+{
+	static const char *hex = "0123456789abcdef";
+	size_t i;
+
+	if (!buf || !bufsz)
+		return;
+	if (!p || !len || bufsz < len * 2 + 1)
+	{
+		buf[0] = '\0';
+		return;
+	}
+	for (i = 0; i < len; i++)
+	{
+		buf[i * 2] = hex[(p[i] >> 4) & 0xf];
+		buf[i * 2 + 1] = hex[p[i] & 0xf];
+	}
+	buf[len * 2] = '\0';
+}
+
+static void otlp_json_hex_field(json_t *doc, const char *key, json_t *j)
+{
+	const char *s;
+
+	if (!doc || !key || !j)
+		return;
+	if (json_is_string(j))
+	{
+		s = json_string_value(j);
+		if (s && *s)
+			json_object_set_new(doc, key, json_string(s));
+	}
+}
+
+static int otlp_log_reserved_key(const char *k)
+{
+	return k && (!strcmp(k, "message") || !strcmp(k, "@timestamp") ||
+		!strcmp(k, "severity") || !strcmp(k, "severity_number") ||
+		!strcmp(k, "trace_id") || !strcmp(k, "span_id"));
+}
+
+static void otlp_attrs_json_into_object(json_t *doc, json_t *attrs)
+{
+	size_t n, i, added = 0;
+
+	if (!doc || !attrs || !json_is_array(attrs))
+		return;
+	n = json_array_size(attrs);
+	for (i = 0; i < n; i++)
+	{
+		json_t *kv = json_array_get(attrs, i);
+		json_t *jkey, *jwrap;
+		const char *ks;
+		char kbuf[OTLP_KEY_MAX];
+		char vbuf[OTLP_VAL_MAX];
+		size_t kl;
+
+		if (added >= OTLP_LOGS_MAX_ATTRS)
+			break;
+		if (!json_is_object(kv))
+			continue;
+		jkey = json_object_get(kv, "key");
+		ks = json_is_string(jkey) ? json_string_value(jkey) : NULL;
+		if (!ks)
+			continue;
+		kl = strlcpy(kbuf, ks, sizeof(kbuf));
+		if (kl >= sizeof(kbuf))
+			continue;
+		otlp_sanitize_attr_key(kbuf, strlen(kbuf));
+		if (otlp_log_reserved_key(kbuf))
+			continue;
+		jwrap = json_object_get(kv, "value");
+		if (!otlp_anyvalue_to_buf(jwrap, vbuf, sizeof(vbuf)))
+			continue;
+		json_object_set_new(doc, kbuf, json_string(vbuf));
+		added++;
+	}
+}
+
+static void otlp_labels_into_object(json_t *doc, alligator_ht *lbl)
+{
+	json_t *tmp;
+	const char *key;
+	json_t *val;
+
+	if (!doc || !lbl)
+		return;
+	tmp = labels_to_json(lbl);
+	if (!tmp)
+		return;
+	json_object_foreach(tmp, key, val)
+	{
+		if (!json_is_string(val) || otlp_log_reserved_key(key))
+			continue;
+		json_object_set(doc, key, val);
+	}
+	json_decref(tmp);
+}
+
+static int otlp_emit_log_document(context_arg *carg, json_t *doc)
+{
+	int rc;
+
+	if (!carg || !doc)
+		return 0;
+	if (carg->name)
+	{
+		if (!vrl_node_get(carg->name))
+		{
+			carglog(carg, L_ERROR, "otlp_logs_ingest: vrl '%s' not loaded; dropping record\n",
+				carg->name);
+			return 0;
+		}
+		rc = vrl_remap_emit_log_document(carg, doc);
+		return rc > 0;
+	}
+	if (!carg->log_ch_out_n)
+		return 1; /* parsed ok; nowhere to ship */
+	carg_emit_log_document(carg, doc);
+	return 1;
+}
+
+static int otlp_ingest_one_log_record_json(json_t *lr, alligator_ht *resource_lbl, context_arg *carg)
+{
+	json_t *doc;
+	json_t *body;
+	json_t *j;
+	char msg[OTLP_VAL_MAX];
+	char ts[64];
+	uint64_t nanos = 0;
+	int have_body = 0;
+
+	if (!lr || !json_is_object(lr) || !carg)
+		return 0;
+
+	doc = json_object();
+	if (!doc)
+		return 0;
+
+	otlp_labels_into_object(doc, resource_lbl);
+
+	j = json_object_get(lr, "timeUnixNano");
+	if (!otlp_json_nanos(j, &nanos))
+	{
+		j = json_object_get(lr, "observedTimeUnixNano");
+		otlp_json_nanos(j, &nanos);
+	}
+	if (nanos)
+	{
+		otlp_nanos_to_rfc3339(nanos, ts, sizeof(ts));
+		json_object_set_new(doc, "@timestamp", json_string(ts));
+	}
+
+	j = json_object_get(lr, "severityText");
+	if (j && json_is_string(j) && json_string_value(j) && json_string_value(j)[0])
+		json_object_set_new(doc, "severity", json_string(json_string_value(j)));
+
+	j = json_object_get(lr, "severityNumber");
+	if (j)
+	{
+		if (json_is_integer(j))
+			json_object_set_new(doc, "severity_number", json_integer(json_integer_value(j)));
+		else if (json_is_string(j))
+		{
+			long long sn = atoll(json_string_value(j));
+			json_object_set_new(doc, "severity_number", json_integer(sn));
+		}
+	}
+
+	/* Attributes first (skip reserved keys); mapped OTLP fields always win. */
+	otlp_attrs_json_into_object(doc, json_object_get(lr, "attributes"));
+
+	body = json_object_get(lr, "body");
+	if (body)
+	{
+		if (otlp_anyvalue_to_buf(body, msg, sizeof(msg)))
+			have_body = 1;
+		else
+		{
+			/* bytes/array/kvlist: keep the record, surface a stable placeholder. */
+			strlcpy(msg, "(unrepresentable body)", sizeof(msg));
+			have_body = 1;
+		}
+	}
+	json_object_set_new(doc, "message", json_string(have_body ? msg : ""));
+
+	otlp_json_hex_field(doc, "trace_id", json_object_get(lr, "traceId"));
+	otlp_json_hex_field(doc, "span_id", json_object_get(lr, "spanId"));
+
+	if (!otlp_emit_log_document(carg, doc))
+	{
+		json_decref(doc);
+		return 0;
+	}
+	json_decref(doc);
+	return 1;
+}
+
+static void otlp_ingest_resource_logs_json(json_t *root, context_arg *carg, uint64_t *ok, uint64_t *bad)
+{
+	json_t *rls = json_object_get(root, "resourceLogs");
+	size_t nrl, i;
+	uint64_t seen = 0;
+	int truncated = 0;
+
+	if (!rls || !json_is_array(rls))
+		return;
+	nrl = json_array_size(rls);
+	for (i = 0; i < nrl; i++)
+	{
+		json_t *rl = json_array_get(rls, i);
+		json_t *resource, *sls;
+		alligator_ht *res_lbl = NULL;
+		size_t ns, j;
+
+		if (!json_is_object(rl))
+			continue;
+		resource = json_object_get(rl, "resource");
+		if (resource && json_is_object(resource))
+			res_lbl = otlp_kv_array_to_labels(json_object_get(resource, "attributes"), carg);
+		sls = json_object_get(rl, "scopeLogs");
+		if (sls && json_is_array(sls))
+		{
+			ns = json_array_size(sls);
+			for (j = 0; j < ns; j++)
+			{
+				json_t *sl = json_array_get(sls, j);
+				json_t *records;
+				size_t nr, k;
+
+				if (!json_is_object(sl))
+					continue;
+				records = json_object_get(sl, "logRecords");
+				if (!records || !json_is_array(records))
+					continue;
+				nr = json_array_size(records);
+				for (k = 0; k < nr; k++)
+				{
+					if (seen >= OTLP_LOGS_MAX_RECORDS)
+					{
+						if (!truncated)
+						{
+							truncated = 1;
+							carglog(carg, L_WARN, "otlp_logs_ingest: truncated at %d records\n",
+								OTLP_LOGS_MAX_RECORDS);
+						}
+						(*bad)++;
+						continue;
+					}
+					seen++;
+					if (otlp_ingest_one_log_record_json(json_array_get(records, k), res_lbl, carg))
+						(*ok)++;
+					else
+						(*bad)++;
+				}
+			}
+		}
+		labels_hash_free(res_lbl);
+	}
+}
+
+static int otlp_pb_parse_log_record(const uint8_t *p, size_t len, alligator_ht *resource_lbl, context_arg *carg)
+{
+	const uint8_t *cur = p;
+	const uint8_t *end = p + len;
+	json_t *doc;
+	char msg[OTLP_VAL_MAX];
+	char ts[64];
+	char hex[132];
+	uint64_t time_nano = 0;
+	uint64_t observed_nano = 0;
+	uint64_t severity_number = 0;
+	int have_severity_number = 0;
+	int have_body = 0;
+	char severity_text[OTLP_VAL_MAX];
+	int have_severity_text = 0;
+	const uint8_t *trace_p = NULL;
+	size_t trace_len = 0;
+	const uint8_t *span_p = NULL;
+	size_t span_len = 0;
+	alligator_ht *albl = alligator_ht_init(NULL);
+	size_t attrs_added = 0;
+
+	severity_text[0] = '\0';
+	msg[0] = '\0';
+
+	while (cur < end)
+	{
+		uint64_t tagv;
+		uint8_t wire;
+		uint32_t tag;
+		const uint8_t *s;
+		size_t sl;
+
+		if (!otlp_pb_read_varint(&cur, end, &tagv))
+		{
+			labels_hash_free(albl);
+			return 0;
+		}
+		wire = (uint8_t)(tagv & 0x7);
+		tag = (uint32_t)(tagv >> 3);
+		if (tag == 1 && wire == 1)
+		{
+			if (!otlp_pb_read_fixed64(&cur, end, &time_nano))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			continue;
+		}
+		if (tag == 2 && wire == 0)
+		{
+			if (!otlp_pb_read_varint(&cur, end, &severity_number))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			have_severity_number = 1;
+			continue;
+		}
+		if (tag == 3 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			if (sl >= sizeof(severity_text))
+				sl = sizeof(severity_text) - 1;
+			memcpy(severity_text, s, sl);
+			severity_text[sl] = '\0';
+			have_severity_text = 1;
+			continue;
+		}
+		if (tag == 5 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			if (otlp_pb_anyvalue_to_buf(s, sl, msg, sizeof(msg)))
+				have_body = 1;
+			else
+			{
+				strlcpy(msg, "(unrepresentable body)", sizeof(msg));
+				have_body = 1;
+			}
+			continue;
+		}
+		if (tag == 6 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			if (albl && attrs_added < OTLP_LOGS_MAX_ATTRS &&
+			    otlp_pb_kv_to_label(s, sl, carg, albl))
+				attrs_added++;
+			continue;
+		}
+		if (tag == 9 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			trace_p = s;
+			trace_len = sl;
+			continue;
+		}
+		if (tag == 10 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			span_p = s;
+			span_len = sl;
+			continue;
+		}
+		if (tag == 11 && wire == 1)
+		{
+			if (!otlp_pb_read_fixed64(&cur, end, &observed_nano))
+			{
+				labels_hash_free(albl);
+				return 0;
+			}
+			continue;
+		}
+		if (!otlp_pb_skip_field(&cur, end, wire))
+		{
+			labels_hash_free(albl);
+			return 0;
+		}
+	}
+
+	doc = json_object();
+	if (!doc)
+	{
+		labels_hash_free(albl);
+		return 0;
+	}
+	otlp_labels_into_object(doc, resource_lbl);
+	if (attrs_added)
+		otlp_labels_into_object(doc, albl);
+	labels_hash_free(albl);
+
+	if (!time_nano)
+		time_nano = observed_nano;
+	if (time_nano)
+	{
+		otlp_nanos_to_rfc3339(time_nano, ts, sizeof(ts));
+		json_object_set_new(doc, "@timestamp", json_string(ts));
+	}
+	if (have_severity_text)
+		json_object_set_new(doc, "severity", json_string(severity_text));
+	if (have_severity_number)
+		json_object_set_new(doc, "severity_number", json_integer((json_int_t)severity_number));
+	json_object_set_new(doc, "message", json_string(have_body ? msg : ""));
+
+	if (trace_p && trace_len && trace_len <= 64)
+	{
+		otlp_bytes_to_hex(trace_p, trace_len, hex, sizeof(hex));
+		json_object_set_new(doc, "trace_id", json_string(hex));
+	}
+	if (span_p && span_len && span_len <= 64)
+	{
+		otlp_bytes_to_hex(span_p, span_len, hex, sizeof(hex));
+		json_object_set_new(doc, "span_id", json_string(hex));
+	}
+
+	if (!otlp_emit_log_document(carg, doc))
+	{
+		json_decref(doc);
+		return 0;
+	}
+	json_decref(doc);
+	return 1;
+}
+
+static void otlp_pb_parse_scope_logs(const uint8_t *p, size_t len, alligator_ht *resource_lbl, context_arg *carg, uint64_t *ok, uint64_t *bad, uint64_t *seen, int *truncated)
+{
+	const uint8_t *cur = p;
+	const uint8_t *end = p + len;
+
+	while (cur < end)
+	{
+		uint64_t tagv;
+		uint8_t wire;
+		uint32_t tag;
+		const uint8_t *s;
+		size_t sl;
+
+		if (!otlp_pb_read_varint(&cur, end, &tagv))
+			break;
+		wire = (uint8_t)(tagv & 0x7);
+		tag = (uint32_t)(tagv >> 3);
+		if (tag == 2 && wire == 2)
+		{
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+				break;
+			if (seen && *seen >= OTLP_LOGS_MAX_RECORDS)
+			{
+				if (truncated && !*truncated)
+				{
+					*truncated = 1;
+					carglog(carg, L_WARN, "otlp_logs_ingest: truncated at %d records\n",
+						OTLP_LOGS_MAX_RECORDS);
+				}
+				(*bad)++;
+				continue;
+			}
+			if (seen)
+				(*seen)++;
+			if (otlp_pb_parse_log_record(s, sl, resource_lbl, carg))
+				(*ok)++;
+			else
+				(*bad)++;
+			continue;
+		}
+		if (!otlp_pb_skip_field(&cur, end, wire))
+			break;
+	}
+}
+
+static int otlp_ingest_resource_logs_protobuf(const char *body, size_t body_size, context_arg *carg, uint64_t *ok, uint64_t *bad)
+{
+	const uint8_t *cur = (const uint8_t *)body;
+	const uint8_t *end = cur + body_size;
+	int parsed_any = 0;
+	uint64_t seen = 0;
+	int truncated = 0;
+
+	while (cur < end)
+	{
+		uint64_t tagv;
+		uint8_t wire;
+		uint32_t tag;
+		const uint8_t *s;
+		size_t sl;
+
+		if (!otlp_pb_read_varint(&cur, end, &tagv))
+			return 0;
+		wire = (uint8_t)(tagv & 0x7);
+		tag = (uint32_t)(tagv >> 3);
+		if (tag == 1 && wire == 2)
+		{
+			const uint8_t *rm_cur;
+			const uint8_t *rm_end;
+			alligator_ht *res_lbl = NULL;
+
+			if (!otlp_pb_read_len(&cur, end, &s, &sl))
+				return 0;
+			parsed_any = 1;
+			rm_cur = s;
+			rm_end = s + sl;
+			while (rm_cur < rm_end)
+			{
+				uint64_t rtagv;
+				uint8_t rwire;
+				uint32_t rtag;
+				const uint8_t *rs;
+				size_t rsl;
+
+				if (!otlp_pb_read_varint(&rm_cur, rm_end, &rtagv))
+					break;
+				rwire = (uint8_t)(rtagv & 0x7);
+				rtag = (uint32_t)(rtagv >> 3);
+				if (rtag == 1 && rwire == 2)
+				{
+					if (!otlp_pb_read_len(&rm_cur, rm_end, &rs, &rsl))
+						break;
+					labels_hash_free(res_lbl);
+					res_lbl = otlp_pb_parse_resource_labels(rs, rsl, carg);
+					continue;
+				}
+				if (rtag == 2 && rwire == 2)
+				{
+					if (!otlp_pb_read_len(&rm_cur, rm_end, &rs, &rsl))
+						break;
+					otlp_pb_parse_scope_logs(rs, rsl, res_lbl, carg, ok, bad, &seen, &truncated);
+					continue;
+				}
+				if (!otlp_pb_skip_field(&rm_cur, rm_end, rwire))
+					break;
+			}
+			labels_hash_free(res_lbl);
+			continue;
+		}
+		if (!otlp_pb_skip_field(&cur, end, wire))
+			return 0;
+	}
+	return parsed_any;
+}
+
+void otlp_logs_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg)
+{
+	const char *body = http_data ? http_data->body : configbody;
+	size_t body_size = http_data ? http_data->body_size : (configbody ? strlen(configbody) : 0);
+	uint8_t method = http_data ? http_data->method : HTTP_METHOD_PUT;
+	char jsonbuf[192];
+	char temp_resp[512];
+	uint64_t lines_ok = 0;
+	uint64_t lines_invalid = 0;
+	json_error_t jerr;
+	json_t *root = NULL;
+	int parsed = 0;
+	context_arg *mc = carg ? carg : (ac ? ac->system_carg : NULL);
+
+	if (!response)
+		return;
+
+	if (method != HTTP_METHOD_POST)
+	{
+		otlp_logs_metric_inc(mc, "alligator_otlp_logs_requests_total", "status", "405");
+		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 405 Method Not Allowed\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"error\":\"use POST\"}\n");
+		string_cat(response, temp_resp, strlen(temp_resp));
+		return;
+	}
+
+	if (!mc)
+	{
+		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 503 Service Unavailable\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"error\":\"no context\"}\n");
+		string_cat(response, temp_resp, strlen(temp_resp));
+		return;
+	}
+
+	if (!carg || !carg->log_ch_out_n)
+		carglog(mc, L_WARN, "otlp_logs_ingest: no log_channel_out on entrypoint; records will be counted but not shipped\n");
+
+	if (!body || !body_size)
+	{
+		otlp_logs_metric_inc(mc, "alligator_otlp_logs_requests_total", "status", "202");
+		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":0,\"linesInvalid\":0}\n");
+		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 202 Accepted\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", strlen(jsonbuf), jsonbuf);
+		string_cat(response, temp_resp, strlen(temp_resp));
+		return;
+	}
+
+	if (otlp_headers_have_protobuf(http_data))
+	{
+		parsed = otlp_ingest_resource_logs_protobuf(body, body_size, mc, &lines_ok, &lines_invalid);
+		if (!parsed)
+			root = json_loadb(body, body_size, 0, &jerr);
+	}
+	else
+	{
+		if (otlp_body_looks_json(body, body_size))
+			root = json_loadb(body, body_size, 0, &jerr);
+		if (root)
+			parsed = 1;
+		else
+			parsed = otlp_ingest_resource_logs_protobuf(body, body_size, mc, &lines_ok, &lines_invalid);
+	}
+
+	if (root)
+	{
+		otlp_ingest_resource_logs_json(root, mc, &lines_ok, &lines_invalid);
+		json_decref(root);
+	}
+	else if (!parsed)
+	{
+		otlp_logs_metric_inc(mc, "alligator_otlp_logs_requests_total", "status", "400");
+		otlp_logs_metric_inc(mc, "alligator_otlp_logs_records_total", "result", "invalid");
+		snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":0,\"linesInvalid\":1}\n");
+		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 400 Bad Request\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", strlen(jsonbuf), jsonbuf);
+		carglog(mc, L_ERROR, "otlp_logs_ingest: payload parse failed (expected OTLP json/protobuf)\n");
+		string_cat(response, temp_resp, strlen(temp_resp));
+		return;
+	}
+
+	otlp_logs_metric_add(mc, "alligator_otlp_logs_records_total", "result", "ok", lines_ok);
+	otlp_logs_metric_add(mc, "alligator_otlp_logs_records_total", "result", "invalid", lines_invalid);
+
+	snprintf(jsonbuf, sizeof(jsonbuf), "{\"linesOk\":%" u64 ",\"linesInvalid\":%" u64 "}\n", lines_ok, lines_invalid);
+	carglog(mc, L_DEBUG, "otlp_logs_ingest: linesOk=%" u64 ", linesInvalid=%" u64 "\n", lines_ok, lines_invalid);
+
+	{
+		uint16_t code = lines_invalid ? 400 : 202;
+		const char *status = lines_invalid ? "Bad Request" : "Accepted";
+		size_t jl = strlen(jsonbuf);
+
+		otlp_logs_metric_inc(mc, "alligator_otlp_logs_requests_total", "status", lines_invalid ? "400" : "202");
+		snprintf(temp_resp, sizeof(temp_resp), "HTTP/1.1 %" u16 " %s\r\nServer: alligator\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %zu\r\n\r\n%s", code, status, jl, jsonbuf);
+		string_cat(response, temp_resp, strlen(temp_resp));
+	}
 }
 
 void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg)

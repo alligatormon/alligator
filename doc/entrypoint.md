@@ -17,7 +17,7 @@ Entrypoint functionality includes:
 - Alligator API
 - Replication log for [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md) configuration.
 
-Walkthrough for StatsD, Graphite, OTLP `/v1/metrics`, blackbox `/probe`, cluster gauges, auth, and `metric_filter`: [receiving metrics](metric-receive.md).
+Walkthrough for StatsD, Graphite, OTLP `/v1/metrics` and `/v1/logs`, blackbox `/probe`, cluster gauges, auth, and `metric_filter`: [receiving metrics](metric-receive.md).
 
 Full explain
 ```

@@ -58,6 +58,7 @@ string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_s
 string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* nginx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
+void otlp_logs_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
 void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg);
 void redis_query(char *metrics, size_t size, context_arg *carg);
 void redis_handler(char *metrics, size_t size, context_arg *carg);
@@ -4969,4 +4970,81 @@ void api_test_session_io_metrics()
     metric_test_run(CMP_EQUAL, "alligator_parser_ok{host=\"127.0.0.1\",parser=\"postgresql\"}", "alligator_parser_ok", 1);
 
     free(carg);
+}
+
+void api_test_otlp_logs_ingest()
+{
+	const char *path = "/tmp/alligator-ut2-otlp-logs.out";
+	const char *payload =
+		"{\"resourceLogs\":[{\"resource\":{\"attributes\":["
+		"{\"key\":\"service.name\",\"value\":{\"stringValue\":\"demo\"}}]},"
+		"\"scopeLogs\":[{\"logRecords\":[{"
+		"\"timeUnixNano\":\"1700000000000000000\","
+		"\"severityText\":\"ERROR\","
+		"\"severityNumber\":17,"
+		"\"body\":{\"stringValue\":\"stock sync failed\"},"
+		"\"attributes\":[{\"key\":\"host\",\"value\":{\"stringValue\":\"web01\"}}],"
+		"\"traceId\":\"4bf92f3577b34da6a3ce929d0e0e4736\""
+		"}]}]}]}";
+	log_channel *ch;
+	context_arg carg = {0};
+	log_channel *out[1];
+	http_reply_data hd = {0};
+	string *resp;
+	char buf[2048];
+	FILE *f;
+	size_t n;
+
+	unlink(path);
+	ch = log_channel_upsert("ut-otlp-logs", "file:///tmp/alligator-ut2-otlp-logs.out",
+		-1, 0, NULL, LOG_FORMAT_JSON, NULL);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ch);
+	out[0] = ch;
+	carg.log_ch_out = out;
+	carg.log_ch_out_n = 1;
+
+	hd.method = HTTP_METHOD_POST;
+	hd.uri = "/v1/logs";
+	hd.body = (char *)payload;
+	hd.body_size = strlen(payload);
+
+	resp = string_init(1024);
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, resp);
+	otlp_logs_ingest_handler(resp, &hd, NULL, &carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "202") != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "\"linesOk\":1") != NULL);
+	string_free(resp);
+
+	if (ch->socket > 2)
+		close(ch->socket);
+
+	f = fopen(path, "r");
+	assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, f);
+	n = fread(buf, 1, sizeof(buf) - 1, f);
+	fclose(f);
+	buf[n] = '\0';
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "stock sync failed") != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "\"severity\":\"ERROR\"") != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "\"service.name\":\"demo\"") != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "\"host\":\"web01\"") != NULL);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(buf, "4bf92f3577b34da6a3ce929d0e0e4736") != NULL);
+
+	metric_test_run(CMP_EQUAL,
+		"alligator_otlp_logs_records_total{result=\"ok\"}",
+		"alligator_otlp_logs_records_total", 1);
+	metric_test_run(CMP_EQUAL,
+		"alligator_otlp_logs_requests_total{status=\"202\"}",
+		"alligator_otlp_logs_requests_total", 1);
+
+	/* method not allowed */
+	resp = string_init(256);
+	hd.method = HTTP_METHOD_GET;
+	otlp_logs_ingest_handler(resp, &hd, NULL, &carg);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(resp->s, "405") != NULL);
+	string_free(resp);
+	metric_test_run(CMP_EQUAL,
+		"alligator_otlp_logs_requests_total{status=\"405\"}",
+		"alligator_otlp_logs_requests_total", 1);
+
+	unlink(path);
 }

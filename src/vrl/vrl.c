@@ -767,6 +767,78 @@ static vrl_node *vrl_node_load_for_carg(context_arg *carg)
 	return rc ? vrl_node_get(name) : NULL;
 }
 
+int vrl_remap_emit_log_document(context_arg *carg, json_t *doc)
+{
+	vrl_node *vn;
+	vrl_value *event;
+	vrl_status stt;
+	vrl_value *logs;
+	vrl_value *logv;
+	int emitted = 0;
+
+	if (!carg || !doc || !json_is_object(doc) || !carg->name)
+		return 0;
+	vn = vrl_node_get(carg->name);
+	if (!vn || !vn->prog)
+		return 0;
+
+	event = vrl_value_from_json(doc);
+	if (!event)
+		return 0;
+
+	uv_mutex_lock(&vn->lock);
+	{
+		vrl_stream *st = vrl_stream_ensure(carg, vn);
+		int prev_sync = st->sync_only;
+
+		st->sync_only = 1;
+		vrl_stream_clear_secrets(st);
+		vrl_ctx_reset(st->ctx);
+		vrl_ctx_set_event(st->ctx, event);
+		event = NULL; /* owned by ctx */
+		stt = vrl_exec(st->ctx, vn->prog->root);
+		st->sync_only = prev_sync;
+
+		if (st->dns_suspended) {
+			/* Should not happen with sync_only; belt-and-suspenders. */
+			st->dns_suspended = 0;
+			st->await_http = 0;
+			carglog(carg, L_WARN,
+				"vrl: OTLP log remap suspended on async DNS/HTTP; record dropped (sync ingest only)\n");
+			uv_mutex_unlock(&vn->lock);
+			return 0;
+		}
+		if (stt == VRL_ABORT) {
+			carglog(carg, L_INFO, "vrl: OTLP log remap abort: %s\n",
+				st->ctx->abort_msg ? st->ctx->abort_msg : "(no message)");
+			uv_mutex_unlock(&vn->lock);
+			return 0;
+		}
+		if (stt != VRL_OK) {
+			carglog(carg, L_ERROR, "vrl: OTLP log remap error: %s\n",
+				st->ctx->error ? st->ctx->error : "unknown");
+			uv_mutex_unlock(&vn->lock);
+			return 0;
+		}
+
+		logs = vrl_object_get(st->ctx->event, "logs", 4);
+		logv = vrl_object_get(st->ctx->event, "log", 3);
+		if ((logs && logs->type == VRL_ARRAY && logs->u.array.len) || logv) {
+			vrl_export_logs(carg, st->ctx->event);
+			emitted = 1;
+		} else if (st->ctx->event && st->ctx->event->type == VRL_OBJECT) {
+			json_t *out = vrl_value_to_json(st->ctx->event);
+			if (out) {
+				carg_emit_log_document(carg, out);
+				json_decref(out);
+				emitted = 1;
+			}
+		}
+	}
+	uv_mutex_unlock(&vn->lock);
+	return emitted;
+}
+
 void vrl_handler(char *metrics, size_t size, context_arg *carg)
 {
 	if (!metrics || !size || !carg) {

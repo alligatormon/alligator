@@ -265,3 +265,4 @@ void otlp_response_catch(char *metrics, size_t size, context_arg *carg);
 void otlp_protobuf_response_catch(char *metrics, size_t size, context_arg *carg);
 void otlp_grpc_response_catch(char *metrics, size_t size, context_arg *carg);
 void otlp_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
+void otlp_logs_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);

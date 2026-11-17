@@ -118,6 +118,7 @@ typedef struct vrl_stream {
 	int ok;
 
 	/* --- async DNS / HTTP suspend state --- */
+	int sync_only;                     /* OTLP ingest remap: no http_request/dns_lookup egress */
 	int dns_suspended;                 /* stream paused waiting for DNS or HTTP */
 	int dns_force_null;                /* next lookup of (dns_name,rrtype) returns null (timeout) */
 	int await_http;                    /* 1 = paused on http_request, 0 = paused on DNS */
@@ -166,6 +167,10 @@ int vrl_push(json_t *cfg);
 
 void vrl_handler(char *metrics, size_t size, context_arg *carg);
 void vrl_stream_free(context_arg *carg);
+/* Run carg->name VRL program with doc as the event. Emits via .log/.logs, or
+ * the whole event object when those are absent. Returns 1 on emit, 0 on
+ * miss/abort/error. Caller keeps ownership of doc. */
+int vrl_remap_emit_log_document(context_arg *carg, json_t *doc);
 
 /* Register alligator host builtins (dns_lookup, reverse_dns, http_request)
  * into avrl. Called once from vrl_engine_init() after vrl_stdlib_init(). */

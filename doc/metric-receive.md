@@ -157,7 +157,45 @@ A successful ingest returns `202` with `{"linesOk":N,"linesInvalid":M}`. Non-`PO
 
 `metric_filter`, `add_label`, and `metricstransform` apply on this path the same way as on StatsD / Pushgateway. Auth on the entrypoint covers `/v1/metrics` like other HTTP pushes.
 
-Limits relative to a full OpenTelemetry Collector: **metrics only** (no `/v1/traces` or `/v1/logs`), **HTTP only** (no OTLP/gRPC receive on `:4317`). To **send** metrics out as OTLP, use an [action](action.md) with `serializer otlp`, `otlp_protobuf`, or `otlp_grpc`.
+Limits relative to a full OpenTelemetry Collector for **metrics**: **HTTP only** (no OTLP/gRPC receive on `:4317`), and no `/v1/traces`. To **send** metrics out as OTLP, use an [action](action.md) with `serializer otlp`, `otlp_protobuf`, or `otlp_grpc`.
+
+## OTLP logs
+
+OTLP logs are accepted on the same `handler prometheus` HTTP entrypoint at `POST /v1/logs` (JSON or protobuf, same Content-Type rules as `/v1/metrics`). Each `logRecord` becomes one flat JSON document on `log_channel_out`:
+
+| OTLP | document field |
+|------|----------------|
+| `body` | `message` |
+| `timeUnixNano` / `observedTimeUnixNano` | `@timestamp` (RFC3339) |
+| `severityText` / `severityNumber` | `severity` / `severity_number` |
+| resource + record `attributes` | flat keys (record wins on collision) |
+| `traceId` / `spanId` | `trace_id` / `span_id` |
+
+```
+log_channel {
+    name otlp-logs;
+    dest "http://writer:secret@logs.example.com:9200/otlp-logs/_bulk";
+    log_format elastic;
+}
+
+entrypoint {
+    handler prometheus;
+    tcp 4318;
+    log_channel_out otlp-logs;
+    # optional VRL remap (top-level vrl { name otlp_remap; script ... })
+    # vrl otlp_remap;
+}
+```
+
+Point an OTLP HTTP exporter at the listen address; the path stays `/v1/logs`. Without `log_channel_out`, records are counted but not shipped (warn once per request).
+
+Optional `vrl <name>` on the entrypoint runs that compiled VRL program with the flat document as the event. Emit via `.log` / `.logs`, or leave them unset to ship the whole remapped event object. If `vrl` is set but the program is missing, the record is dropped (`linesInvalid`). On this sync path `http_request` / `dns_lookup` / `reverse_dns` are disabled (error, no egress).
+
+Hard caps per request: 10000 `logRecords`, 128 attributes per record. Mapped fields (`message`, `@timestamp`, `severity`, `severity_number`, `trace_id`, `span_id`) cannot be overwritten by attributes. Prefer entrypoint `auth` and `limit` on exposed ports.
+
+Response shape matches metrics: `202` + `{"linesOk":N,"linesInvalid":M}`; any invalid record → `400` with the same counters. Counters: `alligator_otlp_logs_records_total{result}`, `alligator_otlp_logs_requests_total{status}`.
+
+No `/v1/traces` and no OTLP/gRPC receive on `:4317`.
 
 ## Cluster, gauges, and several hosts
 

@@ -2,6 +2,7 @@ Changelog
 
 ## [unreleased]
 
+- Entrypoint OTLP logs: `POST /v1/logs` (JSON/protobuf HTTP) maps each `logRecord` to a flat JSON document on `log_channel_out`. Optional entrypoint `vrl <name>` remaps the document before emit. Counters: `alligator_otlp_logs_records_total{result}`, `alligator_otlp_logs_requests_total{status}`. See `doc/metric-receive.md`.
 - BPF: off-CPU gains `state` and opt-in `waker` (`label waker;`) on `bpf_offcpu_seconds` / `bpf_offcpu_switches_total`; lock contention gains `type` and `cgroup_labels`; `cgroup_memory` also emits `memory.current` plus a small `memory.stat` set (`bpf_cgroup_memory_stat_bytes` gauges and `bpf_cgroup_memory_stat_total` counters for `pgfault`/`pgmajfault`); new probes `page_faults` (requires `comm`) and `oom_kill`. See `doc/bpf.md`.
 - Grok: `type constant;` with `value <number>;` (default `1`) sets a fixed last-value sample from config; named captures become labels only. See `doc/grok.md`.
 

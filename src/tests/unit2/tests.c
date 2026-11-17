@@ -4490,6 +4490,7 @@ static void run_parser_suites(char **argv)
     api_test_postgresql_error_reason();
     api_test_postgresql_session_connect_metrics();
     api_test_session_io_metrics();
+    api_test_otlp_logs_ingest();
 }
 
 static void run_config_query_suites(char **argv)

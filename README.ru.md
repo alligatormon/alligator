@@ -58,7 +58,7 @@ alligator /etc/alligator.d/
 - **aggregate**: сбор метрик из ПО через парсеры
 - **query**: генерация новых метрик через PromQL или SQL-запросы к БД
 - **namespace**: пространства имён метрик и лимиты выдачи / числа серий (`max_emit`, `max_series`)
-- **entrypoint**: приём метрик (Pushgateway, Statsd, Graphite, OTLP `POST /v1/metrics`); настройка портов для Prometheus и внутреннего API Alligator
+- **entrypoint**: приём метрик (Pushgateway, Statsd, Graphite, OTLP `POST /v1/metrics`) и OTLP-логов (`POST /v1/logs` → `log_channel_out`); настройка портов для Prometheus и внутреннего API Alligator
 - **lang**: вызов функций из подключаемых модулей
 - **x509**: метрики из сертификатов PEM, JKS, PKCS
 - **action**: запуск команд по поведению метрик или расписанию; экспорт в БД

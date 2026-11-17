@@ -844,10 +844,11 @@ void http_api_v1(string *response, http_reply_data* http_data, const char *confi
 					}
 
 					if (carg->log_ch_out_n &&
+					    carg->parser_handler &&
 					    carg->parser_handler != &grok_handler &&
 					    carg->parser_handler != &amtail_handler &&
 					    carg->parser_handler != &vrl_handler)
-						glog(L_WARN, "entrypoint %s: log_channel_out is set but handler is not grok/mtail/vrl; transformed logs will not be emitted (use handler grok or log_channel_raw for passthrough)\n",
+						glog(L_WARN, "entrypoint %s: log_channel_out is set but handler is not grok/mtail/vrl (and not default prometheus for OTLP /v1/logs); transformed logs may not be emitted (use handler grok/vrl, OTLP /v1/logs, or log_channel_raw for passthrough)\n",
 						    carg->key ? carg->key : "?");
 
 					json_t *json_namespace = json_object_get(entrypoint, "namespace");

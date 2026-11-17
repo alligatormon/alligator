@@ -19,7 +19,7 @@ Entrypoint нужен для включения портов, через кот�
 - Alligator API
 - Replication log для конфигурации [cluster](https://github.com/alligatormon/alligator/blob/master/doc/cluster.md).
 
-Сценарий StatsD, Graphite, OTLP `/v1/metrics`, blackbox `/probe`, gauge в кластере, авторизации и `metric_filter`: [приём метрик](metric-receive.md).
+Сценарий StatsD, Graphite, OTLP `/v1/metrics` и `/v1/logs`, blackbox `/probe`, gauge в кластере, авторизации и `metric_filter`: [приём метрик](metric-receive.md).
 
 Полное описание
 ```

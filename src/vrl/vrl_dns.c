@@ -357,6 +357,10 @@ static vrl_status vrl_dns_common(vrl_call_args *a, int reverse, vrl_value **out,
 		*err = vrl_errf("%s: not available outside an alligator vrl stream", fname);
 		return VRL_ERR;
 	}
+	if (st->sync_only) {
+		*err = vrl_errf("%s: not available on sync OTLP log ingest remap", fname);
+		return VRL_ERR;
+	}
 
 	vrl_value *arg = vrl_arg(a, NULL, 0);
 	if (!arg || arg->type != VRL_BYTES || !arg->u.bytes.data) {

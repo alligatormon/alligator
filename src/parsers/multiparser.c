@@ -82,6 +82,10 @@ void do_http_post(char *buf, size_t len, string *response, http_reply_data* http
 	{
 		otlp_metrics_ingest_handler(response, http_data, NULL, carg);
 	}
+	else if (!strncmp(http_data->uri, "/v1/logs", 8))
+	{
+		otlp_logs_ingest_handler(response, http_data, NULL, carg);
+	}
 	else if (!strncmp(http_data->uri, "/oplog", 6))
 	{
 		oplog_post_router(response, http_data, carg);

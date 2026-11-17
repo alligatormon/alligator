@@ -157,7 +157,45 @@ curl -sS -D- http://127.0.0.1:4318/v1/metrics \
 
 `metric_filter`, `add_label` и `metricstransform` на этом пути работают так же, как для StatsD / Pushgateway. Auth на entrypoint закрывает `/v1/metrics` вместе с остальными HTTP-push.
 
-Ограничения относительно полноценного OpenTelemetry Collector: **только метрики** (нет `/v1/traces` и `/v1/logs`), **только HTTP** (нет приёма OTLP/gRPC на `:4317`). Чтобы **отправлять** метрики наружу как OTLP, используйте [action](action.md) с `serializer otlp`, `otlp_protobuf` или `otlp_grpc`.
+Ограничения относительно полноценного OpenTelemetry Collector для **метрик**: **только HTTP** (нет приёма OTLP/gRPC на `:4317`), нет `/v1/traces`. Чтобы **отправлять** метрики наружу как OTLP, используйте [action](action.md) с `serializer otlp`, `otlp_protobuf` или `otlp_grpc`.
+
+## OTLP logs
+
+OTLP-логи принимаются на том же HTTP entrypoint с `handler prometheus` по `POST /v1/logs` (JSON или protobuf, те же правила Content-Type, что у `/v1/metrics`). Каждый `logRecord` становится одним flat JSON document в `log_channel_out`:
+
+| OTLP | поле документа |
+|------|----------------|
+| `body` | `message` |
+| `timeUnixNano` / `observedTimeUnixNano` | `@timestamp` (RFC3339) |
+| `severityText` / `severityNumber` | `severity` / `severity_number` |
+| resource + record `attributes` | flat keys (при коллизии побеждает record) |
+| `traceId` / `spanId` | `trace_id` / `span_id` |
+
+```
+log_channel {
+    name otlp-logs;
+    dest "http://writer:secret@logs.example.com:9200/otlp-logs/_bulk";
+    log_format elastic;
+}
+
+entrypoint {
+    handler prometheus;
+    tcp 4318;
+    log_channel_out otlp-logs;
+    # опциональный VRL remap (top-level vrl { name otlp_remap; script ... })
+    # vrl otlp_remap;
+}
+```
+
+Направьте OTLP HTTP exporter на listen-адрес; путь остаётся `/v1/logs`. Без `log_channel_out` records считаются, но не отправляются (warn на запрос).
+
+Опциональный `vrl <name>` на entrypoint запускает скомпилированную VRL-программу с flat document как event. Emit через `.log` / `.logs`, либо без них — целиком remapped event object. Если `vrl` задан, но программа не загружена, record отбрасывается (`linesInvalid`). На sync-пути `http_request` / `dns_lookup` / `reverse_dns` отключены (ошибка, без egress).
+
+Жёсткие лимиты на запрос: 10000 `logRecords`, 128 attributes на record. Mapped-поля (`message`, `@timestamp`, `severity`, `severity_number`, `trace_id`, `span_id`) нельзя перезаписать attributes. На открытых портах предпочтительны `auth` и `limit` на entrypoint.
+
+Ответ как у metrics: `202` + `{"linesOk":N,"linesInvalid":M}`; любой invalid record → `400` с теми же счётчиками. Метрики: `alligator_otlp_logs_records_total{result}`, `alligator_otlp_logs_requests_total{status}`.
+
+Нет `/v1/traces` и нет приёма OTLP/gRPC на `:4317`.
 
 ## Кластер, gauge и несколько хостов
 
