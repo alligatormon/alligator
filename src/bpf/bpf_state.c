@@ -48,6 +48,7 @@ struct ctr_row {
 	char event[BPF_STR_MAX];
 	char event_key[16];
 	char path[BPF_STR_MAX];
+	char path_key[16];
 	char parent[16];
 	char parent_key[16];
 	uint64_t cgroup;
@@ -334,6 +335,32 @@ void bpf_counter_set_keys(const char *metric, const char *comm, const char *even
 		return;
 	if (event_key && event_key[0])
 		copy_cap(row->event_key, sizeof(row->event_key), event_key);
+	if (parent_key && parent_key[0])
+		copy_cap(row->parent_key, sizeof(row->parent_key), parent_key);
+}
+
+void bpf_counter_set_labels(const char *metric, const char *comm,
+	const char *event, const char *event_key, const char *path, const char *path_key,
+	const char *parent, const char *parent_key, uint64_t cgroup, uint64_t value)
+{
+	int i;
+	struct ctr_row *row = NULL;
+
+	bpf_counter_set(metric, comm, event, path, parent, cgroup, 0, 0, 0, 0, value);
+	for (i = 0; i < BPF_SERIES_MAX; i++) {
+		if (!ctrs[i].used)
+			continue;
+		if (ctr_same(&ctrs[i], metric, comm, event, path, parent, cgroup, 0, 0, 0, 0)) {
+			row = &ctrs[i];
+			break;
+		}
+	}
+	if (!row)
+		return;
+	if (event_key && event_key[0])
+		copy_cap(row->event_key, sizeof(row->event_key), event_key);
+	if (path_key && path_key[0])
+		copy_cap(row->path_key, sizeof(row->path_key), path_key);
 	if (parent_key && parent_key[0])
 		copy_cap(row->parent_key, sizeof(row->parent_key), parent_key);
 }
@@ -1136,11 +1163,17 @@ static const char *hist_dev_value(const struct hist_row *row)
 	return NULL;
 }
 
+static int hist_is_size(const struct hist_row *row)
+{
+	return row && row->metric[0] && !strcmp(row->metric, "bpf_tcp_syn_backlog");
+}
+
 static void emit_hist_row(struct hist_row *row)
 {
 	uint64_t acc = 0;
 	uint64_t total = 0;
 	int i;
+	int size_hist;
 	char le[32];
 	char metric[80];
 	double sum;
@@ -1149,6 +1182,7 @@ static void emit_hist_row(struct hist_row *row)
 
 	if (!row->used || !bpf_carg)
 		return;
+	size_hist = hist_is_size(row);
 	dkey = (char *)hist_dev_key(row);
 	dval = hist_dev_value(row);
 	namespace_metric_family_set_prom_type(bpf_carg, row->metric, METRIC_TYPE_HISTOGRAM);
@@ -1159,7 +1193,7 @@ static void emit_hist_row(struct hist_row *row)
 	for (i = 0; i < BPF_HIST_LAST; i++) {
 		alligator_ht *lbl = alligator_ht_init(NULL);
 		acc += row->raw[i];
-		snprintf(le, sizeof(le), "%g", bpf_hist_le(i));
+		snprintf(le, sizeof(le), "%g", size_hist ? bpf_size_hist_le(i) : bpf_hist_le(i));
 		add_label(lbl, "le", le);
 		add_label(lbl, "comm", row->comm);
 		if (row->extra_key[0])
@@ -1183,7 +1217,8 @@ static void emit_hist_row(struct hist_row *row)
 		snprintf(metric, sizeof(metric), "%s_bucket", row->metric);
 		metric_add(metric, lbl, &acc, DATATYPE_UINT, bpf_carg);
 	}
-	sum = (double)row->sum_ns / 1e9;
+	/* Latency: sum_ns → seconds. Size hist: sum_ns holds the sum of sizes. */
+	sum = size_hist ? (double)row->sum_ns : (double)row->sum_ns / 1e9;
 	{
 		alligator_ht *lbl = alligator_ht_init(NULL);
 		add_label(lbl, "comm", row->comm);
@@ -1315,12 +1350,16 @@ static void emit_ctr_row(struct ctr_row *row)
 	pval = ctr_parent_value(row);
 	add_label(lbl, "comm", row->comm);
 	add_label(lbl, (char *)ekey, row->event);
-	add_label(lbl, "path", row->path);
+	add_label(lbl, row->path_key[0] ? row->path_key : "path", row->path);
 	if (pval)
 		add_label(lbl, (char *)pkey, pval);
 	if (row->has_dport) {
 		snprintf(port, sizeof(port), "%u", row->dport);
-		add_label(lbl, "dport", port);
+		/* udp_rcvbuf_drops uses listen/local port, not destination. */
+		if (row->metric[0] && !strcmp(row->metric, "bpf_udp_rcvbuf_drops_total"))
+			add_label(lbl, "port", port);
+		else
+			add_label(lbl, "dport", port);
 	}
 	if (row->has_changed) {
 		snprintf(changed, sizeof(changed), "%u", row->changed);

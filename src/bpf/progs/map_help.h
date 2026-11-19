@@ -11,6 +11,21 @@ struct bpf_hist_arg {
 	const char *dev;
 };
 
+static __noinline void bpf_copy_str(char *dst, const char *src, int cap)
+{
+	int i;
+
+	if (!src)
+		return;
+	for (i = 0; i < 64; i++) {
+		if (i >= cap)
+			break;
+		dst[i] = src[i];
+		if (!src[i])
+			break;
+	}
+}
+
 static __noinline void bpf_hist_bump(void *hist, void *sum, const char *comm,
 	const char *extra, struct bpf_hist_arg *a)
 {
@@ -24,8 +39,13 @@ static __noinline void bpf_hist_bump(void *hist, void *sum, const char *comm,
 	int i;
 
 	__builtin_memcpy(hk.comm, comm, 16);
+	/*
+	 * Callers pass stack buffers or map-value fields (not arbitrary kernel
+	 * C strings). bpf_probe_read_kernel_str on a BPF stack pointer fails
+	 * verification on many kernels and took down the whole tcp skeleton.
+	 */
 	if (extra)
-		bpf_probe_read_kernel_str(hk.extra, sizeof(hk.extra), extra);
+		bpf_copy_str(hk.extra, extra, (int)sizeof(hk.extra));
 	if (a->dev)
 		__builtin_memcpy(hk.dev, a->dev, 16);
 	hk.cgroup = a->cgroup;
@@ -47,7 +67,7 @@ static __noinline void bpf_hist_bump(void *hist, void *sum, const char *comm,
 	sk.cgroup = a->cgroup;
 	__builtin_memcpy(sk.comm, comm, 16);
 	if (extra)
-		bpf_probe_read_kernel_str(sk.extra, sizeof(sk.extra), extra);
+		bpf_copy_str(sk.extra, extra, (int)sizeof(sk.extra));
 	if (a->dev)
 		__builtin_memcpy(sk.dev, a->dev, 16);
 	sv = bpf_map_lookup_elem(sum, &sk);
@@ -57,6 +77,63 @@ static __noinline void bpf_hist_bump(void *hist, void *sum, const char *comm,
 	} else {
 		struct bpf_sum_val init = {};
 		init.sum_ns = a->delta;
+		init.count = 1;
+		bpf_map_update_elem(sum, &sk, &init, BPF_ANY);
+	}
+}
+
+/*
+ * Size histogram (e.g. TCP SYN backlog). Same 22 exp2 buckets as latency, but
+ * the observed value is a count: bucket i covers [2^i, 2^(i+1)). Pass the raw
+ * size in a->delta (not nanoseconds). Userspace emits le as 1,2,4,… and _sum
+ * as the sum of sizes (see bpf_tcp_syn_backlog).
+ */
+static __noinline void bpf_size_hist_bump(void *hist, void *sum, const char *comm,
+	const char *extra, struct bpf_hist_arg *a)
+{
+	struct bpf_hist_key hk = {};
+	struct bpf_sum_key sk = {};
+	__u64 *slot;
+	struct bpf_sum_val *sv;
+	__u64 one = 1;
+	__u32 bucket = 0;
+	__u64 size = a->delta;
+	int i;
+
+	__builtin_memcpy(hk.comm, comm, 16);
+	if (extra)
+		bpf_copy_str(hk.extra, extra, (int)sizeof(hk.extra));
+	if (a->dev)
+		__builtin_memcpy(hk.dev, a->dev, 16);
+	hk.cgroup = a->cgroup;
+	for (i = 0; i < 21; i++) {
+		__u64 lim = 1ULL << i;
+		if (size < lim) {
+			bucket = (__u32)i;
+			break;
+		}
+		bucket = 21;
+	}
+	hk.bucket = bucket;
+	slot = bpf_map_lookup_elem(hist, &hk);
+	if (slot)
+		__sync_fetch_and_add(slot, 1);
+	else
+		bpf_map_update_elem(hist, &hk, &one, BPF_ANY);
+
+	sk.cgroup = a->cgroup;
+	__builtin_memcpy(sk.comm, comm, 16);
+	if (extra)
+		bpf_copy_str(sk.extra, extra, (int)sizeof(sk.extra));
+	if (a->dev)
+		__builtin_memcpy(sk.dev, a->dev, 16);
+	sv = bpf_map_lookup_elem(sum, &sk);
+	if (sv) {
+		__sync_fetch_and_add(&sv->sum_ns, size);
+		__sync_fetch_and_add(&sv->count, 1);
+	} else {
+		struct bpf_sum_val init = {};
+		init.sum_ns = size;
 		init.count = 1;
 		bpf_map_update_elem(sum, &sk, &init, BPF_ANY);
 	}
@@ -150,21 +227,6 @@ static __always_inline int bpf_comm_ok(const char allow[BPF_COMM_MAX][16], const
 			return 1;
 	}
 	return 0;
-}
-
-static __noinline void bpf_copy_str(char *dst, const char *src, int cap)
-{
-	int i;
-
-	if (!src)
-		return;
-	for (i = 0; i < 64; i++) {
-		if (i >= cap)
-			break;
-		dst[i] = src[i];
-		if (!src[i])
-			break;
-	}
 }
 
 static __noinline int bpf_str_eq(const char *text, const char *rule)

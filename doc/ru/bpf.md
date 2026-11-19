@@ -486,6 +486,8 @@ bpf {
     probe offcpu;
     probe block_io;
     probe lock_contention;
+    probe softirq_latency;
+    probe cfs_throttling;
 }
 ```
 
@@ -494,6 +496,8 @@ bpf {
 - `offcpu` — время вне CPU до следующего запуска. Histogram `bpf_offcpu_seconds` и counter `bpf_offcpu_switches_total`. Labels: `comm`, `state` (`sleep`, `disk_sleep`, `parked` или `other` из `prev_state`). Опционально `label waker;` добавляет `waker` (comm задачи, сделавшей wakeup, из `sched_wakeup` / `sched_wakeup_new`, best-effort; без wakeup → `unknown`). BPF-карта `last_waker` обновляется только если у woken pid уже есть старт в `off_ts` и он проходит allowlist `comm` для offcpu; `sched_switch` удаляет запись для `next` даже без `off_ts` (HASH, не LRU). **Риск кардинальности:** каждый уникальный waker `comm` умножает серии; по умолчанию выключен. С `cgroup_labels` cgroup — у задачи, ушедшей с CPU. Exiting task не пишется.
 - `block_io` — от issue block request до completion. Histogram `bpf_block_io_latency_seconds` с `dev` (`major:minor`) и `op` (`read`, `write`, `other`).
 - `lock_contention` — ожидание kernel lock. Histogram `bpf_lock_contention_seconds` и counter `bpf_lock_contentions_total` по `comm` и `type`. Приоритет `type`, если выставлено несколько LCB flags: `mutex` > `spin` > `rwlock` (READ|WRITE) > `rt` > `percpu` > `other`. Поддерживает `cgroup_labels`. Label адреса/символа lock нет. На ядрах старше 5.17 probe пропускается, `bpf_probe_skipped{probe="lock_contention"}` = 1.
+- `softirq_latency` — latency softirq raise→entry и entry→exit (tp_btf `softirq_raise` / `entry` / `exit`). Histograms `bpf_softirq_entry_latency_seconds` и `bpf_softirq_service_latency_seconds` с label `kind` (`hi`, `timer`, `net_tx`, `net_rx`, `block`, `irq_poll`, `tasklet`, `sched`, `hrtimer`, `rcu`). Без `comm`. ~10 kinds × buckets — низкая кардинальность. Пропускается, если BTF softirq traces недоступны.
+- `cfs_throttling` — длительность CFS bandwidth throttle. fentry `throttle_cfs_rq` сохраняет `bpf_ktime_get_ns()` по ключу `cfs_rq*`; fentry `unthrottle_cfs_rq` пишет delta в histogram `bpf_cfs_throttling_seconds`. Используется monotonic BPF time на обоих концах (не `rq->clock` / `throttled_clock`), чтобы не занижать интервал при stale runqueue clock. С `cgroup_labels;` cgroup id берётся на старте throttle. LRU start map (4096). Пропуск, если любой fentry не load/attach (`bpf_probe_skipped{probe="cfs_throttling"}`).
 
 Включение `offcpu` (особенно с `label waker;`) вместе с `lock_contention`, `page_faults` и `cgroup_memory` делит staging-таблицу на 4096 серий и может поднять `bpf_probe_dropped_total{reason="lru"}`.
 
@@ -507,7 +511,11 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe tcp_accept_latency;
+    probe tcp_syn_backlog;
     probe udp_activity { comm dns; }
+    probe udp_rcvbuf_drops;
+    probe kfree_skb;
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -519,7 +527,11 @@ bpf {
 - `tcp_connect_latency` — от `SYN_SENT` до established или `CLOSE`. Histogram `bpf_tcp_connect_latency_seconds`.
 - `tcp_rtt` — smoothed RTT один раз при established. Histogram `bpf_tcp_rtt_seconds`.
 - `tcp_reset` — отправленные и полученные TCP reset. Counter `bpf_tcp_resets_total`. `label dport;` добавляет destination port, когда он доступен.
+- `tcp_accept_latency` — ожидание в accept-**queue**: от `inet_csk_reqsk_queue_add` (готовый child на listen queue, ключ — child sock) до успешного **return** `inet_csk_accept` (kretprobe; NULL игнорируется). Работает для blocking и non-blocking `accept()`. Histogram `bpf_tcp_accept_latency_seconds` с label listen `port` (на enqueue). Не SYN-hash (`inet_csk_reqsk_queue_hash_add` не используется). Обычный map lookup+delete (без helpers только для 5.13+); на общем минимуме BPF (ядро ≥5.8, custom kprobe ≥5.15 как везде). LRU start map 16384; серии — cap 4096. Пропуск, если любой attach не удался (`bpf_probe_skipped{probe="tcp_accept_latency"}`).
+- `tcp_syn_backlog` — распределение `sk_ack_backlog` на `tcp_v4_syn_recv_sock` / `tcp_v6_syn_recv_sock`. Histogram **`bpf_tcp_syn_backlog`** (без суффикса `_seconds`). Те же exp2 buckets, что у latency, но значение — **размер** backlog: `le` = `1`, `2`, `4`, … (не секунды), `_sum` — сумма глубин. Не интерпретируйте `le` как время.
 - `udp_activity` — UDP send и receive через `udp_sendmsg` / `udp_recvmsg` и IPv6-аналоги. Counter `bpf_udp_activity_total` по `comm` и `event` (`send` или `recv`). `send` считается на entry; `recv` — kretprobe и только при return value `> 0`, так что non-blocking `-EAGAIN` poll не попадает в счётчик. Это не захват пакетов и без labels адреса или порта.
+- `udp_rcvbuf_drops` — `tp_btf/udp_fail_queue_rcv_skb`. Counter `bpf_udp_rcvbuf_drops_total{port}`. Порты ≥ 32768 схлопываются в `port="0"`. Пропуск без tracepoint.
+- `kfree_skb` — таксономия дропов `tp_btf/kfree_skb`. Counter `bpf_kfree_skb_total{eth_proto,ip_proto,reason}`. **Без** port и IP. Считается каждый дроп, в том числе L3-only / stack-local skb без MAC header (например rcvbuf fail → `kfree_skb_reason`); `eth_proto` / `ip_proto` — best-effort (`other`, если заголовков нет). `eth_proto`: `ipv4`/`ipv6`/`other`; `ip_proto`: `tcp`/`udp`/`icmp`/`other`; `reason` — **числовой** код `skb_drop_reason` десятичной строкой (без статической таблицы имён: enum сдвигается между ядрами). Декодировать offline по `dropreason.h` / BTF хоста. Пропуск без tracepoint.
 - `dns_latency` — `getaddrinfo` в указанном binary. По умолчанию `/lib64/libc.so.6`. Histogram `bpf_dns_latency_seconds`. Имя запроса — label только при совпадении с `filter`. Остальные lookups остаются в unlabeled серии и не считаются дважды. Имя хранится не больше 31 байта.
 
 ### Processes
@@ -585,13 +597,13 @@ Labels: `cgroup`, и при Kubernetes path — `pod`, `namespace`, `container`.
 
 ## Cgroup labels
 
-`cgroup_labels;` добавляет `cgroup`, `pod`, `namespace`, `container` к scheduling, block, lock, TCP, process, page-fault и OOM сериям, когда cgroup id резолвится. Id — inode каталога cgroup. Путь берётся из ограниченного обхода cgroupfs и из cgroup, которые уже видел cadvisor. Клиента kubelet нет.
+`cgroup_labels;` добавляет `cgroup`, `pod`, `namespace`, `container` к scheduling, block, lock, TCP, process, page-fault, OOM и `cfs_throttling` сериям, когда cgroup id резолвится. Id — inode каталога cgroup. Путь берётся из ограниченного обхода cgroupfs и из cgroup, которые уже видел cadvisor. Клиента kubelet нет.
 
 `runqueue_latency` эти labels не получает. Если id известен, а путь нет — label равен числовому cgroup id.
 
 ## Метрики
 
-Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_sum` в секундах, `_count`. Границы: 1µs, 2µs, 4µs, … до ~1s, затем `+Inf`.
+Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_sum` в секундах, `_count`, **кроме** `bpf_tcp_syn_backlog`, где `le` / `_sum` — размеры backlog (exp2: 1, 2, 4, …). Latency границы: 1µs, 2µs, 4µs, … до ~1s, затем `+Inf`.
 
 | Metric | Type | Labels |
 | --- | --- | --- |
@@ -607,12 +619,17 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | `bpf_block_io_latency_seconds` | histogram | `comm`, `dev`, `op` |
 | `bpf_lock_contention_seconds` | histogram | `comm`, `type`, плюс cgroup labels при включении |
 | `bpf_lock_contentions_total` | counter | те же labels, что у `bpf_lock_contention_seconds` |
+| `bpf_softirq_entry_latency_seconds` | histogram | `kind` |
+| `bpf_softirq_service_latency_seconds` | histogram | `kind` |
+| `bpf_cfs_throttling_seconds` | histogram | optional cgroup labels при `cgroup_labels;` |
 | `bpf_page_faults_total` | counter | `comm`, `type` (`minor`/`major`), optional cgroup |
 | `bpf_oom_kills_total` | counter | `comm`, optional cgroup |
 | `bpf_tcp_retransmits_total` | counter | `comm`, optional `dport` |
 | `bpf_tcp_connect_latency_seconds` | histogram | `comm` |
 | `bpf_tcp_rtt_seconds` | histogram | `comm` |
 | `bpf_tcp_resets_total` | counter | `comm`, optional `dport` |
+| `bpf_tcp_accept_latency_seconds` | histogram | `port` |
+| `bpf_tcp_syn_backlog` | histogram | нет (`le` — размер backlog) |
 | `bpf_dns_latency_seconds` | histogram | `comm`, optional `name` |
 | `bpf_syscall_latency_seconds` | histogram | `comm`, имя syscall |
 | `bpf_process_events_total` | counter | `comm`, `event` |
@@ -622,6 +639,8 @@ Histograms — Prometheus histograms: `_bucket` с `le` в секундах, `_s
 | `bpf_file_access_total` | counter | `comm`, `path` |
 | `bpf_net_activity_total` | counter | `comm`, `event` |
 | `bpf_udp_activity_total` | counter | `comm`, `event` (`send` или `recv`) |
+| `bpf_udp_rcvbuf_drops_total` | counter | `port` (ephemeral → `0`) |
+| `bpf_kfree_skb_total` | counter | `eth_proto`, `ip_proto`, `reason` (decimal `skb_drop_reason`; без port/IP) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter и gauge | `cgroup`, `pod`, `namespace`, `container`, `window` на averages |
 | `bpf_cgroup_memory_current_bytes` | gauge | `cgroup`, `pod`, `namespace`, `container` |

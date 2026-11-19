@@ -40,8 +40,10 @@ bpf {
     probe runqueue_latency;
     probe offcpu;
     probe block_io;
+    probe softirq_latency;
     probe tcp_connect_latency;
     probe tcp_rtt;
+    probe tcp_accept_latency;
 }
 ```
 
@@ -120,8 +122,10 @@ bpf {
     probe runqueue_latency;
     probe offcpu;
     probe block_io;
+    probe softirq_latency;
     probe tcp_connect_latency;
     probe tcp_rtt;
+    probe tcp_accept_latency;
     cgroup_labels;
 }
 ```
@@ -486,6 +490,8 @@ bpf {
     probe offcpu;
     probe block_io;
     probe lock_contention;
+    probe softirq_latency;
+    probe cfs_throttling;
 }
 ```
 
@@ -494,6 +500,8 @@ bpf {
 - `offcpu` — time the task is off CPU until it runs again. Histogram `bpf_offcpu_seconds` and counter `bpf_offcpu_switches_total`. Labels: `comm`, `state` (`sleep`, `disk_sleep`, `parked`, or `other` from `prev_state`). Opt-in `label waker;` adds `waker` (comm of the waking task from `sched_wakeup` / `sched_wakeup_new`, best-effort; missing wakeup → `unknown`). The BPF `last_waker` map is updated only when the woken pid already has an `off_ts` start and passes the offcpu `comm` allowlist; `sched_switch` deletes the entry for `next` even if `off_ts` is gone (HASH, not LRU). **Cardinality risk:** every distinct waker `comm` multiplies series; leave it off unless you need it. With `cgroup_labels`, the cgroup is the task that left the CPU. A task that is exiting is not recorded.
 - `block_io` — time from a block request issue to its completion. Histogram `bpf_block_io_latency_seconds` with `dev` (`major:minor`) and `op` (`read`, `write`, or `other`).
 - `lock_contention` — time spent waiting on a kernel lock. Histogram `bpf_lock_contention_seconds` and counter `bpf_lock_contentions_total` by `comm` and `type`. `type` priority when several LCB flags are set: `mutex` > `spin` > `rwlock` (READ|WRITE) > `rt` > `percpu` > `other`. Supports `cgroup_labels`. There is no lock-address or symbol label. On kernels older than 5.17 the probe is skipped and `bpf_probe_skipped{probe="lock_contention"}` is 1.
+- `softirq_latency` — softirq raise→entry and entry→exit latency (tp_btf `softirq_raise` / `entry` / `exit`). Histograms `bpf_softirq_entry_latency_seconds` and `bpf_softirq_service_latency_seconds` labeled by `kind` (`hi`, `timer`, `net_tx`, `net_rx`, `block`, `irq_poll`, `tasklet`, `sched`, `hrtimer`, `rcu`). No `comm`. ~10 kinds × buckets — low cardinality. Skipped when BTF softirq traces are missing.
+- `cfs_throttling` — duration of a CFS bandwidth throttle interval. fentry on `throttle_cfs_rq` stores `bpf_ktime_get_ns()` keyed by `cfs_rq*`; fentry on `unthrottle_cfs_rq` records the delta into histogram `bpf_cfs_throttling_seconds`. This uses monotonic BPF time on both ends (not `rq->clock` / `throttled_clock`), so the interval is wall-clock-ish throttle length and does not under-report when runqueue clock is stale at unthrottle. With `cgroup_labels;` the cgroup id is captured at throttle start. LRU start map (4096). Skipped when either fentry fails to load/attach (`bpf_probe_skipped{probe="cfs_throttling"}`).
 
 Enabling `offcpu` (especially with `label waker;`) together with `lock_contention`, `page_faults`, and `cgroup_memory` shares the 4096-series staging table and can raise `bpf_probe_dropped_total{reason="lru"}`.
 
@@ -507,7 +515,11 @@ bpf {
     probe tcp_connect_latency;
     probe tcp_rtt;
     probe tcp_reset { label dport; }
+    probe tcp_accept_latency;
+    probe tcp_syn_backlog;
     probe udp_activity { comm dns; }
+    probe udp_rcvbuf_drops;
+    probe kfree_skb;
     probe dns_latency {
         binary /lib64/libc.so.6;
         filter=suffix value=.example.com;
@@ -519,7 +531,11 @@ bpf {
 - `tcp_connect_latency` — from `SYN_SENT` until the socket is established or the attempt reaches `CLOSE`. Histogram `bpf_tcp_connect_latency_seconds`.
 - `tcp_rtt` — smoothed RTT sampled once when a TCP socket becomes established. Histogram `bpf_tcp_rtt_seconds`.
 - `tcp_reset` — sent and received TCP resets. Counter `bpf_tcp_resets_total`. `label dport;` adds the destination port when it is available.
+- `tcp_accept_latency` — accept-**queue** wait: from `inet_csk_reqsk_queue_add` (completed handshake placed on the listen queue, keyed by child sock) until a successful `inet_csk_accept` **return** (kretprobe; NULL retval ignored). Covers blocking and non-blocking `accept()`. Histogram `bpf_tcp_accept_latency_seconds` labeled by listen `port` (captured at enqueue). Not SYN-hash wait (`inet_csk_reqsk_queue_hash_add` is unused). Uses plain map lookup+delete (no 5.13-only helpers); works on the general BPF floor (kernel ≥5.8, custom kprobe attach ≥5.15 as elsewhere). LRU start map 16384; series LRU-capped at 4096. Skipped when either attach fails (`bpf_probe_skipped{probe="tcp_accept_latency"}`).
+- `tcp_syn_backlog` — distribution of `sk_ack_backlog` sampled on `tcp_v4_syn_recv_sock` / `tcp_v6_syn_recv_sock`. Histogram **`bpf_tcp_syn_backlog`** (no `_seconds` suffix). Buckets are the same exp2 scheme as latency hists, but the observed value is the backlog **size**: `le` is `1`, `2`, `4`, … (not seconds) and `_sum` is the sum of sampled backlog depths. Prefer `histogram_quantile` over treating `le` as time.
 - `udp_activity` — UDP send and receive via `udp_sendmsg` / `udp_recvmsg` and the IPv6 counterparts. Counter `bpf_udp_activity_total` by `comm` and `event` (`send` or `recv`). `send` is counted on entry; `recv` is a kretprobe and counts only when the return value is `> 0`, so non-blocking `-EAGAIN` polls are dropped. This is not packet capture and has no address or port labels.
+- `udp_rcvbuf_drops` — `tp_btf/udp_fail_queue_rcv_skb` (rcvbuf / queue full). Counter `bpf_udp_rcvbuf_drops_total{port}`. Local ports ≥ 32768 collapse to `port="0"` to bound cardinality. Skipped when the tracepoint is missing.
+- `kfree_skb` — `tp_btf/kfree_skb` drop taxonomy. Counter `bpf_kfree_skb_total{eth_proto,ip_proto,reason}`. **Never** emits port or IP labels. Every drop is counted, including L3-only / stack-local skbs with no MAC header (e.g. rcvbuf fails that later call `kfree_skb_reason`); `eth_proto` / `ip_proto` are best-effort (`other` when headers are unset). `eth_proto` is `ipv4` / `ipv6` / `other`; `ip_proto` is `tcp` / `udp` / `icmp` / `other`; `reason` is the kernel `skb_drop_reason` **numeric code as a decimal string** (stable across scrapes on that kernel; do not assume a frozen name table — enum members are inserted over time). Decode offline with the host's `dropreason.h` / BTF. Skipped on kernels without the tracepoint (`bpf_probe_skipped{probe="kfree_skb"}`).
 - `dns_latency` — `getaddrinfo` in the given binary. The default binary is `/lib64/libc.so.6`. Histogram `bpf_dns_latency_seconds`. The query name is a label only when it matches `filter`. Other lookups stay in the unlabeled series and are not counted twice. The stored name is at most 31 bytes.
 
 ### Processes
@@ -585,13 +601,13 @@ Labels are `cgroup` and, when the path is a Kubernetes cgroup, `pod`, `namespace
 
 ## Cgroup labels
 
-`cgroup_labels;` adds `cgroup`, `pod`, `namespace`, and `container` to the scheduling, block, lock, TCP, process, page-fault, and OOM series when the cgroup id can be resolved. The id is the cgroup directory inode. The path is taken from a capped walk of cgroupfs and from cgroups that cadvisor has already seen. There is no kubelet client.
+`cgroup_labels;` adds `cgroup`, `pod`, `namespace`, and `container` to the scheduling, block, lock, TCP, process, page-fault, OOM, and `cfs_throttling` series when the cgroup id can be resolved. The id is the cgroup directory inode. The path is taken from a capped walk of cgroupfs and from cgroups that cadvisor has already seen. There is no kubelet client.
 
 `runqueue_latency` does not get these labels. If the id is known but the path is not, the label is the numeric cgroup id.
 
 ## Metrics
 
-Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in seconds, and `_count`. Bucket edges are 1µs, 2µs, 4µs, and so on, up to about 1s, then `+Inf`.
+Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in seconds, and `_count`, **except** `bpf_tcp_syn_backlog` where `le` / `_sum` are backlog **sizes** (exp2 count buckets: 1, 2, 4, …). Latency bucket edges are 1µs, 2µs, 4µs, and so on, up to about 1s, then `+Inf`.
 
 | Metric | Type | Labels |
 | --- | --- | --- |
@@ -607,12 +623,17 @@ Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in 
 | `bpf_block_io_latency_seconds` | histogram | `comm`, `dev`, `op` |
 | `bpf_lock_contention_seconds` | histogram | `comm`, `type`, and cgroup labels when enabled |
 | `bpf_lock_contentions_total` | counter | same labels as `bpf_lock_contention_seconds` |
+| `bpf_softirq_entry_latency_seconds` | histogram | `kind` |
+| `bpf_softirq_service_latency_seconds` | histogram | `kind` |
+| `bpf_cfs_throttling_seconds` | histogram | optional cgroup labels when `cgroup_labels;` is on |
 | `bpf_page_faults_total` | counter | `comm`, `type` (`minor`/`major`), optional cgroup |
 | `bpf_oom_kills_total` | counter | `comm`, optional cgroup |
 | `bpf_tcp_retransmits_total` | counter | `comm`, optional `dport` |
 | `bpf_tcp_connect_latency_seconds` | histogram | `comm` |
 | `bpf_tcp_rtt_seconds` | histogram | `comm` |
 | `bpf_tcp_resets_total` | counter | `comm`, optional `dport` |
+| `bpf_tcp_accept_latency_seconds` | histogram | `port` |
+| `bpf_tcp_syn_backlog` | histogram | none (size distribution; `le` is backlog count) |
 | `bpf_dns_latency_seconds` | histogram | `comm`, optional `name` |
 | `bpf_syscall_latency_seconds` | histogram | `comm`, syscall name |
 | `bpf_process_events_total` | counter | `comm`, `event` |
@@ -622,6 +643,8 @@ Histograms are Prometheus histograms: `_bucket` with `le` in seconds, `_sum` in 
 | `bpf_file_access_total` | counter | `comm`, `path` |
 | `bpf_net_activity_total` | counter | `comm`, `event` |
 | `bpf_udp_activity_total` | counter | `comm`, `event` (`send` or `recv`) |
+| `bpf_udp_rcvbuf_drops_total` | counter | `port` (ephemeral → `0`) |
+| `bpf_kfree_skb_total` | counter | `eth_proto`, `ip_proto`, `reason` (decimal `skb_drop_reason`; no port/IP) |
 | `bpf_priv_change_total` | counter | `comm`, `changed` |
 | `bpf_cgroup_memory_pressure_*` | counter and gauge | `cgroup`, `pod`, `namespace`, `container`, `window` on the averages |
 | `bpf_cgroup_memory_current_bytes` | gauge | `cgroup`, `pod`, `namespace`, `container` |

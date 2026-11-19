@@ -388,6 +388,83 @@ static void test_bpf_config_and_scrape(void)
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_PAGE_FAULT, bpf_named_id("page_faults"));
 	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_OOM_KILL, bpf_named_id("oom_kill"));
 
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_SOFTIRQ, bpf_named_id("softirq_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_KFREE_SKB, bpf_named_id("kfree_skb"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_TCP_ACCEPT, bpf_named_id("tcp_accept_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_TCP_SYN_BACKLOG, bpf_named_id("tcp_syn_backlog"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_CFS_THROTTLE, bpf_named_id("cfs_throttling"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, BPF_NAMED_UDP_RCVBUF, bpf_named_id("udp_rcvbuf_drops"));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_softirq_entry_latency_seconds",
+		(char *)bpf_named_metric(BPF_NAMED_SOFTIRQ));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_kfree_skb_total",
+		(char *)bpf_named_metric(BPF_NAMED_KFREE_SKB));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_tcp_accept_latency_seconds",
+		(char *)bpf_named_metric(BPF_NAMED_TCP_ACCEPT));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_tcp_syn_backlog",
+		(char *)bpf_named_metric(BPF_NAMED_TCP_SYN_BACKLOG));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_cfs_throttling_seconds",
+		(char *)bpf_named_metric(BPF_NAMED_CFS_THROTTLE));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "bpf_udp_rcvbuf_drops_total",
+		(char *)bpf_named_metric(BPF_NAMED_UDP_RCVBUF));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_named_is_hist(BPF_NAMED_SOFTIRQ));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bpf_named_is_hist(BPF_NAMED_KFREE_SKB));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_named_is_hist(BPF_NAMED_TCP_SYN_BACKLOG));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ipv4", (char *)bpf_eth_proto_name(1));
+	assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "tcp", (char *)bpf_ip_proto_name(1));
+	{
+		char reason[64];
+		bpf_skb_drop_reason_str(16, reason, sizeof(reason));
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "16", reason);
+		bpf_skb_drop_reason_str(0, reason, sizeof(reason));
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "0", reason);
+		bpf_skb_drop_reason_str(9999, reason, sizeof(reason));
+		assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "9999", reason);
+	}
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_size_hist_le(0) == 1.0);
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_size_hist_le(3) == 8.0);
+
+	bpf_apply_plain(
+		"bpf {\n"
+		"    probe softirq_latency;\n"
+		"    probe kfree_skb;\n"
+		"    probe tcp_accept_latency;\n"
+		"    probe tcp_syn_backlog;\n"
+		"    probe cfs_throttling;\n"
+		"    probe udp_rcvbuf_drops;\n"
+		"}\n");
+	bpf_loader_shutdown();
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("softirq_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("kfree_skb"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("tcp_accept_latency"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("tcp_syn_backlog"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("cfs_throttling"));
+	assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, bpf_probe_on_name("udp_rcvbuf_drops"));
+
+	bpf_series_reset();
+	bpf_hist_observe("bpf_softirq_entry_latency_seconds", "", "net_rx", "kind", NULL, NULL, 0, 2000);
+	bpf_hist_observe("bpf_tcp_accept_latency_seconds", "", "443", "port", NULL, NULL, 0, 5000);
+	bpf_hist_add_bucket("bpf_tcp_syn_backlog", "", NULL, NULL, NULL, NULL, 0, 3, 4);
+	bpf_hist_set_sum("bpf_tcp_syn_backlog", "", NULL, NULL, NULL, NULL, 0, 40, 4);
+	bpf_counter_set_labels("bpf_kfree_skb_total", NULL, "ipv4", "eth_proto", "16", "reason",
+		"tcp", "ip_proto", 0, 9);
+	bpf_counter_set("bpf_udp_rcvbuf_drops_total", NULL, NULL, NULL, NULL, 0, 1, 53, 0, 0, 5);
+	bpf_scrape();
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_softirq_entry_latency_seconds_count{kind=\"net_rx\"}",
+		"bpf_softirq_entry_latency_seconds_count", 1, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_tcp_accept_latency_seconds_count{port=\"443\"}",
+		"bpf_tcp_accept_latency_seconds_count", 1, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_tcp_syn_backlog_count",
+		"bpf_tcp_syn_backlog_count", 4, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_kfree_skb_total{eth_proto=\"ipv4\",ip_proto=\"tcp\",reason=\"16\"}",
+		"bpf_kfree_skb_total", 9, NULL);
+	metric_test_run_ns(CMP_EQUAL,
+		"bpf_udp_rcvbuf_drops_total{port=\"53\"}",
+		"bpf_udp_rcvbuf_drops_total", 5, NULL);
+
 	/* Per-probe skip gauge: marking one custom probe skipped leaves the other unset. */
 	bpf_apply_plain(
 		"bpf {\n"

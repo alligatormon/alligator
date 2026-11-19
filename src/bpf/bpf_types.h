@@ -93,6 +93,12 @@ typedef int64_t __s64;
 #define BPF_NAMED_UDP 20
 #define BPF_NAMED_PAGE_FAULT 21
 #define BPF_NAMED_OOM_KILL 22
+#define BPF_NAMED_SOFTIRQ 23
+#define BPF_NAMED_KFREE_SKB 24
+#define BPF_NAMED_TCP_ACCEPT 25
+#define BPF_NAMED_TCP_SYN_BACKLOG 26
+#define BPF_NAMED_CFS_THROTTLE 27
+#define BPF_NAMED_UDP_RCVBUF 28
 
 struct bpf_arg_cfg {
 	__u8 kind;
@@ -258,6 +264,8 @@ struct bpf_tcp_cfg {
 	__u32 connect_on;
 	__u32 rtt_on;
 	__u32 reset_on;
+	__u32 accept_on;
+	__u32 syn_backlog_on;
 	__u32 dport_on;
 	__u32 cgroup_labels;
 	char retrans_comm[BPF_COMM_MAX][16];
@@ -315,6 +323,29 @@ struct bpf_udp_cfg {
 	__u32 on;
 	__u32 cgroup_labels;
 	char comm[BPF_COMM_MAX][16];
+};
+
+struct bpf_softirq_cfg {
+	__u32 on;
+	__u32 pad;
+};
+
+struct bpf_netdrop_cfg {
+	__u32 kfree_on;
+	__u32 udp_drop_on;
+};
+
+struct bpf_cfs_cfg {
+	__u32 on;
+	__u32 cgroup_labels;
+};
+
+/* Bounded kfree_skb key: no port, no addresses. Codes mapped in userspace. */
+struct bpf_kfree_key {
+	__u16 eth; /* 0=other 1=ipv4 2=ipv6 */
+	__u16 ip; /* 0=other 1=tcp 2=udp 3=icmp */
+	__u16 reason;
+	__u16 pad;
 };
 
 struct bpf_lock_cfg {

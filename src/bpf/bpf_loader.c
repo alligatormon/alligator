@@ -26,6 +26,9 @@
 #include <dns.skel.h>
 #include <udp.skel.h>
 #include <mem.skel.h>
+#include <softirq.skel.h>
+#include <netdrop.skel.h>
+#include <cfs.skel.h>
 #include <generic.skel.h>
 #ifndef BPF_NO_LOCK
 #include <lock.skel.h>
@@ -40,6 +43,9 @@ static struct process_bpf *proc_skel;
 static struct dns_bpf *dns_skel;
 static struct udp_bpf *udp_skel;
 static struct mem_bpf *mem_skel;
+static struct softirq_bpf *softirq_skel;
+static struct netdrop_bpf *netdrop_skel;
+static struct cfs_bpf *cfs_skel;
 static struct generic_bpf *gen_skel;
 #ifndef BPF_NO_LOCK
 static struct lock_bpf *lock_skel;
@@ -612,13 +618,20 @@ static int load_named(void)
 			mem_skel = NULL;
 		}
 	}
-	if (want(BPF_NAMED_TCP_RETRANS) || want(BPF_NAMED_TCP_CONNECT) || want(BPF_NAMED_TCP_RTT) || want(BPF_NAMED_TCP_RESET)) {
+	if (want(BPF_NAMED_TCP_RETRANS) || want(BPF_NAMED_TCP_CONNECT) || want(BPF_NAMED_TCP_RTT) ||
+	    want(BPF_NAMED_TCP_RESET) || want(BPF_NAMED_TCP_ACCEPT) || want(BPF_NAMED_TCP_SYN_BACKLOG)) {
 		struct bpf_tcp_cfg cfg;
+		int tp_ok = 0;
+		int accept_ok = 0;
+		int syn_ok = 0;
+
 		memset(&cfg, 0, sizeof(cfg));
 		cfg.retrans_on = want(BPF_NAMED_TCP_RETRANS);
 		cfg.connect_on = want(BPF_NAMED_TCP_CONNECT);
 		cfg.rtt_on = want(BPF_NAMED_TCP_RTT);
 		cfg.reset_on = want(BPF_NAMED_TCP_RESET);
+		cfg.accept_on = want(BPF_NAMED_TCP_ACCEPT);
+		cfg.syn_backlog_on = want(BPF_NAMED_TCP_SYN_BACKLOG);
 		cfg.cgroup_labels = bpf_cgroup_labels_on();
 		append_comm(cfg.retrans_comm, BPF_NAMED_TCP_RETRANS);
 		append_comm(cfg.connect_comm, BPF_NAMED_TCP_CONNECT);
@@ -630,18 +643,225 @@ static int load_named(void)
 				cfg.dport_on = 1;
 		}
 		tcp_skel = tcp_bpf__open();
-		if (tcp_skel && !tcp_bpf__load(tcp_skel)) {
-			bpf_map__update_elem(tcp_skel->maps.tcp_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
-			if (tcp_bpf__attach(tcp_skel)) {
-				bpf_skip_set("tcp_retransmit", 1);
+		if (tcp_skel) {
+			int load_accept = cfg.accept_on;
+			int load_syn = cfg.syn_backlog_on;
+			int load_err;
+
+			/*
+			 * Manual kprobe attach only. Autoload only the programs for
+			 * enabled probes so one broken TP/kprobe (e.g. tcp_send_reset
+			 * CO-RE) cannot refuse the whole tcp object.
+			 */
+			bpf_program__set_autoattach(tcp_skel->progs.tcp_accept_queue_add, false);
+			bpf_program__set_autoattach(tcp_skel->progs.tcp_accept_ret, false);
+			bpf_program__set_autoattach(tcp_skel->progs.tcp_syn_recv_v4, false);
+			bpf_program__set_autoattach(tcp_skel->progs.tcp_syn_recv_v6, false);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_accept_queue_add, load_accept);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_accept_ret, load_accept);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_syn_recv_v4, load_syn);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_syn_recv_v6, load_syn);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_retrans, cfg.retrans_on);
+			bpf_program__set_autoload(tcp_skel->progs.inet_state,
+				cfg.connect_on || cfg.rtt_on);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_send_reset, cfg.reset_on);
+			bpf_program__set_autoload(tcp_skel->progs.tcp_recv_reset, cfg.reset_on);
+
+			load_err = tcp_bpf__load(tcp_skel);
+			if (load_err && (load_accept || load_syn)) {
+				glog(L_ERROR, "bpf: tcp skeleton load failed with accept/syn "
+					"programs (%d); retrying without them\n", load_err);
 				tcp_bpf__destroy(tcp_skel);
+				tcp_skel = tcp_bpf__open();
+				if (tcp_skel) {
+					bpf_program__set_autoattach(tcp_skel->progs.tcp_accept_queue_add, false);
+					bpf_program__set_autoattach(tcp_skel->progs.tcp_accept_ret, false);
+					bpf_program__set_autoattach(tcp_skel->progs.tcp_syn_recv_v4, false);
+					bpf_program__set_autoattach(tcp_skel->progs.tcp_syn_recv_v6, false);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_accept_queue_add, false);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_accept_ret, false);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_syn_recv_v4, false);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_syn_recv_v6, false);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_retrans, cfg.retrans_on);
+					bpf_program__set_autoload(tcp_skel->progs.inet_state,
+						cfg.connect_on || cfg.rtt_on);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_send_reset, cfg.reset_on);
+					bpf_program__set_autoload(tcp_skel->progs.tcp_recv_reset, cfg.reset_on);
+					load_err = tcp_bpf__load(tcp_skel);
+					if (cfg.accept_on)
+						bpf_skip_set("tcp_accept_latency", 1);
+					if (cfg.syn_backlog_on)
+						bpf_skip_set("tcp_syn_backlog", 1);
+					cfg.accept_on = 0;
+					cfg.syn_backlog_on = 0;
+					load_accept = 0;
+					load_syn = 0;
+				}
+			}
+			if (tcp_skel && !load_err) {
+				int before = nlinks;
+
+				bpf_map__update_elem(tcp_skel->maps.tcp_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+				if (cfg.retrans_on || cfg.connect_on || cfg.rtt_on || cfg.reset_on) {
+					if (!tcp_bpf__attach(tcp_skel))
+						tp_ok = 1;
+					else {
+						if (want(BPF_NAMED_TCP_RETRANS))
+							bpf_skip_set("tcp_retransmit", 1);
+						if (want(BPF_NAMED_TCP_CONNECT))
+							bpf_skip_set("tcp_connect_latency", 1);
+						if (want(BPF_NAMED_TCP_RTT))
+							bpf_skip_set("tcp_rtt", 1);
+						if (want(BPF_NAMED_TCP_RESET))
+							bpf_skip_set("tcp_reset", 1);
+					}
+				} else {
+					tp_ok = 1;
+				}
+				if (cfg.accept_on && load_accept) {
+					int ab = nlinks;
+					LIBBPF_OPTS(bpf_kprobe_opts, opt);
+
+					/* Start: accept-queue enqueue of completed child. */
+					keep_link(bpf_program__attach_kprobe_opts(tcp_skel->progs.tcp_accept_queue_add,
+						"inet_csk_reqsk_queue_add", &opt), 0);
+					/* End: successful accept return (blocking and non-blocking). */
+					opt.retprobe = true;
+					keep_link(bpf_program__attach_kprobe_opts(tcp_skel->progs.tcp_accept_ret,
+						"inet_csk_accept", &opt), 0);
+					accept_ok = nlinks >= ab + 2;
+					if (!accept_ok) {
+						drop_links_from(ab);
+						bpf_skip_set("tcp_accept_latency", 1);
+					}
+				}
+				if (cfg.syn_backlog_on && load_syn) {
+					int sb = nlinks;
+					LIBBPF_OPTS(bpf_kprobe_opts, opt);
+					keep_link(bpf_program__attach_kprobe_opts(tcp_skel->progs.tcp_syn_recv_v4,
+						"tcp_v4_syn_recv_sock", &opt), 0);
+					keep_link(bpf_program__attach_kprobe_opts(tcp_skel->progs.tcp_syn_recv_v6,
+						"tcp_v6_syn_recv_sock", &opt), 0);
+					syn_ok = nlinks > sb;
+					if (!syn_ok) {
+						drop_links_from(sb);
+						bpf_skip_set("tcp_syn_backlog", 1);
+					}
+				}
+				if (!tp_ok && !accept_ok && !syn_ok) {
+					drop_links_from(before);
+					tcp_bpf__destroy(tcp_skel);
+					tcp_skel = NULL;
+				}
+			} else {
+				if (want(BPF_NAMED_TCP_RETRANS))
+					bpf_skip_set("tcp_retransmit", 1);
+				if (want(BPF_NAMED_TCP_CONNECT))
+					bpf_skip_set("tcp_connect_latency", 1);
+				if (want(BPF_NAMED_TCP_RTT))
+					bpf_skip_set("tcp_rtt", 1);
+				if (want(BPF_NAMED_TCP_RESET))
+					bpf_skip_set("tcp_reset", 1);
+				if (want(BPF_NAMED_TCP_ACCEPT))
+					bpf_skip_set("tcp_accept_latency", 1);
+				if (want(BPF_NAMED_TCP_SYN_BACKLOG))
+					bpf_skip_set("tcp_syn_backlog", 1);
+				if (tcp_skel)
+					tcp_bpf__destroy(tcp_skel);
 				tcp_skel = NULL;
 			}
 		} else {
-			bpf_skip_set("tcp_retransmit", 1);
-			if (tcp_skel)
-				tcp_bpf__destroy(tcp_skel);
-			tcp_skel = NULL;
+			if (want(BPF_NAMED_TCP_RETRANS))
+				bpf_skip_set("tcp_retransmit", 1);
+			if (want(BPF_NAMED_TCP_CONNECT))
+				bpf_skip_set("tcp_connect_latency", 1);
+			if (want(BPF_NAMED_TCP_RTT))
+				bpf_skip_set("tcp_rtt", 1);
+			if (want(BPF_NAMED_TCP_RESET))
+				bpf_skip_set("tcp_reset", 1);
+			if (want(BPF_NAMED_TCP_ACCEPT))
+				bpf_skip_set("tcp_accept_latency", 1);
+			if (want(BPF_NAMED_TCP_SYN_BACKLOG))
+				bpf_skip_set("tcp_syn_backlog", 1);
+		}
+	}
+	if (want(BPF_NAMED_SOFTIRQ)) {
+		struct bpf_softirq_cfg cfg;
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.on = 1;
+		softirq_skel = softirq_bpf__open();
+		if (softirq_skel && !softirq_bpf__load(softirq_skel)) {
+			bpf_map__update_elem(softirq_skel->maps.softirq_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+			if (softirq_bpf__attach(softirq_skel)) {
+				bpf_skip_set("softirq_latency", 1);
+				softirq_bpf__destroy(softirq_skel);
+				softirq_skel = NULL;
+			}
+		} else {
+			bpf_skip_set("softirq_latency", 1);
+			if (softirq_skel)
+				softirq_bpf__destroy(softirq_skel);
+			softirq_skel = NULL;
+		}
+	}
+	if (want(BPF_NAMED_KFREE_SKB) || want(BPF_NAMED_UDP_RCVBUF)) {
+		struct bpf_netdrop_cfg cfg;
+		int kfree_ok = 0;
+		int udp_ok = 0;
+
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.kfree_on = want(BPF_NAMED_KFREE_SKB);
+		cfg.udp_drop_on = want(BPF_NAMED_UDP_RCVBUF);
+		netdrop_skel = netdrop_bpf__open();
+		if (netdrop_skel) {
+			bpf_program__set_autoattach(netdrop_skel->progs.on_kfree_skb, false);
+			bpf_program__set_autoattach(netdrop_skel->progs.on_udp_fail_queue, false);
+		}
+		if (netdrop_skel && !netdrop_bpf__load(netdrop_skel)) {
+			int before = nlinks;
+
+			bpf_map__update_elem(netdrop_skel->maps.netdrop_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+			if (cfg.kfree_on) {
+				kfree_ok = !keep_link_or_fail(bpf_program__attach(netdrop_skel->progs.on_kfree_skb),
+					"kfree_skb", "tp_btf attach", 0);
+			}
+			if (cfg.udp_drop_on) {
+				udp_ok = !keep_link_or_fail(bpf_program__attach(netdrop_skel->progs.on_udp_fail_queue),
+					"udp_rcvbuf_drops", "tp_btf attach", 0);
+			}
+			if (!kfree_ok && !udp_ok) {
+				drop_links_from(before);
+				netdrop_bpf__destroy(netdrop_skel);
+				netdrop_skel = NULL;
+			}
+		} else {
+			if (want(BPF_NAMED_KFREE_SKB))
+				bpf_skip_set("kfree_skb", 1);
+			if (want(BPF_NAMED_UDP_RCVBUF))
+				bpf_skip_set("udp_rcvbuf_drops", 1);
+			if (netdrop_skel)
+				netdrop_bpf__destroy(netdrop_skel);
+			netdrop_skel = NULL;
+		}
+	}
+	if (want(BPF_NAMED_CFS_THROTTLE)) {
+		struct bpf_cfs_cfg cfg;
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.on = 1;
+		cfg.cgroup_labels = bpf_cgroup_labels_on();
+		cfs_skel = cfs_bpf__open();
+		if (cfs_skel && !cfs_bpf__load(cfs_skel)) {
+			bpf_map__update_elem(cfs_skel->maps.cfs_cfg, &key, sizeof(key), &cfg, sizeof(cfg), BPF_ANY);
+			if (cfs_bpf__attach(cfs_skel)) {
+				bpf_skip_set("cfs_throttling", 1);
+				cfs_bpf__destroy(cfs_skel);
+				cfs_skel = NULL;
+			}
+		} else {
+			bpf_skip_set("cfs_throttling", 1);
+			if (cfs_skel)
+				cfs_bpf__destroy(cfs_skel);
+			cfs_skel = NULL;
 		}
 	}
 	if (want(BPF_NAMED_SYSCALL) || want(BPF_NAMED_LIFE) || want(BPF_NAMED_FD) || want(BPF_NAMED_IO) ||
@@ -1041,6 +1261,12 @@ void bpf_loader_shutdown(void)
 		udp_bpf__destroy(udp_skel);
 	if (mem_skel)
 		mem_bpf__destroy(mem_skel);
+	if (softirq_skel)
+		softirq_bpf__destroy(softirq_skel);
+	if (netdrop_skel)
+		netdrop_bpf__destroy(netdrop_skel);
+	if (cfs_skel)
+		cfs_bpf__destroy(cfs_skel);
 	if (gen_skel)
 		generic_bpf__destroy(gen_skel);
 #ifndef BPF_NO_LOCK
@@ -1055,6 +1281,9 @@ void bpf_loader_shutdown(void)
 	dns_skel = NULL;
 	udp_skel = NULL;
 	mem_skel = NULL;
+	softirq_skel = NULL;
+	netdrop_skel = NULL;
+	cfs_skel = NULL;
 	gen_skel = NULL;
 	attached = 0;
 }
@@ -1079,17 +1308,21 @@ int bpf_loader_sync(void)
 	bpf_loader_shutdown();
 	logged = 0;
 #ifndef BPF_NO_LOCK
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel && !lock_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel &&
+	    !softirq_skel && !netdrop_skel && !cfs_skel && !lock_skel)
 		return -1;
 #else
-	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel)
+	if (load_named() && !sched_skel && !block_skel && !tcp_skel && !proc_skel && !dns_skel && !udp_skel && !mem_skel &&
+	    !softirq_skel && !netdrop_skel && !cfs_skel)
 		return -1;
 #endif
 	load_generic();
 #ifndef BPF_NO_LOCK
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel || gen_skel || lock_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel ||
+		softirq_skel || netdrop_skel || cfs_skel || gen_skel || lock_skel || nlinks > 0;
 #else
-	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel || gen_skel || nlinks > 0;
+	attached = sched_skel || block_skel || tcp_skel || proc_skel || dns_skel || udp_skel || mem_skel ||
+		softirq_skel || netdrop_skel || cfs_skel || gen_skel || nlinks > 0;
 #endif
 	return attached ? 0 : -1;
 }
@@ -1128,7 +1361,44 @@ void bpf_loader_poll(void)
 			"bpf_tcp_connect_latency_seconds", NULL, NULL, NULL, NULL, NULL);
 		poll_hist(map_fd(tcp_skel->maps.rtt_hist), map_fd(tcp_skel->maps.rtt_sum),
 			"bpf_tcp_rtt_seconds", NULL, NULL, NULL, NULL, NULL);
+		poll_hist(map_fd(tcp_skel->maps.accept_hist), map_fd(tcp_skel->maps.accept_sum),
+			"bpf_tcp_accept_latency_seconds", "port", NULL, NULL, NULL, NULL);
+		poll_hist(map_fd(tcp_skel->maps.syn_backlog_hist), map_fd(tcp_skel->maps.syn_backlog_sum),
+			"bpf_tcp_syn_backlog", NULL, NULL, NULL, NULL, NULL);
 	}
+	if (softirq_skel) {
+		poll_hist(map_fd(softirq_skel->maps.entry_hist), map_fd(softirq_skel->maps.entry_sum),
+			"bpf_softirq_entry_latency_seconds", "kind", NULL, NULL, NULL, NULL);
+		poll_hist(map_fd(softirq_skel->maps.service_hist), map_fd(softirq_skel->maps.service_sum),
+			"bpf_softirq_service_latency_seconds", "kind", NULL, NULL, NULL, NULL);
+	}
+	if (netdrop_skel) {
+		struct bpf_kfree_key kcur, knext;
+		__u64 kval;
+		int kfd = map_fd(netdrop_skel->maps.kfree_ctr);
+		int kerr;
+
+		if (kfd >= 0) {
+			kerr = bpf_map_get_next_key(kfd, NULL, &knext);
+			while (!kerr) {
+				if (!bpf_map_lookup_elem(kfd, &knext, &kval)) {
+					char reason[64];
+					bpf_skb_drop_reason_str(knext.reason, reason, sizeof(reason));
+					bpf_counter_set_labels("bpf_kfree_skb_total", NULL,
+						bpf_eth_proto_name(knext.eth), "eth_proto",
+						reason, "reason",
+						bpf_ip_proto_name(knext.ip), "ip_proto",
+						0, kval);
+				}
+				kcur = knext;
+				kerr = bpf_map_get_next_key(kfd, &kcur, &knext);
+			}
+		}
+		poll_ctr(map_fd(netdrop_skel->maps.udp_drop_ctr), "bpf_udp_rcvbuf_drops_total", 1);
+	}
+	if (cfs_skel)
+		poll_hist(map_fd(cfs_skel->maps.cfs_hist), map_fd(cfs_skel->maps.cfs_sum),
+			"bpf_cfs_throttling_seconds", NULL, NULL, NULL, NULL, NULL);
 	if (proc_skel) {
 		poll_hist(map_fd(proc_skel->maps.sys_hist), map_fd(proc_skel->maps.sys_sum),
 			"bpf_syscall_latency_seconds", "syscall", NULL, NULL, NULL, NULL);

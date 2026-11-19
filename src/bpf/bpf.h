@@ -85,6 +85,10 @@ int bpf_cgroup_parse(const char *path, char *pod, size_t pod_n, char *ns, size_t
 int bpf_named_id(const char *name);
 const char *bpf_named_metric(int named);
 int bpf_named_is_hist(int named);
+const char *bpf_eth_proto_name(unsigned eth);
+const char *bpf_ip_proto_name(unsigned ip);
+void bpf_skb_drop_reason_str(unsigned reason, char *dst, size_t n);
+double bpf_size_hist_le(int bucket);
 
 json_t *bpf_plain_parse(const bpf_plain_tok *toks, uint64_t n, uint64_t *idx);
 
@@ -107,6 +111,10 @@ void bpf_counter_set(const char *metric, const char *comm, const char *event, co
 	uint32_t changed, uint64_t value);
 /* Like bpf_counter_set but remaps empty-default event/parent label names (e.g. state/waker). */
 void bpf_counter_set_keys(const char *metric, const char *comm, const char *event, const char *event_key,
+	const char *parent, const char *parent_key, uint64_t cgroup, uint64_t value);
+/* Remap event/path/parent label names (e.g. eth_proto / reason / ip_proto for kfree_skb). */
+void bpf_counter_set_labels(const char *metric, const char *comm,
+	const char *event, const char *event_key, const char *path, const char *path_key,
 	const char *parent, const char *parent_key, uint64_t cgroup, uint64_t value);
 void bpf_cgroup_memory_sample(const char *path, uint64_t current_bytes);
 void bpf_cgroup_memory_stat_sample(const char *path, const char *stat, uint64_t value, int is_bytes);

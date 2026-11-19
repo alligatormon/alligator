@@ -64,6 +64,42 @@ struct {
 	__type(value, struct bpf_sum_val);
 } rtt_sum SEC(".maps");
 
+/* Accept-queue wait: key is child sock* from inet_csk_reqsk_queue_add. */
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 16384);
+	__type(key, __u64);
+	__type(value, struct bpf_ts_val);
+} accept_ts SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 4096);
+	__type(key, struct bpf_hist_key);
+	__type(value, __u64);
+} accept_hist SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 4096);
+	__type(key, struct bpf_sum_key);
+	__type(value, struct bpf_sum_val);
+} accept_sum SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 4096);
+	__type(key, struct bpf_hist_key);
+	__type(value, __u64);
+} syn_backlog_hist SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__uint(max_entries, 4096);
+	__type(key, struct bpf_sum_key);
+	__type(value, struct bpf_sum_val);
+} syn_backlog_sum SEC(".maps");
+
 static __always_inline void bump_ctr(void *map, __u16 dport, __u32 dport_on, __u64 cgroup,
 	const char allow[BPF_COMM_MAX][16])
 {
@@ -172,21 +208,30 @@ int inet_state(struct trace_event_raw_inet_sock_set_state *ctx)
 	return 0;
 }
 
+/*
+ * Build-host vmlinux.h may describe tcp_send_reset with sockaddr-like daddr and
+ * no dport; reading that daddr breaks CO-RE on 6.1 elrepo and drops the whole
+ * tcp skeleton. A ___ flavor only names dport; libbpf matches the essential
+ * type at load time against the running kernel.
+ */
+struct trace_event_raw_tcp_send_reset___dport {
+	__u16 dport;
+} __attribute__((preserve_access_index));
+
 SEC("tracepoint/tcp/tcp_send_reset")
-int tcp_send_reset(struct trace_event_raw_tcp_send_reset *ctx)
+int tcp_send_reset(void *ctx)
 {
 	struct bpf_tcp_cfg *c;
 	__u32 z = 0;
 	__u64 cg = 0;
 	__u16 dport = 0;
-	__u8 daddr[28] = {};
+	struct trace_event_raw_tcp_send_reset___dport *e = ctx;
 
 	c = bpf_map_lookup_elem(&tcp_cfg, &z);
 	if (!c || !c->reset_on)
 		return 0;
-	/* daddr is a sockaddr_in or sockaddr_in6; the port sits at offset 2. */
-	if (!bpf_core_read(daddr, sizeof(daddr), &ctx->daddr))
-		dport = bpf_ntohs(*(__u16 *)(daddr + 2));
+	if (bpf_core_field_exists(e->dport))
+		dport = BPF_CORE_READ(e, dport);
 	if (c->cgroup_labels)
 		cg = bpf_get_current_cgroup_id();
 	bump_ctr(&reset_ctr, dport, c->dport_on, cg, c->reset_comm);
@@ -206,5 +251,139 @@ int tcp_recv_reset(struct trace_event_raw_tcp_event_sk *ctx)
 	if (c->cgroup_labels)
 		cg = bpf_get_current_cgroup_id();
 	bump_ctr(&reset_ctr, BPF_CORE_READ(ctx, dport), c->dport_on, cg, c->reset_comm);
+	return 0;
+}
+
+static __always_inline void port_to_str(__u16 port, char *dst)
+{
+	__u16 n = port;
+	int i = 0, j = 0;
+	char tmp[6];
+
+	if (!n) {
+		dst[0] = '0';
+		dst[1] = 0;
+		return;
+	}
+	while (n && i < 5) {
+		tmp[i++] = '0' + (n % 10);
+		n /= 10;
+	}
+	while (i > 0)
+		dst[j++] = tmp[--i];
+	dst[j] = 0;
+}
+
+/*
+ * Accept-queue latency: from placing the completed child on the listen accept
+ * queue until a successful inet_csk_accept return. Manual attach in userspace.
+ *
+ * inet_csk_reqsk_queue_add(struct sock *sk, struct request_sock *req,
+ *                          struct sock *child)
+ */
+SEC("kprobe")
+int tcp_accept_queue_add(struct pt_regs *ctx)
+{
+	struct bpf_tcp_cfg *c;
+	__u32 z = 0;
+	struct sock *sk;
+	struct sock *child;
+	struct bpf_ts_val val = {};
+	__u64 key;
+	__u16 port;
+
+	c = bpf_map_lookup_elem(&tcp_cfg, &z);
+	if (!c || !c->accept_on)
+		return 0;
+	sk = (struct sock *)PT_REGS_PARM1(ctx);
+	child = (struct sock *)PT_REGS_PARM3(ctx);
+	if (!sk || !child)
+		return 0;
+	key = (__u64)child;
+	val.ts = bpf_ktime_get_ns();
+	port = BPF_CORE_READ(sk, __sk_common.skc_num);
+	port_to_str(port, val.extra);
+	bpf_map_update_elem(&accept_ts, &key, &val, BPF_ANY);
+	return 0;
+}
+
+/* kretprobe inet_csk_accept — retval is the accepted child sock* (or NULL). */
+SEC("kretprobe")
+int tcp_accept_ret(struct pt_regs *ctx)
+{
+	struct bpf_tcp_cfg *c;
+	__u32 z = 0;
+	struct sock *newsk;
+	struct bpf_ts_val *v;
+	__u64 key;
+	__u64 now;
+	__u64 delta;
+	char empty[16] = {};
+
+	c = bpf_map_lookup_elem(&tcp_cfg, &z);
+	if (!c || !c->accept_on)
+		return 0;
+	newsk = (struct sock *)PT_REGS_RC(ctx);
+	if (!newsk)
+		return 0;
+	key = (__u64)newsk;
+	/*
+	 * Keyed by unique child sock*. Concurrent accepts cannot share a key,
+	 * so lookup+delete is enough (avoids bpf_map_lookup_and_delete_elem,
+	 * which needs kernel 5.13+ and would block the whole tcp skeleton on
+	 * 5.8–5.12).
+	 *
+	 * Pass v->extra (map value) into bpf_hist_bump — not a stack copy —
+	 * so bpf_probe_read_kernel_str sees a kernel pointer (same pattern as
+	 * block_io). Avoid copying the whole bpf_ts_val onto the BPF stack.
+	 */
+	v = bpf_map_lookup_elem(&accept_ts, &key);
+	if (!v)
+		return 0;
+	now = bpf_ktime_get_ns();
+	if (now <= v->ts) {
+		bpf_map_delete_elem(&accept_ts, &key);
+		return 0;
+	}
+	delta = now - v->ts;
+	{
+		struct bpf_hist_arg ha = {};
+
+		ha.delta = delta;
+		bpf_hist_bump(&accept_hist, &accept_sum, empty, v->extra, &ha);
+	}
+	bpf_map_delete_elem(&accept_ts, &key);
+	return 0;
+}
+
+static __always_inline void syn_backlog_sample(struct sock *sk)
+{
+	struct bpf_tcp_cfg *c;
+	__u32 z = 0;
+	__u32 backlog;
+	char empty[16] = {};
+
+	c = bpf_map_lookup_elem(&tcp_cfg, &z);
+	if (!c || !c->syn_backlog_on || !sk)
+		return;
+	backlog = BPF_CORE_READ(sk, sk_ack_backlog);
+	{
+		struct bpf_hist_arg ha = {};
+		ha.delta = backlog;
+		bpf_size_hist_bump(&syn_backlog_hist, &syn_backlog_sum, empty, NULL, &ha);
+	}
+}
+
+SEC("kprobe")
+int tcp_syn_recv_v4(struct pt_regs *ctx)
+{
+	syn_backlog_sample((struct sock *)PT_REGS_PARM1(ctx));
+	return 0;
+}
+
+SEC("kprobe")
+int tcp_syn_recv_v6(struct pt_regs *ctx)
+{
+	syn_backlog_sample((struct sock *)PT_REGS_PARM1(ctx));
 	return 0;
 }

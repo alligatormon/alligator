@@ -286,6 +286,12 @@ static const struct named_row named_rows[] = {
 	{ "cgroup_memory", BPF_NAMED_CGROUP_MEM, "bpf_cgroup_memory_pressure_waiting_seconds_total", 0 },
 	{ "page_faults", BPF_NAMED_PAGE_FAULT, "bpf_page_faults_total", 0 },
 	{ "oom_kill", BPF_NAMED_OOM_KILL, "bpf_oom_kills_total", 0 },
+	{ "softirq_latency", BPF_NAMED_SOFTIRQ, "bpf_softirq_entry_latency_seconds", 1 },
+	{ "kfree_skb", BPF_NAMED_KFREE_SKB, "bpf_kfree_skb_total", 0 },
+	{ "tcp_accept_latency", BPF_NAMED_TCP_ACCEPT, "bpf_tcp_accept_latency_seconds", 1 },
+	{ "tcp_syn_backlog", BPF_NAMED_TCP_SYN_BACKLOG, "bpf_tcp_syn_backlog", 1 },
+	{ "cfs_throttling", BPF_NAMED_CFS_THROTTLE, "bpf_cfs_throttling_seconds", 1 },
+	{ "udp_rcvbuf_drops", BPF_NAMED_UDP_RCVBUF, "bpf_udp_rcvbuf_drops_total", 0 },
 };
 
 int bpf_named_id(const char *name)
@@ -321,4 +327,44 @@ int bpf_named_is_hist(int named)
 			return named_rows[i].hist;
 	}
 	return 0;
+}
+
+const char *bpf_eth_proto_name(unsigned eth)
+{
+	if (eth == 1)
+		return "ipv4";
+	if (eth == 2)
+		return "ipv6";
+	return "other";
+}
+
+const char *bpf_ip_proto_name(unsigned ip)
+{
+	if (ip == 1)
+		return "tcp";
+	if (ip == 2)
+		return "udp";
+	if (ip == 3)
+		return "icmp";
+	return "other";
+}
+
+/*
+ * Emit skb_drop_reason as a decimal string. Kernel enum members are inserted
+ * over time (e.g. SOCKET_CLOSE), so a static name table would mislabel newer
+ * hosts. Numeric codes stay stable for a given running kernel; map them via
+ * that kernel's include/net/dropreason.h / BTF when decoding offline.
+ */
+void bpf_skb_drop_reason_str(unsigned reason, char *dst, size_t n)
+{
+	if (!dst || !n)
+		return;
+	snprintf(dst, n, "%u", reason);
+}
+
+double bpf_size_hist_le(int bucket)
+{
+	if (bucket < 0 || bucket >= BPF_HIST_LAST)
+		return 0;
+	return (double)(1ULL << bucket);
 }
