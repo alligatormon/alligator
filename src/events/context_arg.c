@@ -300,6 +300,9 @@ void carg_inherited_uv_reset(context_arg *carg)
 	memset(&carg->t_timeout, 0, sizeof(carg->t_timeout));
 	memset(&carg->t_towrite, 0, sizeof(carg->t_towrite));
 	memset(&carg->t_seq_timer, 0, sizeof(carg->t_seq_timer));
+	memset(&carg->poll_socket, 0, sizeof(carg->poll_socket));
+	carg->icmp_uv_pending = 0;
+	carg->icmp_finish_pending = 0;
 	carg->http_idle_timer = NULL;
 	carg->http_idle_timer_active = 0;
 	carg->tt_timer = NULL;
@@ -366,6 +369,12 @@ static void carg_embedded_timer_closed(uv_handle_t *handle)
 		memset(handle, 0, sizeof(uv_timer_t));
 }
 
+static void carg_embedded_poll_closed(uv_handle_t *handle)
+{
+	if (handle)
+		memset(handle, 0, sizeof(uv_poll_t));
+}
+
 static void carg_close_embedded_timer(uv_timer_t *timer)
 {
 	if (!timer || !timer->loop || uv_is_closing((uv_handle_t *)timer))
@@ -396,6 +405,15 @@ void carg_close_embedded_uv_handles(context_arg *carg)
 	carg_close_embedded_timer(&carg->t_timeout);
 	carg_close_embedded_timer(&carg->t_towrite);
 	carg_close_embedded_timer(&carg->t_seq_timer);
+
+	/* ICMP (and unixgram) client poll lives inside context_arg; close before
+	 * carg_free so the loop does not touch freed memory. */
+	if (carg->poll_socket.loop &&
+	    !uv_is_closing((uv_handle_t *)&carg->poll_socket)) {
+		uv_poll_stop(&carg->poll_socket);
+		carg->poll_socket.data = NULL;
+		uv_close((uv_handle_t *)&carg->poll_socket, carg_embedded_poll_closed);
+	}
 
 	if (carg->filetailer_restart_idle.loop &&
 	    !uv_is_closing((uv_handle_t *)&carg->filetailer_restart_idle)) {

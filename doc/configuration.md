@@ -21,6 +21,7 @@
 | Cluster replication | [cluster.md](cluster.md) |
 | Service discovery | [service-discovery.md](service-discovery.md) |
 | HTTP API | [api.md](api.md) |
+| Blackbox walkthrough (on-demand and scheduled) | [blackbox.md](blackbox.md) |
 | Blackbox probe modules | [probe.md](probe.md) |
 | Puppeteer / browser checks | [puppeteer.md](puppeteer.md), [chromecdp.md](chromecdp.md) |
 | Kubernetes operator | [kubernetes-operator.md](kubernetes-operator.md) |

@@ -3,6 +3,8 @@
 #include "events/context_arg.h"
 
 void kafka_parser_push(void);
+int kafka_aggregator(context_arg *carg);
+void kafka_client_del(context_arg *carg);
 
 /* Query-string helpers used by the parser and unit tests. */
 int kafka_query_param(const char *query, const char *name, char *out, size_t outlen);

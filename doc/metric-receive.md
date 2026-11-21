@@ -52,7 +52,7 @@ curl -sG 'http://127.0.0.1:9115/probe' \
   --data-urlencode 'target=example.com'
 ```
 
-`target` is a host or `host:port`. The scheme comes from `prober` and `tls`. Use `tls on` with `prober http` for HTTPS. `prober grpc` runs `grpc.health.v1.Health/Check`; TLS is `tls on` on the module, not a scheme on `target`. Scheduled checks of a fixed URL list belong in `aggregate { blackbox … }`, not on this port. See [probe](probe.md) and [blackbox](parsers/blackbox.md).
+`target` is a host or `host:port`. The scheme comes from `prober` and `tls`. Use `tls on` with `prober http` for HTTPS. `prober grpc` runs `grpc.health.v1.Health/Check`; TLS is `tls on` on the module, not a scheme on `target`. Scheduled checks of a fixed URL list belong in `aggregate { blackbox … }`, not on this port. Full copy-paste configs for both modes: [blackbox](blackbox.md). Fields: [probe](probe.md) and [blackbox parser](parsers/blackbox.md).
 
 ## StatsD
 

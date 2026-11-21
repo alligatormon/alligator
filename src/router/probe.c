@@ -234,6 +234,18 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 	if (!new_carg->name && pn->name)
 		new_carg->name = strdup(pn->name);
 
+	if (pn->namespace) {
+		if (new_carg->namespace && new_carg->namespace_allocated)
+			free(new_carg->namespace);
+		new_carg->namespace = NULL;
+		new_carg->namespace_allocated = 0;
+		new_carg->namespace = strdup(pn->namespace);
+		if (new_carg->namespace) {
+			new_carg->namespace_allocated = 1;
+			insert_namespace(new_carg->namespace, 0, UINT64_MAX);
+		}
+	}
+
 	uint64_t kick_timeout = probe_scrape_timeout_ms(http_data, pn->timeout);
 	if (kick_timeout)
 		new_carg->timeout = kick_timeout;
@@ -292,6 +304,13 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 
 	new_carg->tls_verify = pn->tls_verify;
 
+	/* Mark as oneshot so ICMP/TCP cleanup runs and duplicate module names
+	 * across targets are allowed (see aggregator_name_must_be_unique). */
+	{
+		r_time now = setrtime();
+		new_carg->context_ttl = now.sec;
+	}
+
 	probe_assign_unique_key(new_carg, module);
 
 	if (smart_aggregator(new_carg))
@@ -319,7 +338,7 @@ void probe_router(string *response, http_reply_data* http_data, context_arg *car
 		an_stack.metric_name_transform_compiled = pn->metric_name_transform_compiled;
 		an = &an_stack;
 	}
-	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, an);
+	string *body = metric_query_deserialize(response->m, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, pn->namespace, NULL, NULL, NULL, an);
 	if (an)
 		pn->metric_name_transform_compiled = an_stack.metric_name_transform_compiled;
 	query_context_free(mqc);

@@ -25,11 +25,14 @@ probe {
 probe {
     name icmp;
     prober icmp;
+    namespace probes;
     timeout 5s;
     loop 10;
     percent 0.5;
 }
 ```
+
+`namespace` необязателен; без него результаты остаются в `default`.
 
 Запрос:
 
@@ -44,7 +47,7 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 - `hostname` — опционально Host и TLS SNI (для IP-литерала в `target`)
 - `X-Prometheus-Scrape-Timeout-Seconds` — опциональный заголовок; применяется только как таймаут **запущенной** проверки (минус 500 мс, не больше `timeout` модуля). `/probe` по-прежнему не ждёт.
 
-Обработчик собирает полный URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) из `prober`, опционального `tls on` и `target`, запускает соответствующий агрегатор **асинхронно** (`smart_aggregator` + `aggregator_oneshot_start`) и сразу возвращает last-known метрики Prometheus для `host=<target>`. HTTP-ответ не ждёт окончания пробы (`aggregator_oneshot_await` здесь не используется). Первый scrape может быть пустым; следующий видит результат kick. Ключи kick — `probe:<module>:<base>`, чтобы не затирать scheduled `aggregate { blackbox }` того же хоста.
+Обработчик собирает полный URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) из `prober`, опционального `tls on` и `target`, запускает соответствующий агрегатор **асинхронно** (`smart_aggregator` + `aggregator_oneshot_start`, с oneshot `context_ttl`) и сразу возвращает last-known метрики Prometheus для `host=<target>`. HTTP-ответ не ждёт окончания пробы (`aggregator_oneshot_await` здесь не используется). Первый scrape может быть пустым; следующий видит результат kick. Ключи kick — `probe:<module>:<base>`, чтобы не затирать scheduled `aggregate { blackbox }` того же хоста. Параллельные target делят `name` модуля, но не конфликтуют: oneshot не проходит проверку уникальности имён постоянных datasource.
 
 `prober grpc` не подставляет `grpc://` в target. Kick-URL — `tcp://host:port` или, при `tls on`, `tls://host:port`. Порт по умолчанию 80, при TLS — 443. Префикс `http://` или `https://` в `target` отбрасывается и не включает TLS.
 
@@ -54,6 +57,7 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 |------|----------|
 | `name` | Имя модуля для параметра `module=` (обязательно) |
 | `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`), `unix` или `grpc` (обязательно) |
+| `namespace` | Пространство имён метрик для результатов пробы (по умолчанию `default`). `/probe` пишет и отдаёт метрики из этого namespace. См. [namespace](namespace.md) |
 | `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` или `prober grpc` → `tls://`), WSS (`prober websocket` → `wss://`) или `tls://unix:` (`prober unix`) |
 | `service` | Имя gRPC-сервиса для `prober grpc` (поле 1 `grpc.health.v1.Health/Check`). Без него — проверка всего сервера |
 | `timeout` | Таймаут проверки, применяется к async-работе (по умолчанию `5s`) |
@@ -93,7 +97,7 @@ curl 'http://127.0.0.1:1111/probe?module=http_2xx&target=example.com'
 
 ## Примеры
 
-ICMP с порогом потерь (из [`src/tests/system/blackbox/alligator.conf`](../../src/tests/system/blackbox/alligator.conf)):
+ICMP с порогом потерь (из [`src/tests/system/blackbox/alligator.conf`](../../src/tests/system/blackbox/alligator.conf); опциональный `namespace` изолирует метрики `/probe` от default scrape):
 
 ```
 probe {
@@ -288,6 +292,7 @@ curl -s http://127.0.0.1:1111/conf
 
 ## Связанные разделы
 
+- [blackbox](blackbox.md) — walkthrough с полными конфигами по запросу и по расписанию
 - [blackbox parser](parsers/blackbox.md) — периодические проверки через aggregate
 - [aggregate.md](aggregate.md) — TLS, proxy и revocation на blackbox URL
 - [api.md](api.md) — HTTP endpoints

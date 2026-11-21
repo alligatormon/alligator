@@ -26,9 +26,12 @@ aggregate {
 ```
 aggregate {
     kafka kafka://127.0.0.1:9092?bootstrap.servers=127.0.0.1:9092,127.0.0.2:9092;
+    kafka kafka://127.0.0.1:9093?security.protocol=SSL&ssl.certificate.location=/etc/kafka/certs/kafka-client.crt&ssl.key.location=/etc/kafka/certs/kafka-client.key&ssl.ca.location=/etc/kafka/certs/kafka-ca.crt&enable.ssl.certificate.verification=false;
     kafka kafka://user:secret@127.0.0.1:9092?security.protocol=SASL_SSL&sasl.mechanism=SCRAM-SHA-256&ssl.ca.location=/etc/kafka/ca.pem;
 }
 ```
+
+TLS (`security.protocol=SSL` / `SASL_SSL` и `ssl.*`) требует сборку, где Conan `librdkafka` собран с `ssl=True` (OpenSSL). Иначе librdkafka отклоняет эти опции с `OpenSSL not available at build time`.
 
 Username/password в URL задают `sasl.username` / `sasl.password` и по умолчанию `SASL_PLAINTEXT` + `PLAIN`, пока query-опции их не переопределят.
 

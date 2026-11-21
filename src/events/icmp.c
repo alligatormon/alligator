@@ -5,6 +5,8 @@
 #endif
 #include "events/context_arg.h"
 #include "probe/probe.h"
+#include "common/aggregator.h"
+#include "common/rtime.h"
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -161,19 +163,163 @@ dump_packet (context_arg *carg, icmp_packet_t *icmp) {
 	carglog(carg, L_DEBUG,"\n------------------------------------\n");
 }
 
-void icmp_stop_run (context_arg *carg) {
-	uv_timer_stop(&carg->t_timeout);
-	uv_timer_stop(&carg->t_towrite);
-	uv_timer_stop(&carg->t_seq_timer);
-	uv_poll_stop(&carg->poll_socket);
-	close(carg->fd);
+static void icmp_after_uv_closed(context_arg *carg);
+static void icmp_close_uv_handles(context_arg *carg);
+void icmp_client_repeat_period(uv_timer_t *timer);
+
+static void icmp_finish_oneshot(context_arg *carg)
+{
+	r_time time;
+
+	if (!carg || !carg->context_ttl)
+		return;
+	time = setrtime();
+	if (time.sec < carg->context_ttl)
+		return;
+	carg->remove_from_hash = 1;
+	if (!aggregator_defer_close_del())
+		smart_aggregator_del(carg);
+}
+
+/* Terminal oneshot failure before poll/timers are initialized (DNS/socket). */
+static void icmp_oneshot_fail_early(context_arg *carg)
+{
+	if (!carg || !carg->context_ttl)
+		return;
 
 	carg->lock = 0;
 	(carg->read_counter)++;
-	metric_add_labels("icmp_entrypoint_read", &carg->read_counter, DATATYPE_UINT, carg, "entrypoint", carg->key);
+	carg->remove_from_hash = 1;
+	if (carg->parser_handler == blackbox_null)
+		probe_metric_success(carg, 0);
+	if (!aggregator_defer_close_del())
+		smart_aggregator_del(carg);
+}
 
-	if (carg->period)
-		uv_timer_set_repeat(carg->period_timer, carg->period);
+static void icmp_uv_handle_closed(uv_handle_t *handle)
+{
+	context_arg *carg;
+	uv_handle_type type;
+
+	if (!handle)
+		return;
+	carg = handle->data;
+	type = handle->type;
+	/* Embedded handles live inside context_arg; zero so icmp_start can re-init. */
+	if (type == UV_TIMER)
+		memset(handle, 0, sizeof(uv_timer_t));
+	else if (type == UV_POLL)
+		memset(handle, 0, sizeof(uv_poll_t));
+	else
+		handle->data = NULL;
+
+	if (!carg)
+		return;
+	if (carg->icmp_uv_pending)
+		carg->icmp_uv_pending--;
+	if (carg->icmp_uv_pending)
+		return;
+	icmp_after_uv_closed(carg);
+}
+
+static void icmp_close_one_handle(context_arg *carg, uv_handle_t *handle)
+{
+	if (!carg || !handle || !handle->loop || uv_is_closing(handle))
+		return;
+	handle->data = carg;
+	carg->icmp_uv_pending++;
+	uv_close(handle, icmp_uv_handle_closed);
+}
+
+static void icmp_close_uv_handles(context_arg *carg)
+{
+	uint8_t before;
+
+	if (!carg)
+		return;
+	before = carg->icmp_uv_pending;
+	icmp_close_one_handle(carg, (uv_handle_t *)&carg->poll_socket);
+	icmp_close_one_handle(carg, (uv_handle_t *)&carg->t_timeout);
+	icmp_close_one_handle(carg, (uv_handle_t *)&carg->t_towrite);
+	icmp_close_one_handle(carg, (uv_handle_t *)&carg->t_seq_timer);
+	if (carg->icmp_uv_pending == before)
+		icmp_after_uv_closed(carg);
+}
+
+static void icmp_after_uv_closed(context_arg *carg)
+{
+	uint8_t finish;
+
+	if (!carg)
+		return;
+
+	carg->lock = 0;
+	/* One-shot period timers stop after firing; set_repeat alone does not
+	 * restart them. Schedule the next burst explicitly after close (TCP/UDP
+	 * blackbox pattern). Skip oneshots — they finish via icmp_finish_oneshot. */
+	if (!carg->context_ttl && carg->period && carg->period_timer) {
+		uv_timer_stop(carg->period_timer);
+		uv_timer_start(carg->period_timer, icmp_client_repeat_period, carg->period, 0);
+	}
+
+	finish = carg->icmp_finish_pending;
+	carg->icmp_finish_pending = 0;
+	if (finish)
+		icmp_finish_oneshot(carg);
+}
+
+/* Stop I/O and close embedded UV handles. Keep lock until close callbacks
+ * finish so crawl cannot icmp_start (re-init) mid-teardown. Oneshot free runs
+ * from icmp_after_uv_closed when finish_oneshot is set — never carg_free from
+ * on_socket_ready / timer callbacks while handles are still loop-owned. */
+static void icmp_stop_run_ex(context_arg *carg, int finish_oneshot)
+{
+	if (!carg)
+		return;
+
+	if (carg->t_timeout.loop && !uv_is_closing((uv_handle_t *)&carg->t_timeout))
+		uv_timer_stop(&carg->t_timeout);
+	if (carg->t_towrite.loop && !uv_is_closing((uv_handle_t *)&carg->t_towrite))
+		uv_timer_stop(&carg->t_towrite);
+	if (carg->t_seq_timer.loop && !uv_is_closing((uv_handle_t *)&carg->t_seq_timer))
+		uv_timer_stop(&carg->t_seq_timer);
+	if (carg->poll_socket.loop && !uv_is_closing((uv_handle_t *)&carg->poll_socket))
+		uv_poll_stop(&carg->poll_socket);
+	/* calloc leaves fd=0; only close a real socket from icmp_start. */
+	if (carg->fd > 0) {
+		close(carg->fd);
+		carg->fd = -1;
+	}
+
+	/* Lifecycle flag for crawl/oneshot skip — not exported; use alligator_icmp_*_total. */
+	(carg->read_counter)++;
+
+	if (finish_oneshot && carg->context_ttl)
+		carg->icmp_finish_pending = 1;
+
+	/* Already closing: just record finish intent; last close_cb will run it. */
+	if (carg->icmp_uv_pending)
+		return;
+
+	icmp_close_uv_handles(carg);
+}
+
+void icmp_stop_run(context_arg *carg)
+{
+	icmp_stop_run_ex(carg, 0);
+}
+
+int icmp_crawl_should_skip(context_arg *carg)
+{
+	if (!carg)
+		return 1;
+	if (carg->remove_from_hash || carg->icmp_uv_pending || carg->icmp_finish_pending)
+		return 1;
+	if (carg->context_ttl)
+		return carg->lock || carg->read_counter ? 1 : 0;
+	if (carg->period && carg->read_counter)
+		return 1;
+	return 0;
 }
 
 void icmp_metrics(context_arg *carg)
@@ -281,7 +427,7 @@ void icmp_emit_one (context_arg* carg, icmp_packet_t* icmp, int hop_limit)
 		carglog(carg, L_DEBUG, "icmp: host=%s success=%d error=%d\n", carg->host, carg->sequence_success, carg->sequence_error);
 		carg->total_time_finish = setrtime();
 		icmp_metrics(carg);
-		icmp_stop_run (carg);
+		icmp_stop_run_ex(carg, 1);
 	}
 	else
 	{
@@ -304,7 +450,7 @@ void on_timeout (uv_timer_t *handle) {
 	++carg->sequence_error;
 	carglog(carg, L_WARN, "icmp: timeout host=%s\n", carg->host);
 	icmp_metrics(carg);
-	icmp_stop_run(carg);
+	icmp_stop_run_ex(carg, 1);
 }
 
 void on_towrite (uv_timer_t *handle) {
@@ -360,8 +506,8 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 			}
 
 			if ( sendto(carg->fd, i_p, plen, 0, sa, slen) <= 0 ) {
-				icmp_stop_run(carg);
 				carglog(carg, L_ERROR, "icmp: sendto failed: %s\n", strerror(errno));
+				icmp_stop_run_ex(carg, 1);
 				return;
 			}
 			carg->check_receive = 1;
@@ -449,14 +595,13 @@ void on_socket_ready (uv_poll_t *req, int status, int events) {
 }
 
 
-void icmp_client_repeat_period(uv_timer_t *timer);
 void icmp_start(void *arg)
 {
 	context_arg *carg = arg;
 	if (!carg)
 		return;
 
-	if (carg->lock)
+	if (carg->lock || carg->icmp_uv_pending || carg->icmp_finish_pending)
 		return;
 
 	carg->loop = get_threaded_loop_t_or_default(carg->threaded_loop_name);
@@ -486,6 +631,7 @@ void icmp_start(void *arg)
 	{
 		carglog(carg, L_ERROR, "open raw socket error\n");
 		carg->lock = 0;
+		icmp_oneshot_fail_early(carg);
 		return;
 	}
 	if (carg->ping_ipv6) {
@@ -493,6 +639,7 @@ void icmp_start(void *arg)
 			carglog(carg, L_ERROR, "set hop limit option error\n");
 			close(sd);
 			carg->lock = 0;
+			icmp_oneshot_fail_early(carg);
 			return;
 		}
 #ifdef IPV6_RECVHOPLIMIT
@@ -508,6 +655,7 @@ void icmp_start(void *arg)
 		carglog(carg, L_ERROR, "set TTL option error\n");
 		close(sd);
 		carg->lock = 0;
+		icmp_oneshot_fail_early(carg);
 		return;
 	}
 	if (!carg->ping_ipv6 && tos_val)
@@ -522,6 +670,7 @@ void icmp_start(void *arg)
 				carglog(carg, L_ERROR, "icmp: invalid source_ip_address '%s'\n", carg->bind_address);
 				close(sd);
 				carg->lock = 0;
+				icmp_oneshot_fail_early(carg);
 				return;
 			}
 			n = (size_t)(rb - src - 1);
@@ -539,12 +688,14 @@ void icmp_start(void *arg)
 				carglog(carg, L_ERROR, "icmp: source_ip_address '%s' is not a valid IPv6 address\n", carg->bind_address);
 				close(sd);
 				carg->lock = 0;
+				icmp_oneshot_fail_early(carg);
 				return;
 			}
 			if (bind(sd, (struct sockaddr *)&a, sizeof(a)) != 0) {
 				carglog(carg, L_ERROR, "icmp: bind source_ip_address '%s' failed: %s\n", carg->bind_address, strerror(errno));
 				close(sd);
 				carg->lock = 0;
+				icmp_oneshot_fail_early(carg);
 				return;
 			}
 		} else {
@@ -555,12 +706,14 @@ void icmp_start(void *arg)
 				carglog(carg, L_ERROR, "icmp: source_ip_address '%s' is not a valid IPv4 address\n", carg->bind_address);
 				close(sd);
 				carg->lock = 0;
+				icmp_oneshot_fail_early(carg);
 				return;
 			}
 			if (bind(sd, (struct sockaddr *)&a, sizeof(a)) != 0) {
 				carglog(carg, L_ERROR, "icmp: bind source_ip_address '%s' failed: %s\n", carg->bind_address, strerror(errno));
 				close(sd);
 				carg->lock = 0;
+				icmp_oneshot_fail_early(carg);
 				return;
 			}
 		}
@@ -570,6 +723,7 @@ void icmp_start(void *arg)
 		carglog(carg, L_ERROR, "sequest nonblocking I/O error\n");
 		close(sd);
 		carg->lock = 0;
+		icmp_oneshot_fail_early(carg);
 		return;
 	}
 
@@ -592,9 +746,9 @@ void icmp_start(void *arg)
 void for_icmp_client_connect(void *arg)
 {
 	context_arg *carg = arg;
-	if (carg->period && carg->read_counter)
-		return;
 
+	if (icmp_crawl_should_skip(carg))
+		return;
 	icmp_start(arg);
 }
 
@@ -602,6 +756,15 @@ void icmp_client_repeat_period(uv_timer_t *timer)
 {
 	context_arg *carg = timer->data;
 	if (!carg->period)
+		return;
+	/* period_timer owns repeats after the first burst. Do not apply the crawl
+	 * gate (period && read_counter) — that only keeps the global crawl from
+	 * double-starting permanent period aggregates. */
+	if (carg->remove_from_hash || carg->icmp_uv_pending || carg->icmp_finish_pending)
+		return;
+	if (carg->lock)
+		return;
+	if (carg->context_ttl && carg->read_counter)
 		return;
 
 	icmp_start((void*)carg);
@@ -612,9 +775,32 @@ void icmp_resolved(uv_getaddrinfo_t *resolver, int status, struct addrinfo *res)
 	context_arg *carg = resolver->data;
 	free(resolver);
 	carg->resolve_time_finish = setrtime();
+	/* DNS done: drop in-flight markers so icmp_start can run, or so a
+	 * delete deferred during getaddrinfo can free safely. */
+	carg->dns_awaiting = 0;
+	carg->lock = 0;
 
-	if (status == -1 || !res) {
-		carglog(carg, L_ERROR, "getaddrinfo callback error\n");
+	/* Deleted (or finish requested) while uv_getaddrinfo was outstanding:
+	 * do not touch sockets; free only now that the callback owns the race. */
+	if (carg->icmp_finish_pending || carg->remove_from_hash) {
+		if (res)
+			uv_freeaddrinfo(res);
+		carg->icmp_finish_pending = 0;
+		if (carg->context_ttl) {
+			(carg->read_counter)++;
+			if (carg->parser_handler == blackbox_null)
+				probe_metric_success(carg, 0);
+			if (!aggregator_defer_close_del())
+				smart_aggregator_del(carg);
+		}
+		return;
+	}
+
+	if (status < 0 || !res) {
+		carglog(carg, L_ERROR, "getaddrinfo callback error status=%d\n", status);
+		if (res)
+			uv_freeaddrinfo(res);
+		icmp_oneshot_fail_early(carg);
 		return;
 	}
 
@@ -673,12 +859,24 @@ char* icmp_client(context_arg *carg)
 	if (r)
 	{
 		carglog(carg, L_ERROR, "%s\n", uv_strerror(r));
-		return NULL;
-	}
-	else
-	{
+		free(resolver);
+		/* smart_aggregator inserts before oneshot_start; mark terminal so
+		 * aggregator_oneshot_start can smart_aggregator_del the oneshot. */
+		if (carg->context_ttl) {
+			carg->remove_from_hash = 1;
+			(carg->read_counter)++;
+			if (carg->parser_handler == blackbox_null)
+				probe_metric_success(carg, 0);
+		}
 		++(ac->icmp_client_count);
+		return "icmp";
 	}
+	/* Hold lock (and dns_awaiting) while getaddrinfo is outstanding so a
+	 * second GET /probe oneshot does not smart_aggregator_del+carg_free
+	 * this carg before icmp_resolved runs (UAF on the event loop). */
+	carg->lock = 1;
+	carg->dns_awaiting = 1;
+	++(ac->icmp_client_count);
 	return "icmp";
 }
 
@@ -708,18 +906,32 @@ void icmp_client_del(context_arg *carg)
 	if (!carg)
 		return;
 
-	if (carg)
-	{
-		if (carg->remove_from_hash)
-			alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
-		
-		carg->lock = 1;
-		alligator_ht_remove_existing(ac->iggregator, &(carg->node));
-		(ac->icmp_client_count)--;
-		if (carg->parser_handler != blackbox_null)
-			free(carg->data);
-		carg_free(carg);
+	/* Active, mid-uv_close, or DNS in flight: defer free. While
+	 * dns_awaiting, icmp_resolved owns the free (do not stop_run — no
+	 * poll/timers yet, and freeing here races the getaddrinfo cb). */
+	if (carg->lock || carg->icmp_uv_pending || carg->dns_awaiting) {
+		r_time time = setrtime();
+		carg->context_ttl = time.sec;
+		carg->remove_from_hash = 1;
+		carg->icmp_finish_pending = 1;
+		if (carg->dns_awaiting)
+			return;
+		if (!carg->icmp_uv_pending)
+			icmp_stop_run_ex(carg, 1);
+		return;
 	}
+
+	if (carg->remove_from_hash)
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+
+	carg->lock = 1;
+	alligator_ht_remove_existing(ac->iggregator, &(carg->node));
+	if (ac->ping_hash)
+		alligator_ht_remove_existing(ac->ping_hash, &(carg->ping_node));
+	(ac->icmp_client_count)--;
+	if (carg->parser_handler != blackbox_null)
+		free(carg->data);
+	carg_free(carg);
 }
 #else
 char *icmp_client(context_arg *carg)
@@ -740,5 +952,18 @@ void icmp_client_handler(void)
 void icmp_start(void *arg)
 {
 	(void)arg;
+}
+
+int icmp_crawl_should_skip(context_arg *carg)
+{
+	if (!carg)
+		return 1;
+	if (carg->remove_from_hash || carg->icmp_uv_pending || carg->icmp_finish_pending)
+		return 1;
+	if (carg->context_ttl)
+		return carg->lock || carg->read_counter ? 1 : 0;
+	if (carg->period && carg->read_counter)
+		return 1;
+	return 0;
 }
 #endif

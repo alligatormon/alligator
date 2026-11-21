@@ -35,6 +35,7 @@ typedef struct probe_json_check
 typedef struct probe_node
 {
 	char *name;
+	char *namespace;
 
 	alligator_ht *labels;
 	json_t *metricstransform;

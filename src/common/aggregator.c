@@ -18,6 +18,7 @@
 #include "events/icmp.h"
 #include "events/ws_client.h"
 #include "events/kafka_consumer.h"
+#include "parsers/kafka.h"
 #include "events/kmsg.h"
 #include "dynconf/sd.h"
 #include "resolver/resolver.h"
@@ -62,6 +63,11 @@ static void duplicate_name_check_foreach(void *funcarg, void *arg)
 static int aggregator_name_must_be_unique(context_arg *carg)
 {
 	if (!carg || !carg->name)
+		return 0;
+	/* Oneshots (e.g. GET /probe) share the module name across targets; uniqueness
+	 * is enforced by key (probe:<module>:...). Permanent aggregates still need
+	 * unique datasource names. */
+	if (carg->context_ttl)
 		return 0;
 	if (carg->parser_name && (!strcmp(carg->parser_name, "mtail") || !strcmp(carg->parser_name, "vrl")))
 		return 0;
@@ -256,7 +262,12 @@ void aggregator_oneshot_start(context_arg *carg)
 			break;
 		case APROTO_ICMP:
 			/* icmp_client() already started getaddrinfo; icmp_resolved
-			 * calls icmp_start once the address is known. */
+			 * calls icmp_start once the address is known. Sync resolve
+			 * failure marks remove_from_hash before insert completes. */
+			if (carg->remove_from_hash) {
+				if (!aggregator_defer_close_del())
+					smart_aggregator_del(carg);
+			}
 			break;
 		case APROTO_WS:
 		case APROTO_WSS:
@@ -379,8 +390,13 @@ void smart_aggregator_del(context_arg *carg)
 		cassandra_client_del(carg);
 	else if (carg->transport == APROTO_WS || carg->transport == APROTO_WSS)
 		ws_client_del(carg);
-	else if (carg->transport == APROTO_KAFKA)
-		kafka_consumer_handler_del(carg);
+	else if (carg->transport == APROTO_KAFKA) {
+		/* Broker scrape uses handler key "kafka"; topic consumers use grok/mtail/… */
+		if (carg->parser_name && !strcmp(carg->parser_name, "kafka"))
+			kafka_client_del(carg);
+		else
+			kafka_consumer_handler_del(carg);
+	}
 }
 
 void smart_aggregator_del_key(char *key)
@@ -397,6 +413,8 @@ void smart_aggregator_del_key_gen(char *transport_string, char *parser_name, cha
 {
 	char key[512];
 	smart_aggregator_default_key(key, transport_string, parser_name, host, port, query);
+	/* Match smart_aggregator / kafka_aggregator: key is normalized after build. */
+	smart_aggregator_key_normalize(key);
 	smart_aggregator_del_key(key);
 }
 

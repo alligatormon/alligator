@@ -1151,6 +1151,12 @@ void probe_generate_conf(void *funcarg, void* arg)
 		json_array_object_insert(ctx, "name", name);
 	}
 
+	if (pn->namespace)
+	{
+		json_t *ns = json_string(pn->namespace);
+		json_array_object_insert(ctx, "namespace", ns);
+	}
+
 	if (pn->ca_file)
 	{
 		json_t *ca_file = json_string(pn->ca_file);

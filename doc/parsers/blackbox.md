@@ -1,3 +1,5 @@
+Full copy-paste configs for on-demand `GET /probe` and scheduled `aggregate { blackbox … }`: [blackbox walkthrough](../blackbox.md).
+
 ## Blackbox in aggregate
 
 To enable the collection of blackbox statistics, use the following option:
@@ -49,7 +51,7 @@ That emits `alligator_icmp_response_duration_seconds_{bucket,sum,count}`. Option
 
 ### Blackbox in entrypoint
 
-On-demand checks use **`probe`** modules and `GET /probe?module=…&target=…` instead of scheduled `aggregate` scrapes. See [probe.md](../probe.md).
+On-demand checks use **`probe`** modules and `GET /probe?module=…&target=…` instead of scheduled `aggregate` scrapes. See [blackbox walkthrough](../blackbox.md) and [probe.md](../probe.md).
 
 Example:
 

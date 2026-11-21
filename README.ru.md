@@ -74,13 +74,13 @@ alligator /etc/alligator.d/
 - **mtail**: разбор логов скриптами, совместимыми с mtail (amtail)
 - **vrl**: преобразование и обогащение событий логов (avrl)
 - **enrichment_table**: таблицы CSV и MaxMind для VRL; см. [vrl](doc/ru/vrl/README.md)
-- **probe**: модули blackbox-проверок для `GET /probe`; см. [probe](doc/ru/probe.md)
+- **probe**: модули blackbox-проверок для `GET /probe`; см. [probe](doc/ru/probe.md). Walkthrough для blackbox по запросу и по расписанию: [blackbox](doc/ru/blackbox.md)
 
 Подробная структура конфигурации — [configuration](doc/ru/configuration.md).
 
 
 ## Контекст entrypoint
-См. [entrypoint](doc/ru/entrypoint.md). Сценарий приёма StatsD, Graphite, OTLP и blackbox-проверок, вместе с кластером, авторизацией и фильтром на приёме: [приём метрик](doc/ru/metric-receive.md).
+См. [entrypoint](doc/ru/entrypoint.md). Сценарий приёма StatsD, Graphite, OTLP и blackbox-проверок, вместе с кластером, авторизацией и фильтром на приёме: [приём метрик](doc/ru/metric-receive.md). Готовые конфиги blackbox (`/probe` по запросу и `aggregate` по расписанию): [blackbox](doc/ru/blackbox.md).
 
 Пример handler для Prometheus:
 ```
@@ -147,7 +147,7 @@ aggregate {
 - [beanstalkd](doc/ru/parsers/beanstalkd.md)
 - [gearmand](doc/ru/parsers/gearmand.md)
 - [haproxy](doc/ru/parsers/haproxy.md)
-- [blackbox](doc/ru/parsers/blackbox.md)
+- [blackbox](doc/ru/parsers/blackbox.md) ([walkthrough](doc/ru/blackbox.md))
 - [uwsgi](doc/ru/parsers/uwsgi.md)
 - [nats](doc/ru/parsers/nats.md)
 - [riak](doc/ru/parsers/riak.md)

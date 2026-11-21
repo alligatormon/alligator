@@ -11,8 +11,13 @@
 #include "modules/modules.h"
 #include <query/type.h>
 char* postgresql_client(context_arg* carg);
-void postgresql_run(void* arg);
+/* 1 = live/existing session (count toward parent lock; close cb will run),
+ * 0 = failed to start (no close cb; data_lock child already freed if needed). */
+int postgresql_run(void* arg);
+int postgresql_poll_abandon(context_arg *carg);
+context_arg *postgresql_create_dbcarg_from_carg(context_arg *carg, char *cargname, char *url, char *ns);
 const char *postgresql_error_reason(const char *errmsg);
+void postgresql_error_metric(PGconn *conn, context_arg *carg);
 void postgresql_connect_ok(context_arg *carg, uint64_t ok);
 
 typedef struct pq_library {

@@ -26,9 +26,12 @@ Default port is `9092`. Extra bootstrap brokers and librdkafka client options go
 ```
 aggregate {
     kafka kafka://127.0.0.1:9092?bootstrap.servers=127.0.0.1:9092,127.0.0.2:9092;
+    kafka kafka://127.0.0.1:9093?security.protocol=SSL&ssl.certificate.location=/etc/kafka/certs/kafka-client.crt&ssl.key.location=/etc/kafka/certs/kafka-client.key&ssl.ca.location=/etc/kafka/certs/kafka-ca.crt&enable.ssl.certificate.verification=false;
     kafka kafka://user:secret@127.0.0.1:9092?security.protocol=SASL_SSL&sasl.mechanism=SCRAM-SHA-256&ssl.ca.location=/etc/kafka/ca.pem;
 }
 ```
+
+TLS (`security.protocol=SSL` / `SASL_SSL` and `ssl.*`) needs a build where Conan `librdkafka` is built with `ssl=True` (OpenSSL). Without that, librdkafka rejects those options with `OpenSSL not available at build time`.
 
 Username/password in the URL set `sasl.username` / `sasl.password` and default to `SASL_PLAINTEXT` + `PLAIN` unless query options override them.
 

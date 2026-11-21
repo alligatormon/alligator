@@ -1,5 +1,7 @@
 **Language / Язык:** [English](../../parsers/blackbox.md) | [Русский](blackbox.md)
 
+Готовые конфиги для `GET /probe` по запросу и `aggregate { blackbox … }` по расписанию: [walkthrough blackbox](../blackbox.md).
+
 ## Blackbox в aggregate
 
 Чтобы включить сбор blackbox-статистики, используйте следующую опцию:
@@ -51,7 +53,7 @@ aggregate {
 
 ### Blackbox в entrypoint
 
-Проверки по запросу используют модули **`probe`** и `GET /probe?module=…&target=…` вместо периодического `aggregate`. См. [probe.md](../probe.md).
+Проверки по запросу используют модули **`probe`** и `GET /probe?module=…&target=…` вместо периодического `aggregate`. См. [walkthrough blackbox](../blackbox.md) и [probe.md](../probe.md).
 
 Пример:
 

@@ -74,14 +74,14 @@ Alligator has many contexts for describing the collection data:
 - **mtail**: Parse logs in metrics using mtail-compatible scripts powered by amtail.
 - **vrl**: Remap and enrich log events with Vector Remap Language (avrl) programs.
 - **enrichment_table**: CSV and MaxMind lookup tables for VRL (`get_enrichment_table_record`); see [vrl](doc/vrl/README.md)
-- **probe**: Prometheus-style blackbox probe modules served at `GET /probe`; see [probe](doc/probe.md)
+- **probe**: Prometheus-style blackbox probe modules served at `GET /probe`; see [probe](doc/probe.md). Walkthrough for on-demand and scheduled blackbox: [blackbox](doc/blackbox.md)
 
 Detailed information about the configuration file structure is in [configuration](doc/configuration.md).
 
 
 
 ## Entrypoint context
-Please refer to the entrypoint context [explanation](doc/entrypoint.md). A walkthrough for receiving StatsD, Graphite, OTLP, and blackbox checks, with cluster, auth, and ingest filters, is in [receiving metrics](doc/metric-receive.md).
+Please refer to the entrypoint context [explanation](doc/entrypoint.md). A walkthrough for receiving StatsD, Graphite, OTLP, and blackbox checks, with cluster, auth, and ingest filters, is in [receiving metrics](doc/metric-receive.md). Full blackbox configs (on-demand `/probe` and scheduled `aggregate`): [blackbox](doc/blackbox.md).
 
 Here's an example of a simple handler that can respond to Prometheus:
 ```
@@ -147,7 +147,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [beanstalkd](https://github.com/alligatormon/alligator/blob/master/doc/parsers/beanstalkd.md)
 - [gearmand](https://github.com/alligatormon/alligator/blob/master/doc/parsers/gearmand.md)
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
-- [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md)
+- [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md) ([walkthrough](doc/blackbox.md))
 - [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
 - [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
 - [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md)

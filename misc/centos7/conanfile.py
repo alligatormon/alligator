@@ -11,6 +11,7 @@ class AlligatorCentos7Conan(ConanFile):
 		"libpq/*:shared": False,
 		"mariadb-connector-c/*:with_curl": False,
 		"openssl/*:shared": False,
+		"librdkafka/*:ssl": True,
 		"libmaxminddb/*:shared": False,
 		"elfutils/*:shared": False,
 		"elfutils/*:with_bzlib": False,

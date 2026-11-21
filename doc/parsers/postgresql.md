@@ -28,7 +28,7 @@ query {
 
 ## `timeout`
 
-Aggregate `timeout` is the whole-scrape deadline for connect + queries (default **5s** when unset). Units follow [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` or integer milliseconds). The parser arms a one-shot `uv_timer` for the session; socket `SO_RCVTIMEO`/`SO_SNDTIMEO` alone do not abort hung nonblocking libpq + `uv_poll` scrapes. On fire, alligator increments `timeout_counter` / session timeout metrics, emits `postgresql_error{reason="timeout"}`, and closes the session so the next period can reconnect.
+Aggregate `timeout` is the whole-scrape deadline for connect + queries (default **5s** when unset). Units follow [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` or integer milliseconds). The parser arms a one-shot `uv_timer` for the session; socket `SO_RCVTIMEO`/`SO_SNDTIMEO` alone do not abort hung nonblocking libpq + `uv_poll` scrapes. On fire, alligator increments `timeout_counter` / session timeout metrics, emits `postgresql_errors_total{reason="timeout"}`, and closes the session so the next period can reconnect.
 
 `datasource pg/*` runs the query on every database listed from the instance. Use `except` on the query block to skip names (exact and `/regex/`). The same list also drops result rows whose `dbname` / `datname` / `psql_database` label matches, so it works with `datasource pg` queries that enumerate databases in SQL. Template and other system databases are not skipped unless listed in `except`. See [query except](../query.md).
 
@@ -55,9 +55,9 @@ aggregate {
 }
 ```
 
-## `postgresql_error`
+## `postgresql_errors_total`
 
-Connect and query failures increment `postgresql_error{name,reason}`. `reason` is a closed set of classified types, not the raw libpq or pooler text (session ids, routes, hosts, and IPs stay out of labels).
+Connect and query failures increment counter `postgresql_errors_total{name,reason}`. `reason` is a closed set of classified types, not the raw libpq or pooler text (session ids, routes, hosts, and IPs stay out of labels).
 
 Each connect attempt (success or failure) also updates shared session metrics: gauge `alligator_session_connect_ok` (last attempt 1/0) and counter `alligator_session_connects_total`. Labels match other aggregators (`proto`, `type`, `host`, `parser`, `port`). Query I/O is the same family: `alligator_session_reads_total` / `alligator_session_read_bytes_total` (bytes via `FIONREAD` before `PQconsumeInput`) and write counters (query payload size). Scrape close sets `alligator_parser_ok` from the last parser status.
 
@@ -77,4 +77,5 @@ Closed `reason` values:
 - `system_not_ready`, `shutdown`, `soft_oom`, `replication_lag_rejected`, `protocol_error`
 - `host_not_found`, `connection_refused`, `connection_reset`, `network_unreachable`, `server_closed`
 - `cannot_reach_server`
+- `console_command_error` (pooler admin console rejected SHOW/SET, e.g. unsupported command)
 - `unknown` (empty message), `other`

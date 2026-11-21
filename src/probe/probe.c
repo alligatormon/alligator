@@ -435,6 +435,7 @@ static void probe_node_free(probe_node *pn)
 	if (!pn)
 		return;
 	free(pn->name);
+	free(pn->namespace);
 	free(pn->scheme);
 	free(pn->url);
 	free(pn->query_type);
@@ -1331,6 +1332,18 @@ void probe_push_json(json_t *probe)
 		return;
 	}
 
+	{
+		json_t *jns = json_object_get(probe, "namespace");
+		if (jns && json_is_string(jns)) {
+			const char *ns = json_string_value(jns);
+			if (ns && *ns) {
+				pn->namespace = strdup(ns);
+				if (pn->namespace)
+					insert_namespace(pn->namespace, 0, UINT64_MAX);
+			}
+		}
+	}
+
 	pn->timeout = probe_timeout_from_json(probe);
 	pn->probe_ip_version[0] = probe_ip_version_from_json(probe);
 
@@ -1613,7 +1626,18 @@ void probe_push_json(json_t *probe)
 		pn->metric_name_transform_compiled = tmp.metric_name_transform_compiled;
 	}
 
-	alligator_ht_insert(ac->probe, &(pn->node), pn, tommy_strhash_u32(0, pn->name));
+	/* Upsert: a second push for the same name (e.g. API reload changing
+	 * namespace) must replace the old node; tommy allows duplicate keys and
+	 * search would keep returning the first insert. */
+	{
+		uint32_t h = tommy_strhash_u32(0, pn->name);
+		probe_node *existing = alligator_ht_search(ac->probe, probe_compare, pn->name, h);
+		if (existing) {
+			alligator_ht_remove_existing(ac->probe, &(existing->node));
+			probe_node_free(existing);
+		}
+		alligator_ht_insert(ac->probe, &(pn->node), pn, h);
+	}
 }
 
 void probe_del_json(json_t *probe)

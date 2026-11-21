@@ -169,7 +169,7 @@ static void on_stale_poll_closed(uv_handle_t *handle)
 	free(handle);
 }
 
-static int postgresql_poll_abandon(context_arg *carg)
+int postgresql_poll_abandon(context_arg *carg)
 {
 	pg_data *data;
 	uv_poll_t *old;
@@ -179,10 +179,11 @@ static int postgresql_poll_abandon(context_arg *carg)
 		return 1;
 
 	old = carg->dynamic_socket;
-	if (uv_is_closing((uv_handle_t *)old)) {
-		carg->dynamic_socket = NULL;
-		return 1;
-	}
+	/* Closing handle still owns carg cleanup via on_handle_closed; do not
+	 * clear dynamic_socket or pretend abandon succeeded (would allow a new
+	 * poll_bind while the old close callback is pending). */
+	if (uv_is_closing((uv_handle_t *)old))
+		return 0;
 
 	stale = calloc(1, sizeof(*stale));
 	if (!stale)
@@ -566,6 +567,9 @@ const char *postgresql_error_reason(const char *errmsg)
 		return "network_unreachable";
 	if (pg_err_has_any(errmsg, cannot_reach_server))
 		return "cannot_reach_server";
+	/* Odyssey/PgBouncer admin console rejected SHOW/SET (unknown command). */
+	if (pg_err_has(errmsg, "console command error"))
+		return "console_command_error";
 	return "other";
 }
 
@@ -573,14 +577,20 @@ static void postgresql_error_metric_msg(context_arg *carg, const char *errmsg)
 {
 	const char *reason;
 	const char *carg_name;
-	uint64_t val = 1;
+	uint64_t one = 1;
 
-	namespace_metric_family_set(NULL, carg, "postgresql_error", METRIC_TYPE_COUNTER,
-		"PostgreSQL error counter by classified reason.");
+	namespace_metric_family_set(NULL, carg, "postgresql_errors_total", METRIC_TYPE_COUNTER,
+		"Total PostgreSQL scrape errors by classified reason.");
 
 	reason = postgresql_error_reason(errmsg);
-	carg_name = (carg && carg->name) ? carg->name : "unknown";
-	metric_add_labels2("postgresql_error", &val, DATATYPE_UINT, carg,
+	if (carg && carg->name && carg->name[0])
+		carg_name = carg->name;
+	else if (carg && carg->parser_name && carg->parser_name[0])
+		carg_name = carg->parser_name;
+	else
+		carg_name = "unknown";
+	/* Accumulate: metric_add would overwrite each scrape with 1. */
+	metric_update_labels2("postgresql_errors_total", &one, DATATYPE_UINT, carg,
 		"name", (char *)carg_name, "reason", (char *)reason);
 }
 
@@ -615,6 +625,43 @@ static int postgresql_socket_avail(PGconn *conn)
 	return avail;
 }
 
+/* Free a data_lock child that never got a closable uv_poll session.
+ * carg->key aliases the parent key and must not be freed. */
+static void postgresql_free_failed_data_lock_child(context_arg *carg)
+{
+	if (!carg || !carg->data_lock)
+		return;
+
+	postgresql_session_timer_stop(carg->data);
+	queue_free(carg->pg_queue, free);
+	carg->pg_queue = NULL;
+	free(carg->url);
+	carg->url = NULL;
+	free(carg->ns);
+	carg->ns = NULL;
+	free(carg->name);
+	carg->name = NULL;
+	free(carg->data);
+	carg->data = NULL;
+	free(carg);
+}
+
+/* Parent was unlinked (remove_from_hash) but kept alive for outstanding children. */
+static void postgresql_try_free_parent(context_arg *parent)
+{
+	if (!parent || !parent->remove_from_hash || parent->data_lock)
+		return;
+	if (parent->lock || parent->dynamic_socket)
+		return;
+
+	postgresql_session_timer_stop(parent->data);
+	queue_free(parent->pg_queue, free);
+	parent->pg_queue = NULL;
+	free(parent->data);
+	parent->data = NULL;
+	carg_free(parent);
+}
+
 void on_handle_closed(uv_handle_t* handle) {
     context_arg *carg = handle->data;
 	pg_data *data;
@@ -642,10 +689,16 @@ void on_handle_closed(uv_handle_t* handle) {
     }
 
 	if (carg->parental_carg) {
-		if (carg->parental_carg->lock) {
-			--carg->parental_carg->lock;
-		}
+		context_arg *parent = carg->parental_carg;
 
+		if (parent->lock)
+			--parent->lock;
+		/* Drop aliases before parent may be freed (key/labels/threaded_loop_name). */
+		carg->parental_carg = NULL;
+		carg->key = NULL;
+		carg->labels = NULL;
+		carg->threaded_loop_name = NULL;
+		postgresql_try_free_parent(parent);
 	}
 
 	queue_free(carg->pg_queue, free);
@@ -653,6 +706,11 @@ void on_handle_closed(uv_handle_t* handle) {
 	carg->dynamic_socket = NULL;
 
 	if (carg->remove_from_hash && !carg->data_lock) {
+		if (carg->lock) {
+			/* Children still hold parental_carg; free when lock hits 0. */
+			free(handle);
+			return;
+		}
 		free(carg->data);
 		carg->data = NULL;
 		carg_free(carg);
@@ -704,7 +762,7 @@ void run_close(context_arg *carg) {
 	run_close_internal(carg);
 }
 
-void postgresql_run(void* arg);
+int postgresql_run(void* arg);
 
 void postgresql_write(PGresult* r, query_node *qn, context_arg *carg, char *database_class)
 {
@@ -937,9 +995,19 @@ void pg_poll_event(uv_poll_t* handle, int status, int events) {
 			}
         } else if (res_status == PGRES_FATAL_ERROR) {
 			const char *errmsg = PQresultErrorMessage(res);
+			const char *reason = postgresql_error_reason(errmsg);
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"poll event PGRES_FATAL_ERROR\", \"function\": \"%s\"}\n", carg->fd, carg->key, errmsg ? errmsg : "");
 			postgresql_error_metric_msg(carg, errmsg);
 			PQclear(res);
+			/* Unsupported pooler SHOW/SET leaves the admin connection usable.
+			 * Do not queue_pop here: same contract as TUPLES_OK / COMMAND_OK —
+			 * the query_ctx stays at the front until PQgetResult returns NULL
+			 * (libpq end-of-command terminator for this query), which always
+			 * follows a FATAL ErrorResponse. The NULL branch below pops once
+			 * and starts the next queued query (or run_close). Popping early
+			 * would double-pop the next ctx when that NULL arrives. */
+			if (reason && !strcmp(reason, "console_command_error"))
+				continue;
 			run_close(carg);
 			return;
         }
@@ -1010,7 +1078,9 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 	{
 		uint64_t i;
 
-		uint64_t children = 0;
+		/* Bump carg->lock as each child starts so an early on_handle_closed
+		 * cannot miss a decrement (assigning lock=children only at the end
+		 * races with uv_close callbacks). */
 		if (!carg->name)
 		{
 			carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"postgresql_received_databases: carg->name is NULL, skip\"}\n", carg->fd, carg->key);
@@ -1057,16 +1127,16 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 					context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
 					carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"run wildcard queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, resp);
 
-					++children;
-					postgresql_run(db_carg);
+					if (postgresql_run(db_carg))
+						++carg->lock;
 				}
 				else {
 					snprintf(dbcargname, resultnamelen, "%s/%s", carg->name, resp);
 					if (query_get(dbcargname)) {
 						context_arg *db_carg = postgresql_create_dbcarg_from_carg(carg, dbcargname, db_carg_url, db_carg_ns);
 						carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"exec queries database\", \"database\": \"%s\"}\n", carg->fd, carg->key, db_carg->name);
-						++children;
-						postgresql_run(db_carg);
+						if (postgresql_run(db_carg))
+							++carg->lock;
 					}
 					else {
 						carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"database not found in queries\", \"database\": \"%s\"}\n", carg->fd, carg->key, dbcargname);
@@ -1078,8 +1148,7 @@ void postgresql_received_databases(PGresult* res, query_node *qn, context_arg *c
 				carglog(carg, L_ERROR, "column 'datname' not found in result\n");
 			}
 		}
-		carg->lock = children;
-		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"stat amount of children\", \"amount\": %lu}\n", carg->fd, carg->key, children);
+		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"stat amount of children\", \"amount\": %"u64"}\n", carg->fd, carg->key, (uint64_t)carg->lock);
 
 	}
 }
@@ -1262,7 +1331,7 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 
 				metric_add(metric_name, hash, &val, DATATYPE_DOUBLE, carg);
 			}
-			if (PQftype(r, j) == 25) // string
+			else if (PQftype(r, j) == 25) // string
 			{
 				char *res = PQgetvalue(r, i, j);
 				if (!strcmp(colname, "database"))
@@ -1406,11 +1475,13 @@ void odyssey_queries(context_arg *carg)
 {
 	pg_data *data = carg->data;
 	PGconn *conn = data->conn;
+	/* Odyssey console has no SHOW MEM (PgBouncer-only); use HOST_UTILIZATION
+	 * for cpu/mem percentages instead (yandex/odyssey sources/console.c). */
 	postgresql_query_init(conn, "SHOW STATS", NULL, carg, pgbouncer_callback, "database_server");
 	postgresql_query_init(conn, "SHOW POOLS_EXTENDED", (query_node *)"pool", carg, pgbouncer_callback, "database_server");
 	postgresql_query_init(conn, "SHOW DATABASES", NULL, carg, pgbouncer_callback, "database_client");
 	postgresql_query_init(conn, "SHOW LISTS", (query_node *)"lists", carg, pgbouncer_callback, "database");
-	postgresql_query_init(conn, "SHOW MEM", (query_node *)"mem", carg, pgbouncer_callback, "database");
+	postgresql_query_init(conn, "SHOW HOST_UTILIZATION", (query_node *)"host", carg, pgbouncer_callback, "database");
 	postgresql_query_init(conn, "SHOW CLIENTS", (query_node *)"client", carg, pgbouncer_callback, "database_client");
 	postgresql_query_init(conn, "SHOW SERVERS", (query_node *)"server", carg, pgbouncer_callback, "database_server");
 }
@@ -1425,26 +1496,30 @@ void pgpool_queries(context_arg *carg)
 	postgresql_query_init(conn, "SHOW POOL_CACHE", (query_node *)"cache", carg, pgbouncer_callback, "database");
 }
 
-void postgresql_run(void* arg)
+int postgresql_run(void* arg)
 {
 	context_arg *carg = arg;
 
+	if (!carg)
+		return 0;
+
 	if (carg->dynamic_socket) {
 		carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"skip run\", \"reason\": \"dynamic socket exists\"}\n", carg->fd, carg->key);
-		return;
+		return 1;
 	}
 
     if (carg->lock) {
 		carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg locked!\"}\n", carg->fd, carg->key);
-		return;
+		return 0;
 	}
 
-	if (carg->parental_carg) {
-		carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"carg parental locked!\"}\n", carg->fd, carg->key);
-		if (carg->parental_carg->lock) {
-			carg_free(carg);
-			return;
-		}
+	/* Parent lock is the live child count (bumped as siblings start). Do not
+	 * treat lock>0 as failure or every child after the first is aborted.
+	 * Reject only when the parent was unlinked and is awaiting final free. */
+	if (carg->parental_carg && carg->parental_carg->remove_from_hash) {
+		carglog(carg, L_WARN, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"parent removed, skip child\"}\n", carg->fd, carg->key);
+		postgresql_free_failed_data_lock_child(carg);
+		return 0;
 	}
 
 	if (!carg->loop)
@@ -1453,8 +1528,11 @@ void postgresql_run(void* arg)
 	pg_data *data = carg->data;
 	if (!data) {
 		carg->data = data = pg_data_new(PG_TYPE_PG);
-		if (!data)
-			return;
+		if (!data) {
+			if (carg->data_lock)
+				postgresql_free_failed_data_lock_child(carg);
+			return 0;
+		}
 	} else if (data->poll_dup_fd == 0 && !carg->dynamic_socket)
 		data->poll_dup_fd = -1;
 
@@ -1469,11 +1547,13 @@ void postgresql_run(void* arg)
 	}
 
 	if (!conn) {
-		carglog(carg, L_ERROR, "Connection to database failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
+		carglog(carg, L_ERROR, "Connection to database failed: PQconnectStart returned NULL\n");
 		postgresql_connect_ok(carg, 0);
-		postgresql_error_metric(conn, carg);
+		postgresql_error_metric(NULL, carg);
 		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
-		return;
+		if (carg->data_lock)
+			postgresql_free_failed_data_lock_child(carg);
+		return 0;
 	}
 
 	data->conn = conn;
@@ -1482,14 +1562,16 @@ void postgresql_run(void* arg)
 		carglog(carg, L_ERROR, "Pq set params failed: '%d' error: %s\n", PQstatus(conn), PQerrorMessage(conn));
 		postgresql_connect_ok(carg, 0);
 		postgresql_error_metric(conn, carg);
-		if (carg->dynamic_socket)
+		if (carg->dynamic_socket) {
 			run_close(carg);
-		else {
-			PQfinish(conn);
-			data->conn = NULL;
-			aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+			return 1;
 		}
-		return;
+		PQfinish(conn);
+		data->conn = NULL;
+		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+		if (carg->data_lock)
+			postgresql_free_failed_data_lock_child(carg);
+		return 0;
 	}
 
 	/* Whole-scrape deadline (connect poll + queries). Socket SO_*TIMEO alone
@@ -1497,14 +1579,16 @@ void postgresql_run(void* arg)
 	if (!postgresql_session_timer_arm(carg)) {
 		carglog(carg, L_ERROR, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"session timer arm failed\"}\n", carg->fd, carg->key);
 		postgresql_connect_ok(carg, 0);
-		if (carg->dynamic_socket)
+		if (carg->dynamic_socket) {
 			run_close(carg);
-		else {
-			PQfinish(conn);
-			data->conn = NULL;
-			aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+			return 1;
 		}
-		return;
+		PQfinish(conn);
+		data->conn = NULL;
+		aggregator_events_metric_add(carg, carg, NULL, "tcp", "aggregator", carg->host);
+		if (carg->data_lock)
+			postgresql_free_failed_data_lock_child(carg);
+		return 0;
 	}
 
 	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"created socket\"}\n", carg->fd, carg->key);
@@ -1540,6 +1624,7 @@ void postgresql_run(void* arg)
 	carglog(carg, L_DEBUG, "{\"fd\": %d, \"conn\": \"%s\", \"action\": \"uv_poll_start\"}\n", carg->fd, carg->key);
 	if (!postgresql_poll_start_events(carg, UV_WRITABLE))
 		run_close(carg);
+	return 1;
 }
 
 static void postgresql_run_by_key(void *arg)
@@ -1636,6 +1721,10 @@ void postgresql_client_del(context_arg* carg)
 		return;
 	}
 	postgresql_session_timer_stop(carg->data);
+	if (carg->lock) {
+		/* Children still hold parental_carg / shared key; free when lock hits 0. */
+		return;
+	}
 	free(carg->data);
 	carg->data = NULL;
 	carg_free(carg);

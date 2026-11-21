@@ -150,6 +150,10 @@ struct context_arg
 	uint64_t icmp_interval_ms;
 	uint8_t icmp_continuous;
 	uint8_t icmp_last_ttl;
+	/* Outstanding uv_close callbacks for poll + t_{timeout,towrite,seq_timer}. */
+	uint8_t icmp_uv_pending;
+	/* After handles close: run icmp_finish_oneshot (oneshot delete). */
+	uint8_t icmp_finish_pending;
 	uint64_t icmp_duplicates;
 	uint32_t icmp_last_rtt_ms;
 	uint8_t probe_qr_idx;

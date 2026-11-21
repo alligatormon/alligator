@@ -4853,6 +4853,61 @@ void api_test_parser_kafka_query_and_filters()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, kafka_name_allowed(NULL, ".*", "^$"));
 }
 
+void api_test_kafka_aggregator_appears_in_config_get()
+{
+    /* kafka_aggregator also starts a process-wide uv_timer; exercise conf dump
+     * the same way production will after registering into ac->aggregators. */
+    void aggregator_generate_conf(void *funcarg, void *arg);
+    alligator_ht *saved = ac->aggregators;
+    context_arg *carg;
+    json_t *dst;
+    json_t *aggregate;
+    json_t *agg0;
+    const char *url;
+    const char *handler;
+    context_arg *found;
+
+    ac->aggregators = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregators);
+
+    carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->url = strdup("kafka://127.0.0.1:9093?security.protocol=SSL");
+    carg->parser_name = "kafka";
+    carg->transport = APROTO_KAFKA;
+    carg->transport_string = "kafka";
+    strlcpy(carg->host, "127.0.0.1", sizeof(carg->host));
+    strlcpy(carg->port, "9093", sizeof(carg->port));
+    carg->query_url = strdup("?security.protocol=SSL");
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, kafka_aggregator(carg));
+    found = alligator_ht_search(ac->aggregators, aggregator_compare, carg->key,
+        tommy_strhash_u32(0, carg->key));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, found);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, found == carg);
+
+    dst = json_object();
+    aggregator_generate_conf(dst, carg);
+    aggregate = json_object_get(dst, "aggregate");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, aggregate);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, json_array_size(aggregate));
+    agg0 = json_array_get(aggregate, 0);
+    url = json_string_value(json_object_get(agg0, "url"));
+    handler = json_string_value(json_object_get(agg0, "handler"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, url);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, handler);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(url, "kafka://127.0.0.1:9093") != NULL);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "kafka", handler);
+    json_decref(dst);
+
+    carg->remove_from_hash = 1;
+    kafka_client_del(carg);
+
+    alligator_ht_done(ac->aggregators);
+    free(ac->aggregators);
+    ac->aggregators = saved;
+}
+
 void api_test_kafka_consumer_split_query()
 {
     char *topic = NULL;
@@ -4919,6 +4974,45 @@ void api_test_postgresql_error_reason()
         postgresql_error_reason(NULL));
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "other",
         postgresql_error_reason("ERROR:  syntax error at or near \"SELCT\""));
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "console_command_error",
+        postgresql_error_reason("ERROR:  odyssey: c2c95235ad6a9: console command error: SHOW MEM\n"));
+}
+
+void api_test_postgresql_error_name_falls_back_to_parser(void)
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->parser_name = "odyssey";
+    snprintf(carg->host, sizeof(carg->host), "%s", "pg-ut-odyssey-name.invalid");
+
+    postgresql_error_metric(NULL, carg);
+    metric_test_run(CMP_EQUAL,
+        "postgresql_errors_total{name=\"odyssey\",reason=\"unknown\"}",
+        "postgresql_errors_total", 1);
+
+    free(carg);
+}
+
+void api_test_postgresql_error_counter_accumulates()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->name = strdup("pg-ut-error-counter");
+    carg->parser_name = "postgresql";
+    snprintf(carg->host, sizeof(carg->host), "%s", "pg-ut-error.invalid");
+
+    postgresql_error_metric(NULL, carg);
+    metric_test_run(CMP_EQUAL,
+        "postgresql_errors_total{name=\"pg-ut-error-counter\",reason=\"unknown\"}",
+        "postgresql_errors_total", 1);
+
+    postgresql_error_metric(NULL, carg);
+    metric_test_run(CMP_EQUAL,
+        "postgresql_errors_total{name=\"pg-ut-error-counter\",reason=\"unknown\"}",
+        "postgresql_errors_total", 2);
+
+    free(carg->name);
+    free(carg);
 }
 
 void api_test_postgresql_session_connect_metrics()

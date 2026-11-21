@@ -791,7 +791,7 @@ void labels_hash_insert(alligator_ht *hash, char *name, char *key)
 
 void labels_hash_insert_nocache(alligator_ht *hash, char *name, char *key)
 {
-	if (!name)
+	if (!hash || !name)
 		return;
 
 	uint32_t name_hash = ac->metrictree_hashfunc_get(name);

@@ -30,7 +30,7 @@ query {
 
 ## `timeout`
 
-Параметр агрегата `timeout` — дедлайн всего scrape (connect + queries); по умолчанию **5s**, если не задан. Единицы — как в [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` или целое число миллисекунд). Парсер ставит one-shot `uv_timer` на сессию; одних `SO_RCVTIMEO`/`SO_SNDTIMEO` недостаточно, чтобы оборвать зависший nonblocking libpq + `uv_poll`. По срабатыванию alligator увеличивает `timeout_counter` / session timeout metrics, пишет `postgresql_error{reason="timeout"}` и закрывает сессию, чтобы следующий период мог переподключиться.
+Параметр агрегата `timeout` — дедлайн всего scrape (connect + queries); по умолчанию **5s**, если не задан. Единицы — как в [configuration.md](../configuration.md) (`timeout 10s;`, JSON `"timeout":"10s"` или целое число миллисекунд). Парсер ставит one-shot `uv_timer` на сессию; одних `SO_RCVTIMEO`/`SO_SNDTIMEO` недостаточно, чтобы оборвать зависший nonblocking libpq + `uv_poll`. По срабатыванию alligator увеличивает `timeout_counter` / session timeout metrics, пишет `postgresql_errors_total{reason="timeout"}` и закрывает сессию, чтобы следующий период мог переподключиться.
 
 `datasource pg/*` выполняет query на каждой базе экземпляра. `except` в блоке query пропускает имена (точные и `/regex/`). Тот же список отбрасывает строки результата с label `dbname` / `datname` / `psql_database`, поэтому он работает и с `datasource pg`, если SQL перечисляет базы в результате. Template и прочие системные базы не пропускаются, пока их нет в `except`. См. [query except](../query.md).
 
@@ -57,9 +57,9 @@ aggregate {
 }
 ```
 
-## `postgresql_error`
+## `postgresql_errors_total`
 
-Сбои подключения и запросов увеличивают `postgresql_error{name,reason}`. `reason` — закрытый набор классифицированных типов, а не сырой текст libpq или пулера (идентификаторы сессий, маршруты, хосты и IP в label не попадают).
+Сбои подключения и запросов увеличивают counter `postgresql_errors_total{name,reason}`. `reason` — закрытый набор классифицированных типов, а не сырой текст libpq или пулера (идентификаторы сессий, маршруты, хосты и IP в label не попадают).
 
 Каждая попытка подключения (успех или сбой) также обновляет общие session-метрики: gauge `alligator_session_connect_ok` (последняя попытка 1/0) и counter `alligator_session_connects_total`. Label совпадают с другими агрегаторами (`proto`, `type`, `host`, `parser`, `port`). I/O запросов — та же семья: `alligator_session_reads_total` / `alligator_session_read_bytes_total` (байты через `FIONREAD` до `PQconsumeInput`) и write-счётчики (размер текста запроса). Закрытие scrape выставляет `alligator_parser_ok` по статусу парсера.
 
@@ -79,4 +79,5 @@ libpq оборачивает FATAL пулера/сервера префиксо�
 - `system_not_ready`, `shutdown`, `soft_oom`, `replication_lag_rejected`, `protocol_error`
 - `host_not_found`, `connection_refused`, `connection_reset`, `network_unreachable`, `server_closed`
 - `cannot_reach_server`
+- `console_command_error` (админ-консоль пулера отклонила SHOW/SET, например неподдерживаемая команда)
 - `unknown` (пустое сообщение), `other`

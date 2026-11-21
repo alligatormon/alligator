@@ -25,11 +25,14 @@ probe {
 probe {
     name icmp;
     prober icmp;
+    namespace probes;
     timeout 5s;
     loop 10;
     percent 0.5;
 }
 ```
+
+`namespace` is optional; omit it to keep results in `default`.
 
 Request:
 
@@ -44,7 +47,7 @@ There are **no built-in modules**. `http_2xx` in the example only works after yo
 - `hostname` — optional Host header and TLS SNI (use with IP-literal `target`)
 - `X-Prometheus-Scrape-Timeout-Seconds` — optional request header; applied only as the **kicked** carg timeout (minus 500 ms, capped by module `timeout`). It does **not** make `/probe` wait.
 
-The handler builds a full URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) from `prober`, optional `tls on`, and `target`, then kicks the matching aggregator **asynchronously** (`smart_aggregator` + `aggregator_oneshot_start`) and immediately returns last-known Prometheus text metrics for `host=<target>`. The HTTP response does not wait for the probe to finish (`aggregator_oneshot_await` is never used here). The first scrape can be empty; the next scrape sees this kick’s result. Kick keys are `probe:<module>:<base>` so they do not replace a scheduled `aggregate { blackbox }` of the same host.
+The handler builds a full URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp://`, `ws://`, `unix://`, …) from `prober`, optional `tls on`, and `target`, then kicks the matching aggregator **asynchronously** (`smart_aggregator` + `aggregator_oneshot_start`, with oneshot `context_ttl`) and immediately returns last-known Prometheus text metrics for `host=<target>`. The HTTP response does not wait for the probe to finish (`aggregator_oneshot_await` is never used here). The first scrape can be empty; the next scrape sees this kick’s result. Kick keys are `probe:<module>:<base>` so they do not replace a scheduled `aggregate { blackbox }` of the same host. Concurrent targets share the module `name` but must not collide: oneshots skip the permanent-datasource unique-name check.
 
 `prober grpc` does not put `grpc://` on the target. The kick URL is `tcp://host:port` or, with `tls on`, `tls://host:port`. A missing port is 80, or 443 when TLS is on. A leading `http://` or `https://` on `target` is stripped and does not select TLS.
 
@@ -54,6 +57,7 @@ The handler builds a full URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp:
 |-------|-------------|
 | `name` | Module name referenced by `module=` query parameter (required) |
 | `prober` | `http`, `tcp`, `udp`, `icmp`, `dns`, `websocket` (`ws`), `unix`, or `grpc` (required) |
+| `namespace` | Metric namespace for probe results (default: `default`). `/probe` writes and exports from this namespace. See [namespace](namespace.md) |
 | `tls` | `on` — HTTPS (`prober http` → `https://`), TLS (`prober tcp` or `prober grpc` → `tls://`), WSS (`prober websocket` → `wss://`), or `tls://unix:` (`prober unix`) |
 | `service` | gRPC service name for `prober grpc` (`grpc.health.v1.Health/Check` field 1). Omit it for a server-wide check |
 | `timeout` | Probe timeout applied to the async work (default `5s`) |
@@ -93,7 +97,7 @@ The handler builds a full URL (`http://`, `https://`, `tcp://`, `tls://`, `icmp:
 
 ## Examples
 
-ICMP with packet loss threshold (from [`src/tests/system/blackbox/alligator.conf`](../src/tests/system/blackbox/alligator.conf)):
+ICMP with packet loss threshold (from [`src/tests/system/blackbox/alligator.conf`](../src/tests/system/blackbox/alligator.conf); add optional `namespace` to isolate `/probe` metrics from the default scrape):
 
 ```
 probe {
@@ -303,6 +307,7 @@ curl -s http://127.0.0.1:1111/conf
 
 ## Related docs
 
+- [blackbox](blackbox.md) — walkthrough with full on-demand and scheduled configs
 - [blackbox parser](parsers/blackbox.md) — scheduled aggregate checks
 - [aggregate.md](aggregate.md) — TLS, proxy, and revocation options on blackbox URLs
 - [api.md](api.md) — HTTP endpoints

@@ -32,6 +32,7 @@
 #include "lang/type.h"
 #include "action/type.h"
 #include "probe/probe.h"
+#include "events/icmp.h"
 #include "modules/modules.h"
 #include "system/linux/sysctl.h"
 #include "query/type.h"
@@ -1005,6 +1006,69 @@ void test_aggregator_helper_paths()
     ac->aggregators = saved;
     free(key);
 
+    /* ICMP DNS in-flight: smart_aggregator must skip oneshot replace when
+     * existing->lock (set before uv_getaddrinfo). Without this, a second
+     * GET /probe frees the carg and icmp_resolved UAFs. */
+    {
+        alligator_ht *saved_inf = ac->aggregators;
+        context_arg *in_flight;
+        context_arg *second;
+        context_arg *still;
+
+        ac->aggregators = alligator_ht_init(NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregators);
+
+        in_flight = calloc(1, sizeof(*in_flight));
+        in_flight->transport = -1;
+        in_flight->context_ttl = 1;
+        in_flight->lock = 1;
+        in_flight->dns_awaiting = 1;
+        in_flight->key = strdup("probe:mod:icmp-dns-inflight");
+        alligator_ht_insert(ac->aggregators, &in_flight->context_node, in_flight,
+                            tommy_strhash_u32(0, in_flight->key));
+
+        second = calloc(1, sizeof(*second));
+        second->transport = -1;
+        second->context_ttl = 1;
+        second->key = strdup(in_flight->key);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, smart_aggregator(second));
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, in_flight->lock);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, in_flight->remove_from_hash);
+
+        still = alligator_ht_search(ac->aggregators, aggregator_compare, in_flight->key,
+                                    tommy_strhash_u32(0, in_flight->key));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, still);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, still == in_flight);
+
+        free(second->key);
+        free(second);
+        alligator_ht_remove_existing(ac->aggregators, &in_flight->context_node);
+        free(in_flight->key);
+        free(in_flight);
+        alligator_ht_done(ac->aggregators);
+        free(ac->aggregators);
+        ac->aggregators = saved_inf;
+    }
+
+#ifdef __linux__
+    /* icmp_client_del must not carg_free while dns_awaiting (resolve cb owns free). */
+    {
+        context_arg *ic = calloc(1, sizeof(*ic));
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ic);
+        ic->lock = 1;
+        ic->dns_awaiting = 1;
+        ic->context_ttl = 999999;
+        ic->key = strdup("probe:ut:icmp-dns-del");
+        icmp_client_del(ic);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ic->icmp_finish_pending);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ic->remove_from_hash);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ic->dns_awaiting);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, ic->lock);
+        free(ic->key);
+        free(ic);
+    }
+#endif
+
     /* aggregators_free: file del must unlink context_node before carg_free so a
      * second aggregator in the same table is not removed via a dangling tommy node. */
     {
@@ -1646,6 +1710,38 @@ void test_probe_blackbox_modules()
             struct msghdr msg;
             memset(&msg, 0, sizeof(msg));
             assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, icmp_cmsg_hop_limit(&msg));
+        }
+        {
+            /* Crawl gate for ICMP oneshots: finished / closing must not restart. */
+            context_arg oc = {0};
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, icmp_crawl_should_skip(&oc));
+            oc.context_ttl = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, icmp_crawl_should_skip(&oc));
+            oc.lock = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&oc));
+            oc.lock = 0;
+            oc.read_counter = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&oc));
+            oc.read_counter = 0;
+            oc.icmp_uv_pending = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&oc));
+            oc.icmp_uv_pending = 0;
+            oc.icmp_finish_pending = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&oc));
+            oc.icmp_finish_pending = 0;
+            oc.remove_from_hash = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&oc));
+        }
+        {
+            /* Crawl skips permanent period aggregates after the first burst;
+             * period_timer (not crawl) must restart those — see icmp_client_repeat_period. */
+            context_arg pc = {0};
+            pc.period = 1000;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, icmp_crawl_should_skip(&pc));
+            pc.read_counter = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&pc));
+            pc.lock = 1;
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, icmp_crawl_should_skip(&pc));
         }
         pn = probe_get("ut-probe-hdr");
         assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
@@ -5552,13 +5648,14 @@ void test_config_plain_probe_scheduler_variants()
         "probe { name ut_probe_http prober http valid_status_codes 2xx tls on timeout 5s; }\n",
         "probe { name ut_probe_tcp prober tcp valid_status_codes 200,404; }\n",
         "probe { name ut_probe_grpc; prober grpc; service foo; }\n",
+        "probe { name ut_probe_ns; prober icmp; namespace ut_probe_plain_ns; timeout 2s; }\n",
         "scheduler { name ut_sched_probe action ut_action expr count(up) period 15s datasource internal; }\n",
         "query { make ut_q_match expr process_match datasource internal action ut_action; }\n"
     };
-    const char *keys[] = { "probe", "probe", "probe", "scheduler", "query" };
+    const char *keys[] = { "probe", "probe", "probe", "probe", "scheduler", "query" };
 
     json_error_t error;
-    for (int f = 0; f < 5; f++) {
+    for (int f = 0; f < 6; f++) {
         string *s = string_new();
         string_cat(s, (char *)fragments[f], strlen(fragments[f]));
         char *json_s = config_plain_to_json(s);
@@ -5576,6 +5673,12 @@ void test_config_plain_probe_scheduler_variants()
             assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_grpc", json_string_value(json_object_get(p0, "name")));
             assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "grpc", json_string_value(json_object_get(p0, "prober")));
             assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "foo", json_string_value(json_object_get(p0, "service")));
+        }
+        if (f == 3) {
+            json_t *p0 = json_array_get(child, 0);
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_ns", json_string_value(json_object_get(p0, "name")));
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "icmp", json_string_value(json_object_get(p0, "prober")));
+            assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_plain_ns", json_string_value(json_object_get(p0, "namespace")));
         }
         json_decref(part);
     }

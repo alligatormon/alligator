@@ -10,6 +10,7 @@
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/aggregator.h"
+#include "events/metrics.h"
 #include "parsers/kafka.h"
 #include "main.h"
 
@@ -345,6 +346,11 @@ static void kafka_collect(context_arg *carg)
 	pcre *group_exc;
 	int timeout_ms;
 	int i;
+	int64_t topics_kept = 0;
+	int64_t partitions_kept = 0;
+	int64_t watermark_ok = 0;
+	int64_t watermark_err = 0;
+	int cluster_brokers = 0;
 
 	if (!carg)
 		return;
@@ -373,6 +379,9 @@ static void kafka_collect(context_arg *carg)
 	if (!group_exclude[0])
 		strlcpy(group_exclude, "^$", sizeof(group_exclude));
 
+	carglog(carg, L_INFO, "kafka: cycle start brokers=%s timeout_ms=%d topic_filter=%s topic_exclude=%s group_filter=%s group_exclude=%s\n",
+		brokers, timeout_ms, topic_filter, topic_exclude, group_filter, group_exclude);
+
 	topic_inc = kafka_re_compile(topic_filter);
 	topic_exc = kafka_re_compile(topic_exclude);
 	group_inc = kafka_re_compile(group_filter);
@@ -380,6 +389,7 @@ static void kafka_collect(context_arg *carg)
 	if ((topic_filter[0] && !topic_inc) || (group_filter[0] && !group_inc)) {
 		carglog(carg, L_ERROR, "kafka: invalid topic_filter or group_filter PCRE\n");
 		kafka_re_free4(topic_inc, topic_exc, group_inc, group_exc);
+		carg->parser_status = 0;
 		carg->data_lock = 0;
 		return;
 	}
@@ -389,6 +399,7 @@ static void kafka_collect(context_arg *carg)
 		carglog(carg, L_ERROR, "kafka: bootstrap.servers=%s: %s\n", brokers, errstr);
 		rd_kafka_conf_destroy(conf);
 		kafka_re_free4(topic_inc, topic_exc, group_inc, group_exc);
+		carg->parser_status = 0;
 		carg->data_lock = 0;
 		return;
 	}
@@ -412,6 +423,7 @@ static void kafka_collect(context_arg *carg)
 	if (!rk) {
 		carglog(carg, L_ERROR, "kafka: rd_kafka_new failed: %s\n", errstr);
 		kafka_re_free4(topic_inc, topic_exc, group_inc, group_exc);
+		carg->parser_status = 0;
 		carg->data_lock = 0;
 		return;
 	}
@@ -422,9 +434,14 @@ static void kafka_collect(context_arg *carg)
 			brokers, rd_kafka_err2str(err));
 		kafka_re_free4(topic_inc, topic_exc, group_inc, group_exc);
 		rd_kafka_destroy(rk);
+		carg->parser_status = 0;
 		carg->data_lock = 0;
 		return;
 	}
+
+	cluster_brokers = md->broker_cnt;
+	carglog(carg, L_DEBUG, "kafka: metadata ok brokers=%d topics=%d\n",
+		cluster_brokers, md->topic_cnt);
 
 	kafka_metric_family(carg, "kafka_brokers", "Number of brokers in the Kafka cluster.");
 	kafka_metric_family(carg, "kafka_broker_info", "Information about the Kafka broker.");
@@ -458,6 +475,7 @@ static void kafka_collect(context_arg *carg)
 		snprintf(addr, sizeof(addr), "%s:%d", b->host ? b->host : "", b->port);
 		snprintf(idstr, sizeof(idstr), "%" PRId32, b->id);
 		metric_add_labels2("kafka_broker_info", &one, DATATYPE_INT, carg, "id", idstr, "address", addr);
+		carglog(carg, L_TRACE, "kafka: broker id=%s address=%s\n", idstr, addr);
 	}
 
 	for (i = 0; i < md->topic_cnt; i++) {
@@ -467,11 +485,16 @@ static void kafka_collect(context_arg *carg)
 
 		if (!t->topic || t->err)
 			continue;
-		if (!kafka_re_allowed(topic_inc, topic_exc, t->topic))
+		if (!kafka_re_allowed(topic_inc, topic_exc, t->topic)) {
+			carglog(carg, L_TRACE, "kafka: skip topic=%s (filter)\n", t->topic);
 			continue;
+		}
 
+		topics_kept++;
 		np = t->partition_cnt;
+		partitions_kept += np;
 		metric_add_labels("kafka_topic_partitions", &np, DATATYPE_INT, carg, "topic", t->topic);
+		carglog(carg, L_DEBUG, "kafka: topic=%s partitions=%" PRId64 "\n", t->topic, np);
 
 		for (p = 0; p < t->partition_cnt; p++) {
 			const struct rd_kafka_metadata_partition *part = &t->partitions[p];
@@ -505,14 +528,18 @@ static void kafka_collect(context_arg *carg)
 
 			werr = rd_kafka_query_watermark_offsets(rk, t->topic, part->id, &low, &high, timeout_ms);
 			if (werr != RD_KAFKA_RESP_ERR_NO_ERROR) {
+				watermark_err++;
 				carglog(carg, L_ERROR, "kafka: watermarks %s/%" PRId32 ": %s\n",
 					t->topic, part->id, rd_kafka_err2str(werr));
 				continue;
 			}
+			watermark_ok++;
 			metric_add_labels2("kafka_topic_partition_oldest_offset", &low, DATATYPE_INT, carg,
 				"topic", t->topic, "partition", partstr);
 			metric_add_labels2("kafka_topic_partition_current_offset", &high, DATATYPE_INT, carg,
 				"topic", t->topic, "partition", partstr);
+			carglog(carg, L_TRACE, "kafka: watermarks topic=%s partition=%s low=%" PRId64 " high=%" PRId64 "\n",
+				t->topic, partstr, low, high);
 
 			if (hw_n == hw_cap) {
 				size_t ncap = hw_cap ? hw_cap * 2 : 32;
@@ -536,7 +563,10 @@ static void kafka_collect(context_arg *carg)
 	rd_kafka_destroy(rk);
 	carg->parser_status = 1;
 	carg->data_lock = 0;
-	carglog(carg, L_DEBUG, "kafka cycle done: brokers=%s\n", brokers);
+	aggregator_events_metric_add(carg, carg, NULL, "kafka", "aggregator", carg->host);
+	carglog(carg, L_INFO,
+		"kafka: cycle done brokers=%s cluster_brokers=%d topics=%" PRId64 " partitions=%" PRId64 " watermarks_ok=%" PRId64 " watermarks_err=%" PRId64 "\n",
+		brokers, cluster_brokers, topics_kept, partitions_kept, watermark_ok, watermark_err);
 }
 
 static void kafka_run_single_foreach(void *arg)
@@ -551,23 +581,65 @@ static void kafka_timer_cb(uv_timer_t *handle)
 		alligator_ht_foreach(kafka_clients, kafka_run_single_foreach);
 }
 
+void kafka_client_del(context_arg *carg)
+{
+	if (!carg)
+		return;
+	if (kafka_clients)
+		alligator_ht_remove_existing(kafka_clients, &(carg->node));
+	if (carg->remove_from_hash && ac && ac->aggregators)
+		alligator_ht_remove_existing(ac->aggregators, &(carg->context_node));
+	/* Idle timer while no scrapes are registered; keep handle for reuse. */
+	if (kafka_timer_started && kafka_clients && alligator_ht_count(kafka_clients) == 0)
+		uv_timer_stop(&kafka_timer);
+	carg_free(carg);
+}
+
 int kafka_aggregator(context_arg *carg)
 {
+	char key[512];
+	context_arg *existing;
+	uint32_t hash;
+
+	if (!carg || !ac || !ac->aggregators)
+		return 0;
+
 	if (!kafka_clients)
 		kafka_clients = alligator_ht_init(NULL);
 
 	if (!carg->key) {
-		carg->key = malloc(255);
-		snprintf(carg->key, 255, "%s:%s", carg->host, carg->port[0] ? carg->port : "9092");
+		carg->key = malloc(512);
+		if (!carg->key)
+			return 0;
+		smart_aggregator_default_key(carg->key, carg->transport_string, carg->parser_name,
+			carg->host, carg->port, carg->query_url);
 	}
-	alligator_ht_insert(kafka_clients, &(carg->node), carg, tommy_strhash_u32(0, carg->key));
+	/* Normalize before hash insert so delete/lookup keys stay consistent. */
+	smart_aggregator_key_normalize(carg->key);
+	strlcpy(key, carg->key, sizeof(key));
+	hash = tommy_strhash_u32(0, key);
+
+	existing = alligator_ht_search(ac->aggregators, aggregator_compare, key, hash);
+	if (existing) {
+		carglog(carg, L_ERROR,
+			"kafka: duplicate datasource key '%s' (host='%s'); aggregate entry ignored\n",
+			key, carg->host[0] ? carg->host : "unknown");
+		return 0;
+	}
+
+	/* Private timer table (node) + global conf dump / delete table (context_node).
+	 * Do not call smart_aggregator(): APROTO_KAFKA would start a topic consumer. */
+	alligator_ht_insert(kafka_clients, &(carg->node), carg, hash);
+	alligator_ht_insert(ac->aggregators, &(carg->context_node), carg, hash);
 
 	if (!kafka_timer_started) {
 		uv_timer_init(ac->loop, &kafka_timer);
-		uv_timer_start(&kafka_timer, kafka_timer_cb, ac->aggregator_startup, ac->aggregator_repeat);
 		kafka_timer_started = 1;
 	}
+	uv_timer_start(&kafka_timer, kafka_timer_cb, ac->aggregator_startup, ac->aggregator_repeat);
 
+	carglog(carg, L_DEBUG, "kafka: registered scrape key='%s' host='%s' port='%s'\n",
+		carg->key, carg->host, carg->port[0] ? carg->port : "9092");
 	return 1;
 }
 

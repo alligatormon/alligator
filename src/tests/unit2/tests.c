@@ -192,6 +192,21 @@ int assert_ptr_null(const char *file, const char *func, int line, const void *va
     return 1;
 }
 
+int assert_ptr_equal(const char *file, const char *func, int line, const void *expected, const void *value) {
+    FILE *out = ut_report ? ut_report : stderr;
+    ++count_all;
+    if (expected != value) {
+        ++count_error;
+        fprintf(out, "%s:%d unit test function '%s' pointer mismatch: %p, expected: %p\n",
+            file, line, func, value, expected);
+        fflush(stdout);
+        fflush(out);
+        return do_exit(1);
+    }
+
+    return 1;
+}
+
 int assert_equal_string(const char *file, const char *func, int line, char *expected, const char *value) {
     FILE *out = ut_report ? ut_report : stderr;
     ++count_all;
@@ -3475,8 +3490,90 @@ static void test_x509_system_probe_query_add_label(void)
     labels_container *pl = alligator_ht_search(pn->labels, labels_hash_compare, "probe", ac->metrictree_hashfunc_get("probe"));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pl);
     assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "icmp", pl->key);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, pn->namespace);
     probe_del_json(jprobe);
     json_decref(jprobe);
+
+    json_t *jprobe_ns = json_loads(
+        "{\"name\":\"ut-probe-ns\",\"prober\":\"icmp\",\"namespace\":\"ut_probe_ns\"}", 0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jprobe_ns);
+    probe_push_json(jprobe_ns);
+    pn = probe_get("ut-probe-ns");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_ns", pn->namespace);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, get_namespace("ut_probe_ns"));
+    {
+        /* /conf dump must round-trip namespace (probe_generate_conf). */
+        json_t *dump = json_object();
+        probe_generate_conf(dump, pn);
+        json_t *parr = json_object_get(dump, "probe");
+        json_t *p0 = parr ? json_array_get(parr, 0) : NULL;
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, p0);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_ns",
+            json_string_value(json_object_get(p0, "namespace")));
+        json_decref(dump);
+    }
+    {
+        /* Router contract: kick writes via carg->namespace; /probe export uses pn->namespace. */
+        context_arg kick = {0};
+        uint64_t one = 1;
+        metric_query_context *mqc;
+        string *body;
+        string *body_default;
+
+        kick.namespace = strdup(pn->namespace);
+        kick.namespace_allocated = 1;
+        strlcpy(kick.host, "ut-probe-target", sizeof(kick.host));
+        kick.key = (char *)"probe:ut-probe-ns:ut-probe-target";
+        metric_add_labels5("probe_success", &one, DATATYPE_UINT, &kick,
+            "host", kick.host, "key", kick.key, "prober", "icmp", "module", "ut-probe-ns", "type", "blackbox");
+
+        mqc = query_context_new(NULL);
+        query_context_set_label(mqc, "host", "ut-probe-target");
+        /* set_label must lazy-init mqc->lbl; otherwise /probe host= filter is a no-op. */
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, mqc->lbl);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, alligator_ht_count(mqc->lbl));
+        body = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, pn->namespace, NULL, NULL, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body);
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, body->s && strstr(body->s, "probe_success") != NULL);
+        string_free(body);
+
+        {
+            metric_query_context *mqc_other = query_context_new(NULL);
+            string *body_other;
+            query_context_set_label(mqc_other, "host", "other-target.example");
+            body_other = metric_query_deserialize(1024, mqc_other, METRIC_SERIALIZER_OPENMETRICS, 0, pn->namespace, NULL, NULL, NULL, NULL);
+            assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body_other);
+            assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+                !body_other->s || strstr(body_other->s, "ut-probe-target") == NULL);
+            string_free(body_other);
+            query_context_free(mqc_other);
+        }
+
+        body_default = metric_query_deserialize(1024, mqc, METRIC_SERIALIZER_OPENMETRICS, 0, NULL, NULL, NULL, NULL, NULL);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, body_default);
+        /* Namespaced series must not appear on the default scrape path. */
+        assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1,
+            !body_default->s || strstr(body_default->s, "module=\"ut-probe-ns\"") == NULL);
+        string_free(body_default);
+        query_context_free(mqc);
+        free(kick.namespace);
+    }
+    {
+        /* Re-push same name with a new namespace must replace (API reload). */
+        json_t *jprobe_ns2 = json_loads(
+            "{\"name\":\"ut-probe-ns\",\"prober\":\"icmp\",\"namespace\":\"ut_probe_ns_v2\"}", 0, &error);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jprobe_ns2);
+        probe_push_json(jprobe_ns2);
+        pn = probe_get("ut-probe-ns");
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pn);
+        assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "ut_probe_ns_v2", pn->namespace);
+        assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, get_namespace("ut_probe_ns_v2"));
+        probe_del_json(jprobe_ns2);
+        json_decref(jprobe_ns2);
+        assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, probe_get("ut-probe-ns"));
+    }
+    json_decref(jprobe_ns);
 
     json_t *jquery = json_loads(
         "{\"make\":\"ut_query_labels\",\"expr\":\"up\",\"datasource\":\"ut-query-labels-ds\","
@@ -4415,6 +4512,152 @@ static void test_postgresql_poll_dup_survives_socket_replace(void)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_close(&loop));
 }
 
+/* Garbage conninfo: PQconnectStart succeeds but PQsocket is -1, so set_params
+ * fails before dynamic_socket / uv_close. Parent lock must stay 0. */
+static void test_postgresql_child_fail_before_socket_leaves_parent_unlocked(void)
+{
+    context_arg *parent = calloc(1, sizeof(*parent));
+    context_arg *child;
+    uint64_t before;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, parent);
+    parent->key = strdup("pg-ut-parent");
+    parent->url = strdup("completely-garbage");
+    parent->name = strdup("pg-ut-ds");
+    parent->loop = ac->loop;
+    parent->timeout = 100;
+    parent->parser_name = "postgresql";
+    /* Distinct host so session metrics do not collide with later PG metric tests. */
+    snprintf(parent->host, sizeof(parent->host), "%s", "pg-ut-lifecycle.invalid");
+
+    child = postgresql_create_dbcarg_from_carg(parent, "pg-ut-ds/db", "completely-garbage", "db");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, child);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, child->data_lock);
+    assert_ptr_equal(__FILE__, __FUNCTION__, __LINE__, parent->key, child->key);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, postgresql_run(child));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)parent->lock);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-ut-parent", parent->key);
+
+    before = parent->conn_counter;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, postgresql_run(parent));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, (int)parent->lock);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, (int)(before + 1), (int)parent->conn_counter);
+
+    free(parent->data);
+    parent->data = NULL;
+    carg_free(parent);
+}
+
+static void test_postgresql_poll_abandon_when_closing(void)
+{
+    uv_loop_t loop;
+    uv_poll_t *handle;
+    context_arg carg;
+    int sv[2];
+    int closed = 0;
+    int i;
+
+    memset(&carg, 0, sizeof(carg));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_init(&loop));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+    handle = calloc(1, sizeof(*handle));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_poll_init(&loop, handle, sv[0]));
+    handle->data = &carg;
+    carg.dynamic_socket = handle;
+
+    uv_close((uv_handle_t *)handle, test_pg_poll_closed);
+    handle->data = &closed;
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, postgresql_poll_abandon(&carg));
+    assert_ptr_equal(__FILE__, __FUNCTION__, __LINE__, handle, carg.dynamic_socket);
+
+    for (i = 0; i < 64 && !closed; i++)
+        uv_run(&loop, UV_RUN_NOWAIT);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, closed);
+
+    close(sv[0]);
+    close(sv[1]);
+    free(handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_close(&loop));
+}
+
+void run_close(context_arg *carg);
+
+static void test_postgresql_run_close_already_closing(void)
+{
+    uv_loop_t loop;
+    uv_poll_t *handle;
+    context_arg carg;
+    int sv[2];
+    int closed = 0;
+    int i;
+
+    memset(&carg, 0, sizeof(carg));
+    carg.loop = &loop;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_init(&loop));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, socketpair(AF_UNIX, SOCK_STREAM, 0, sv));
+
+    handle = calloc(1, sizeof(*handle));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_poll_init(&loop, handle, sv[0]));
+    carg.dynamic_socket = handle;
+    handle->data = &carg;
+
+    uv_close((uv_handle_t *)handle, test_pg_poll_closed);
+    handle->data = &closed;
+
+    /* Must be a no-op while already closing (no double uv_close). */
+    run_close(&carg);
+    assert_ptr_equal(__FILE__, __FUNCTION__, __LINE__, handle, carg.dynamic_socket);
+
+    for (i = 0; i < 64 && !closed; i++)
+        uv_run(&loop, UV_RUN_NOWAIT);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, closed);
+
+    close(sv[0]);
+    close(sv[1]);
+    free(handle);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, uv_loop_close(&loop));
+}
+
+static void test_postgresql_client_del_defers_free_while_locked(void)
+{
+    context_arg *parent = calloc(1, sizeof(*parent));
+    alligator_ht *saved_pg = ac->pg_aggregator;
+    alligator_ht *saved_agg = ac->aggregators;
+
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, parent);
+    ac->pg_aggregator = calloc(1, sizeof(*ac->pg_aggregator));
+    ac->aggregators = calloc(1, sizeof(*ac->aggregators));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->pg_aggregator);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregators);
+    alligator_ht_init(ac->pg_aggregator);
+    alligator_ht_init(ac->aggregators);
+
+    parent->key = strdup("pg-ut-del-parent");
+    parent->lock = 2;
+    parent->data = NULL; /* no pg_data; timer stop is a no-op */
+    alligator_ht_insert(ac->pg_aggregator, &(parent->node), parent, tommy_strhash_u32(0, parent->key));
+
+    postgresql_client_del(parent);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, parent->remove_from_hash);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 2, (int)parent->lock);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, parent->data);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "pg-ut-del-parent", parent->key);
+
+    carg_free(parent);
+
+    alligator_ht_done(ac->pg_aggregator);
+    free(ac->pg_aggregator);
+    alligator_ht_done(ac->aggregators);
+    free(ac->aggregators);
+    ac->pg_aggregator = saved_pg;
+    ac->aggregators = saved_agg;
+}
+
 static void run_parser_suites(char **argv)
 {
     api_test_parser_httpd();
@@ -4487,7 +4730,13 @@ static void run_parser_suites(char **argv)
     api_test_parser_squid_mem();
     test_grok_pcre_expand_and_match();
     test_postgresql_poll_dup_survives_socket_replace();
+    test_postgresql_child_fail_before_socket_leaves_parent_unlocked();
+    test_postgresql_poll_abandon_when_closing();
+    test_postgresql_run_close_already_closing();
+    test_postgresql_client_del_defers_free_while_locked();
     api_test_postgresql_error_reason();
+    api_test_postgresql_error_counter_accumulates();
+    api_test_postgresql_error_name_falls_back_to_parser();
     api_test_postgresql_session_connect_metrics();
     api_test_session_io_metrics();
     api_test_otlp_logs_ingest();
@@ -4521,6 +4770,7 @@ static void run_config_query_suites(char **argv)
     api_test_bson_nesting_limit();
     api_test_ngram_token_nul();
     api_test_parser_kafka_query_and_filters();
+    api_test_kafka_aggregator_appears_in_config_get();
     api_test_kafka_consumer_split_query();
     api_test_parser_nsd();
     api_test_parser_syslogng();

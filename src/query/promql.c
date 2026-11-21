@@ -664,6 +664,12 @@ void query_context_set_name(metric_query_context *mqc, char *name)
 
 void query_context_set_label(metric_query_context *mqc, char *key, char *value)
 {
+	if (!mqc)
+		return;
+	/* query_context_new() leaves lbl NULL; /probe relies on set_label(host=target).
+	 * Without a hash the insert is a silent no-op and export dumps the whole namespace. */
+	if (!mqc->lbl)
+		mqc->lbl = alligator_ht_init(NULL);
 	labels_hash_insert_nocache(mqc->lbl, key, value);
 }
 

@@ -52,7 +52,7 @@ curl -sG 'http://127.0.0.1:9115/probe' \
   --data-urlencode 'target=example.com'
 ```
 
-`target` — это host или `host:port`. Схему задают `prober` и `tls`. Для HTTPS укажите `tls on` при `prober http`. `prober grpc` вызывает `grpc.health.v1.Health/Check`; TLS задаётся `tls on` у модуля, а не схемой в `target`. Проверки фиксированного списка URL по расписанию — это `aggregate { blackbox … }`, не этот порт. См. [probe](probe.md) и [blackbox](parsers/blackbox.md).
+`target` — это host или `host:port`. Схему задают `prober` и `tls`. Для HTTPS укажите `tls on` при `prober http`. `prober grpc` вызывает `grpc.health.v1.Health/Check`; TLS задаётся `tls on` у модуля, а не схемой в `target`. Проверки фиксированного списка URL по расписанию — это `aggregate { blackbox … }`, не этот порт. Готовые конфиги для обоих режимов: [blackbox](blackbox.md). Поля: [probe](probe.md) и [парсер blackbox](parsers/blackbox.md).
 
 ## StatsD
 
