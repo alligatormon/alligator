@@ -149,6 +149,7 @@ More information about the aggregate directive can be found in [aggregate](doc/a
 - [haproxy](https://github.com/alligatormon/alligator/blob/master/doc/parsers/haproxy.md)
 - [blackbox](https://github.com/alligatormon/alligator/blob/master/doc/parsers/blackbox.md) ([walkthrough](doc/blackbox.md))
 - [uwsgi](https://github.com/alligatormon/alligator/blob/master/doc/parsers/uwsgi.md)
+- [php-fpm](https://github.com/alligatormon/alligator/blob/master/doc/parsers/php-fpm.md)
 - [nats](https://github.com/alligatormon/alligator/blob/master/doc/parsers/nats.md)
 - [riak](https://github.com/alligatormon/alligator/blob/master/doc/parsers/riak.md)
 - [rabbitmq](https://github.com/alligatormon/alligator/blob/master/doc/parsers/rabbitmq.md)

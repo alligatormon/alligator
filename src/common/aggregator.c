@@ -784,6 +784,7 @@ void aggregate_ctx_init()
 	varnish_parser_push();
 	rabbitmq_parser_push();
 	uwsgi_parser_push();
+	php_fpm_parser_push();
 	haproxy_parser_push();
 	memcached_parser_push();
 	aerospike_parser_push();

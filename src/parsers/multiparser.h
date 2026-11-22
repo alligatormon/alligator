@@ -229,6 +229,7 @@ void syslog_ng_parser_push();
 void tftp_parser_push();
 void unbound_parser_push();
 void uwsgi_parser_push();
+void php_fpm_parser_push();
 void varnish_parser_push();
 void zookeeper_parser_push();
 void nvidia_smi_parser_push();

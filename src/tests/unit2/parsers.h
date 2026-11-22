@@ -44,6 +44,7 @@ string* zookeeper_wchs_mesg(host_aggregator_info *hi, void *arg, void *env, void
 string* memcached_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* lighttpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* lighttpd_statistics_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* php_fpm_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* httpd_status_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 void ipmi_sel_info_handler(char *metrics, size_t size, context_arg *carg);
 void ipmi_lan_print_handler(char *metrics, size_t size, context_arg *carg);
@@ -2224,10 +2225,70 @@ void api_test_parser_uwsgi() {
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "uwsgi_listen_queue", "uwsgi_listen_queue", 0);
-    metric_test_run(CMP_EQUAL, "uwsgi_listen_queue_errors", "uwsgi_listen_queue_errors", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_listen_queue_errors_total", "uwsgi_listen_queue_errors_total", 0);
     metric_test_run(CMP_EQUAL, "uwsgi_signal_queue", "uwsgi_signal_queue", 0);
     metric_test_run(CMP_EQUAL, "uwsgi_load", "uwsgi_load", 0);
     metric_test_run(CMP_EQUAL, "uwsgi_worker_accepting", "uwsgi_worker_accepting", 0);
+    metric_test_run(CMP_EQUAL, "uwsgi_up", "uwsgi_up", 1);
+    metric_test_run(CMP_EQUAL, "uwsgi_workers", "uwsgi_workers", 0);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    uwsgi_handler("not-json{{{", 11, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "uwsgi_up", "uwsgi_up", 0);
+    free(carg);
+}
+
+void api_test_parser_php_fpm() {
+    context_arg *carg = calloc(1, sizeof(*carg));
+    php_fpm_handler("not-json{{{", 11, carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "php_fpm_up", "php_fpm_up", 0);
+    free(carg);
+
+    carg = calloc(1, sizeof(*carg));
+    carg->is_http_query = 1;
+    carg->full_body = string_init_dup(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
+        "{\"pool\":\"www\",\"process manager\":\"dynamic\",\"start time\":1700000000,"
+        "\"start since\":100,\"accepted conn\":50,\"listen queue\":2,\"max listen queue\":5,"
+        "\"listen queue len\":128,\"idle processes\":3,\"active processes\":1,"
+        "\"total processes\":4,\"max active processes\":4,\"max children reached\":1,"
+        "\"slow requests\":7,\"memory peak\":2097152,"
+        "\"processes\":[{\"pid\":1,\"state\":\"Idle\"},{\"pid\":2,\"state\":\"Idle\"},"
+        "{\"pid\":3,\"state\":\"Running\"}]}");
+    carg->parser_handler = php_fpm_handler;
+
+    alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
+
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "php_fpm_up", "php_fpm_up", 1);
+    metric_test_run(CMP_EQUAL, "php_fpm_listen_queue", "php_fpm_listen_queue", 2);
+    metric_test_run(CMP_EQUAL, "php_fpm_idle_processes", "php_fpm_idle_processes", 3);
+    metric_test_run(CMP_EQUAL, "php_fpm_active_processes", "php_fpm_active_processes", 1);
+    metric_test_run(CMP_EQUAL, "php_fpm_accepted_connections_total", "php_fpm_accepted_connections_total", 50);
+    metric_test_run(CMP_EQUAL, "php_fpm_slow_requests_total", "php_fpm_slow_requests_total", 7);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"Idle\"}", "php_fpm_process_state", 2);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"Running\"}", "php_fpm_process_state", 1);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"Finishing\"}", "php_fpm_process_state", 0);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"Reading headers\"}", "php_fpm_process_state", 0);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"Waiting\"}", "php_fpm_process_state", 0);
+    metric_test_run(CMP_EQUAL, "php_fpm_process_state{pool=\"www\",state=\"other\"}", "php_fpm_process_state", 0);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->proto = APROTO_HTTP;
+    hi->host = strdup("127.0.0.1");
+    hi->query = "/status?json";
+    string *req = php_fpm_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, req);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req->s, "GET ") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(req->s, "show sess") == NULL);
+    string_free(req);
+    free(hi->host);
+    free(hi);
+    free(carg);
 }
 
 void api_test_parser_lighttpd() {
@@ -4653,6 +4714,9 @@ void api_test_parser_redis_info()
         "# Stats\r\ntotal_connections_received:1000\r\ntotal_commands_processed:5000\r\n";
     redis_handler(info_body, strlen(info_body), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "redis_cmdstat_calls_total{cmd=\"get\"}", "redis_cmdstat_calls_total", 10);
+    metric_test_run(CMP_GREATER, "redis_cmdstat_duration_seconds_total{cmd=\"get\"}", "redis_cmdstat_duration_seconds_total", 0);
+    metric_test_run(CMP_GREATER, "redis_cmdstat_duration_seconds{cmd=\"get\"}", "redis_cmdstat_duration_seconds", 0);
     free(carg);
 }
 

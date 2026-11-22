@@ -149,6 +149,7 @@ aggregate {
 - [haproxy](doc/ru/parsers/haproxy.md)
 - [blackbox](doc/ru/parsers/blackbox.md) ([walkthrough](doc/ru/blackbox.md))
 - [uwsgi](doc/ru/parsers/uwsgi.md)
+- [php-fpm](doc/ru/parsers/php-fpm.md)
 - [nats](doc/ru/parsers/nats.md)
 - [riak](doc/ru/parsers/riak.md)
 - [rabbitmq](doc/ru/parsers/rabbitmq.md)

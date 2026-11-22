@@ -4677,6 +4677,7 @@ static void run_parser_suites(char **argv)
     api_test_parser_beanstalkd();
     api_test_parser_beanstalkd_stats_tube();
     api_test_parser_uwsgi();
+    api_test_parser_php_fpm();
     api_test_parser_nats();
     api_test_parser_flower();
     api_test_parser_rabbitmq();

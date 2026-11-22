@@ -252,9 +252,9 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "redis_maxmemory_policy", METRIC_TYPE_GAUGE, "Redis maxmemory policy state.");
 	namespace_metric_family_set(NULL, carg, "redis_used_cpu", METRIC_TYPE_COUNTER, "Redis consumed CPU time by source.");
 	namespace_metric_family_set(NULL, carg, "redis_error_stat", METRIC_TYPE_COUNTER, "Redis error counters by stat label.");
-	namespace_metric_family_set(NULL, carg, "redis_cmdstat_calls", METRIC_TYPE_COUNTER, "Redis command call counters.");
-	namespace_metric_family_set(NULL, carg, "redis_cmdstat_usec", METRIC_TYPE_COUNTER, "Redis command time counters in microseconds.");
-	namespace_metric_family_set(NULL, carg, "redis_cmdstat_usec_per_call", METRIC_TYPE_GAUGE, "Redis average microseconds per command call.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_calls_total", METRIC_TYPE_COUNTER, "Redis command call counters.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_duration_seconds_total", METRIC_TYPE_COUNTER, "Redis cumulative command execution time in seconds.");
+	namespace_metric_family_set(NULL, carg, "redis_cmdstat_duration_seconds", METRIC_TYPE_GAUGE, "Redis average command execution time in seconds per call.");
 	namespace_metric_family_set(NULL, carg, "redis_keys", METRIC_TYPE_GAUGE, "Redis keys per logical database.");
 	namespace_metric_family_set(NULL, carg, "redis_expires", METRIC_TYPE_GAUGE, "Redis expiring keys per logical database.");
 	namespace_metric_family_set(NULL, carg, "redis_avg_ttl", METRIC_TYPE_GAUGE, "Redis average TTL per logical database.");
@@ -453,9 +453,11 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				if (!tmp2 || tmp2 >= end)
 					break;
 
-				metric_add_labels("redis_cmdstat_calls", &calls, DATATYPE_UINT, carg, "cmd", cmdname);
-				metric_add_labels("redis_cmdstat_usec", &usec, DATATYPE_UINT, carg, "cmd", cmdname);
-				metric_add_labels("redis_cmdstat_usec_per_call", &usec_per_call, DATATYPE_DOUBLE, carg, "cmd", cmdname);
+				double duration_seconds = (double)usec / 1000000.0;
+				double duration_per_call = usec_per_call / 1000000.0;
+				metric_add_labels("redis_cmdstat_calls_total", &calls, DATATYPE_UINT, carg, "cmd", cmdname);
+				metric_add_labels("redis_cmdstat_duration_seconds_total", &duration_seconds, DATATYPE_DOUBLE, carg, "cmd", cmdname);
+				metric_add_labels("redis_cmdstat_duration_seconds", &duration_per_call, DATATYPE_DOUBLE, carg, "cmd", cmdname);
 			}
 			if (tmp2 && tmp2 < end)
 				i = (uint64_t)(tmp2 - tmp);
