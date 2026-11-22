@@ -41,10 +41,12 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge | `mntr` | Numeric fields from the `mntr` output. Prometheus `{label="value"}` sets on the `mntr` line become labels (not part of the metric name). |
+| `zk_*` | gauge/counter | `mntr` | Numeric fields from the `mntr` output. Prometheus `{label="value"}` sets on the `mntr` line become labels (not part of the metric name). Well-known renames: `zk_avg_latency`→`zk_avg_latency_ms`, `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
 | `zk_mode` | gauge | `mntr` | Node role: `standalone`, `follower`, or `leader`. |
-| `zk_readwrite` | gauge | `isro` | Read/write mode: `ro`, `rw`, or `null`. |
-| `zk_total_watches` | gauge | `wchs` | Total number of watches. |
+| `zk_up` | gauge | `mntr` | 1 if the last `mntr` scrape produced data. |
+| `zk_read_only` | gauge | `isro` | 1 if ZooKeeper answered `ro`. |
+| `zk_isro_status` | gauge | `isro` | `isro` response as `status` label (`ro`/`rw`/`null`). |
+| `zk_watches` | gauge | `wchs` | Total number of watches. |
 
 All exported families include Prometheus `# HELP` and `# TYPE gauge` metadata.
 

@@ -42,7 +42,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "unbound_total_recursion_time_avg{host=~\"$host\"}",
+                      "expr": "unbound_recursion_time_seconds_avg{host=~\"$host\"}",
                       "format": "time_series",
                       "instant": false,
                       "intervalFactor": 1,
@@ -166,7 +166,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "unbound_mem_cache{host=~\"$host\", cache=\"message\"}",
+                      "expr": "unbound_memory_caches_bytes{host=~\"$host\", cache=\"message\"}",
                       "legendFormat": "DNS Answers cache",
                       "range": true
                     },
@@ -187,7 +187,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "unbound_mem_cache{host=~\"$host\", cache=\"rrset\"}",
+                      "expr": "unbound_memory_caches_bytes{host=~\"$host\", cache=\"rrset\"}",
                       "instant": false,
                       "legendFormat": "DNS records cache",
                       "range": true
@@ -209,7 +209,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(unbound_mem_cache{host=~\"$host\"})",
+                      "expr": "sum(unbound_memory_caches_bytes{host=~\"$host\"})",
                       "instant": false,
                       "legendFormat": "Total Cache",
                       "range": true
@@ -334,8 +334,8 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_flags{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{flags}}",
+                      "expr": "irate(unbound_query_flags_total{host=~\"$host\"}[$__rate_interval])",
+                      "legendFormat": "{{flag}}",
                       "range": true
                     },
                     "version": "v0"
@@ -355,7 +355,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_edns{host=~\"$host\",edns=\"present\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_present_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "EDNS OPT",
                       "range": true
                     },
@@ -376,7 +376,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_edns{host=~\"$host\",edns=\"DO\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_DO_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "DO (DNSSEC OK)",
                       "range": true
                     },
@@ -502,7 +502,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_answer_rcode{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_answer_rcodes_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "{{rcode}}",
                       "range": true
                     },
@@ -660,7 +660,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_type{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_types_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "{{type}}",
                       "range": true
                     },
@@ -750,7 +750,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_answer_rcode{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_answer_rcodes_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "{{rcode}}",
                       "range": true
                     },
@@ -900,8 +900,8 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_flags{host=~\"$host\"}[$__rate_interval])",
-                      "legendFormat": "{{flags}}",
+                      "expr": "irate(unbound_query_flags_total{host=~\"$host\"}[$__rate_interval])",
+                      "legendFormat": "{{flag}}",
                       "range": true
                     },
                     "version": "v0"
@@ -921,7 +921,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_edns{host=~\"$host\",edns=\"present\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_present_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "EDNS OPT",
                       "range": true
                     },
@@ -942,7 +942,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_edns{host=~\"$host\",edns=\"DO\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_DO_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "DO (DNSSEC OK)",
                       "range": true
                     },
@@ -1031,7 +1031,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "increase(unbound_num_query{host=~\"$host\",query=\"tcp\"}[$__range])",
+                      "expr": "increase(unbound_query_tcp_total{host=~\"$host\"}[$__range])",
                       "range": true
                     },
                     "version": "v0"
@@ -1557,7 +1557,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "increase(unbound_num_query{host=~\"$host\",query=\"tcpout\"}[$__range])",
+                      "expr": "increase(unbound_query_tcpout_total{host=~\"$host\"}[$__range])",
                       "range": true
                     },
                     "version": "v0"
@@ -1963,7 +1963,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "increase(unbound_unwanted_queries{host=~\"$host\"}[$__range])",
+                      "expr": "increase(unbound_unwanted_queries_total{host=~\"$host\"}[$__range])",
                       "range": true
                     },
                     "version": "v0"
@@ -2050,7 +2050,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(unbound_mem_cache{host=~\"$host\"})",
+                      "expr": "sum(unbound_memory_caches_bytes{host=~\"$host\"})",
                       "range": true
                     },
                     "version": "v0"
@@ -2137,7 +2137,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_num_query_type{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_types_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "{{type}}",
                       "range": true
                     },
@@ -2534,7 +2534,7 @@
           "text": "srv1.example.com",
           "value": "srv1.example.com"
         },
-        "definition": "label_values(unbound_uptime,host)",
+        "definition": "label_values(unbound_time_up_seconds_total,host)",
         "hide": "dontHide",
         "includeAll": false,
         "label": "host",
@@ -2546,7 +2546,7 @@
           "kind": "DataQuery",
           "spec": {
             "qryType": 1,
-            "query": "label_values(unbound_uptime,host)",
+            "query": "label_values(unbound_time_up_seconds_total,host)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "version": "v0"

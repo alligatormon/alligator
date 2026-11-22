@@ -41,6 +41,8 @@ maillog
 src/build-test/
 src/default.profdata
 src/default.profraw
+default.profraw
+default.profdata
 src/external/conanbuild.sh
 src/external/conanbuildenv.sh
 src/external/conanrun.sh

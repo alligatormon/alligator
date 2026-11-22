@@ -39,7 +39,12 @@ aggregate {
 
 ### Metrics
 
-Examples: `unbound_uptime`, `unbound_cache_count{cache=…}`, `unbound_num_rrset_bogus`, `unbound_unwanted_{queries,replies}`, `unbound_recursion_time_avg`, `unbound_duration_microseconds`.
+Names follow [unbound_exporter](https://github.com/letsencrypt/unbound_exporter) where practical:
+
+- Histogram (cumulative): `unbound_response_time_seconds_{bucket,sum,count}` with `le` in **seconds** (Unbound’s non-cumulative `histogram.*.to.*` buckets are converted; sum ≈ avg × count)
+- Timing gauges: `unbound_recursion_time_seconds_{avg,median}`
+- Counters: `unbound_queries_total{thread}`, `unbound_cache_hits_total{thread}`, `unbound_unwanted_queries_total`, `unbound_rrset_bogus_total`, `unbound_answer_rcodes_total{rcode}`, …
+- Gauges: `unbound_cache_count{cache}`, `unbound_memory_caches_bytes{cache}`, `unbound_time_up_seconds_total`, `unbound_up`
 
 ## Dashboard
 

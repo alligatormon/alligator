@@ -371,7 +371,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "min by (node) (rabbitmq_nodes_uptime{instance=~\"$instance\"})",
+          "expr": "min by (node) (rabbitmq_node_uptime{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ node }}",
           "range": true,
@@ -472,7 +472,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_mem_used{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_mem_used{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ node }} read",
           "range": true,
@@ -573,7 +573,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(rabbitmq_nodes_cluster_links{instance=~\"$instance\"}[$interval])",
+          "expr": "rate(rabbitmq_node_cluster_link_recv_bytes_total{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ instance }} {{ type }} {{ dst }} {{ node }}",
           "range": true,
@@ -674,7 +674,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(rabbitmq_nodes_gc_bytes_reclaimed{instance=~\"$instance\"}[$interval])",
+          "expr": "rate(rabbitmq_node_gc_bytes_reclaimed{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ instance }} {{ node }}",
           "range": true,
@@ -775,7 +775,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(rabbitmq_nodes_gc_num{instance=~\"$instance\"}[$interval])",
+          "expr": "rate(rabbitmq_node_gc_num{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ instance }} {{ node }}",
           "range": true,
@@ -889,7 +889,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_disk_free{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_disk_free{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "range": true,
@@ -990,7 +990,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_fd_used{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_fd_used{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}",
           "range": true,
@@ -1091,7 +1091,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "irate(rabbitmq_nodes_io_read_bytes{instance=~\"$instance\"}[$interval])",
+          "expr": "irate(rabbitmq_node_io_read_bytes{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ node }} read",
           "range": true,
@@ -1103,7 +1103,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(rabbitmq_nodes_io_write_bytes{instance=~\"$instance\"}[$interval])",
+          "expr": "rate(rabbitmq_node_io_write_bytes{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ node }} write",
           "range": true,
@@ -1204,7 +1204,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rate(rabbitmq_nodes_io_file_handle_open_attempt_count{instance=~\"$instance\"}[$interval])",
+          "expr": "rate(rabbitmq_node_io_file_handle_open_attempt_count{instance=~\"$instance\"}[$interval])",
           "interval": "",
           "legendFormat": "{{ instance }} {{ node }}",
           "range": true,
@@ -1305,7 +1305,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_io_file_handle_open_attempt_avg_time{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_io_file_handle_open_attempt_avg_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }} {{ node }}",
           "range": true,
@@ -1406,7 +1406,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_io_read_avg_time{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_io_read_avg_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ node }} read",
           "range": true,
@@ -1418,7 +1418,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_io_seek_avg_time{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_io_seek_avg_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ node }} seek",
           "range": true,
@@ -1430,7 +1430,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_io_sync_avg_time{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_io_sync_avg_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ node }} sync",
           "range": true,
@@ -1442,7 +1442,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_nodes_io_write_avg_time{instance=~\"$instance\"}",
+          "expr": "rabbitmq_node_io_write_avg_time{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ node }} write",
           "range": true,
@@ -1556,7 +1556,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "avg by (node) (rabbitmq_vhosts_cluster_state{instance=~\"$instance\"})",
+          "expr": "avg by (node) (rabbitmq_vhost_cluster_state{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ instance }}{{name}} {{ node }}",
           "range": true,
@@ -1657,7 +1657,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_vhosts_cluster_size{instance=~\"$instance\"}",
+          "expr": "rabbitmq_vhost_cluster_size{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{name}}",
           "range": true,
@@ -1759,7 +1759,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_vhosts_cluster_state{instance=~\"$instance\"}",
+          "expr": "rabbitmq_vhost_cluster_state{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{ name }} <> {{ node }}",
           "range": true,
@@ -2022,7 +2022,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_recv_oct{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_recv_oct{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -2222,7 +2222,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_gc_minor_gcs{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_gc_minor_gcs{instance=~\"$instance\"}",
           "hide": false,
           "interval": "",
           "legendFormat": "minor_gcs {{ instance }} {{ peer }}",
@@ -2324,7 +2324,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_recv_cnt{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_recv_cnt{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -2526,7 +2526,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_reductions{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_reductions{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -2627,7 +2627,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_send_cnt{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_send_cnt{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -2728,7 +2728,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_send_pend{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_send_pend{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -2829,7 +2829,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_send_oct{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_send_oct{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ user }}@{{ instance }}{{vhost}} {{ peer }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -3031,7 +3031,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_connections_channels{instance=~\"$instance\"}",
+          "expr": "rabbitmq_connection_channels{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }} {{ protocol }} {{ auth_mechanism }}",
           "range": true,
@@ -3141,7 +3141,7 @@
         {
           "editorMode": "code",
           "exemplar": false,
-          "expr": "rabbitmq_queues_state{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_up{instance=~\"$instance\"}",
           "format": "time_series",
           "instant": false,
           "legendFormat": "{{instance}} queues={{name}}",
@@ -3242,7 +3242,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_queues_consumers{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_consumers{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{vhost}} {{name }} consumers",
           "range": true,
@@ -3254,7 +3254,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_queues_durable{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_durable{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{vhost}} {{name }} durable",
           "range": true,
@@ -3266,7 +3266,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_queues_exclusive{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_exclusive{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{vhost}} {{name }} exclusive",
           "range": true,
@@ -3367,7 +3367,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, vhost) (rabbitmq_queues_message_bytes_unacknowledged{instance=~\"$instance\"})",
+          "expr": "sum by (name, vhost) (rabbitmq_queue_message_bytes_unacknowledged{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ name }}{{vhost}} unacknowledged",
           "range": true,
@@ -3468,7 +3468,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "avg by (name, vhost) (rate(rabbitmq_queues_reductions{instance=~\"$instance\"}[135s]))",
+          "expr": "avg by (name, vhost) (rate(rabbitmq_queue_reductions{instance=~\"$instance\"}[135s]))",
           "interval": "",
           "legendFormat": "{{ name }}{{vhost}}",
           "range": true,
@@ -3682,7 +3682,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, vhost) (rabbitmq_queues_messages_unacknowledged{instance=~\"$instance\"})",
+          "expr": "sum by (name, vhost) (rabbitmq_queue_messages_unacknowledged{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ name }}{{vhost}} unacknowledged",
           "range": true,
@@ -3694,7 +3694,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (name, vhost) (rabbitmq_queues_messages_unacknowledged_ram{instance=~\"$instance\"})",
+          "expr": "sum by (name, vhost) (rabbitmq_queue_messages_unacknowledged_ram{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ name }}{{vhost}} unacknowledged_ram",
           "range": true,
@@ -3795,14 +3795,14 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "avg by (name, vhost) (rabbitmq_queues_synchronised_slave_nodes_size{instance=~\"$instance\"})",
+          "expr": "avg by (name, vhost) (rabbitmq_queue_synchronised_slave_nodes{instance=~\"$instance\"})",
           "interval": "",
           "legendFormat": "{{ name }}{{vhost}}",
           "range": true,
           "refId": "E"
         }
       ],
-      "title": "Queue synchronised_slave_nodes_size",
+      "title": "Queue synchronised_slave_nodes",
       "type": "timeseries"
     },
     {
@@ -3890,7 +3890,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(rabbitmq_queues_backing_queue_status_avg_ack_ingress_rate{instance=~\"$instance\"}[$interval]))",
+          "expr": "sum(rate(rabbitmq_queue_backing_avg_ack_ingress_rate{instance=~\"$instance\"}[$interval]))",
           "legendFormat": "{{instance}} {{name}}",
           "range": true,
           "refId": "A"
@@ -3990,7 +3990,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_queues_backing_queue_status_avg_ack_egress_rate{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_backing_avg_ack_egress_rate{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{vhost}} {{name }} egress",
           "range": true,
@@ -4002,7 +4002,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_queues_backing_queue_status_avg_ack_ingress_rate{instance=~\"$instance\"}",
+          "expr": "rabbitmq_queue_backing_avg_ack_ingress_rate{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }}{{vhost}} {{name }} inress",
           "range": true,
@@ -4116,7 +4116,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_exchanges_internal{instance=~\"$instance\"}",
+          "expr": "rabbitmq_exchange_internal{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }} {{type}}:{{name}}",
           "range": true,
@@ -4217,7 +4217,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "rabbitmq_exchanges_durable{instance=~\"$instance\"}",
+          "expr": "rabbitmq_exchange_durable{instance=~\"$instance\"}",
           "interval": "",
           "legendFormat": "{{ instance }} {{type}}:{{name}}",
           "range": true,

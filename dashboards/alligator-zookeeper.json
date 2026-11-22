@@ -1010,7 +1010,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_packets_received{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "rate(zk_packets_received_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "recv {{host}}",
                       "range": true
                     },
@@ -1031,7 +1031,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(zk_packets_sent{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "rate(zk_packets_sent_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "sent {{host}}",
                       "range": true
                     },
@@ -1174,7 +1174,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_avg_latency{host=~\"$host\"}",
+                      "expr": "zk_avg_latency_ms{host=~\"$host\"}",
                       "legendFormat": "avg {{host}}",
                       "range": true
                     },
@@ -3706,7 +3706,7 @@
           "text": "srv1.example.com",
           "value": "srv1.example.com"
         },
-        "definition": "label_values(zk_avg_latency,host)",
+        "definition": "label_values(zk_avg_latency_ms,host)",
         "hide": "dontHide",
         "includeAll": false,
         "label": "host",
@@ -3718,7 +3718,7 @@
           "kind": "DataQuery",
           "spec": {
             "qryType": 1,
-            "query": "label_values(zk_avg_latency,host)",
+            "query": "label_values(zk_avg_latency_ms,host)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "version": "v0"

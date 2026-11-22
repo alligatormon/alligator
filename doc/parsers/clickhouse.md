@@ -1,5 +1,12 @@
 ## Clickhouse
 
+Metric naming (OpenMetrics-style):
+
+- `system.metrics` → `clickhouse_metrics_<Name>`
+- `system.asynchronous_metrics` → `clickhouse_async_metrics_<Name>`
+- `system.events` → `clickhouse_profile_events_<Name>_total` (counter)
+- table/column/merge/dictionary/replica SQL dumps → dedicated families (`clickhouse_table_*_bytes`, `clickhouse_column_*`, `clickhouse_merge_*`, `clickhouse_dictionary_*`, `clickhouse_replica_*`) instead of `Clickhouse_*_Stats{type=…}`
+
 To enable the collection of statistics from CH, use the following option:
 ### over HTTP socket
 ```

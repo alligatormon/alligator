@@ -14,9 +14,50 @@
 #define ZK_LABEL_SIZE 255
 #define ZK_MAX_LABELS 16
 
-static inline void zookeeper_metric_set(context_arg *carg, const char *metric_name)
+static inline void zookeeper_metric_set(context_arg *carg, const char *metric_name, uint8_t type)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "ZooKeeper exported metric value.");
+	namespace_metric_family_set(NULL, carg, metric_name, type, "ZooKeeper exported metric value.");
+}
+
+/* Rename/select TYPE for well-known mntr fields; returns 1 if name was rewritten in-place. */
+static uint8_t zookeeper_normalize_metric_name(char *name, size_t sz, uint8_t *type_out)
+{
+	*type_out = METRIC_TYPE_GAUGE;
+	if (!strcmp(name, "zk_avg_latency") || !strcmp(name, "zk_min_latency") || !strcmp(name, "zk_max_latency"))
+	{
+		size_t n = strlen(name);
+		if (n + 3 < sz) {
+			memcpy(name + n, "_ms", 4);
+			return 1;
+		}
+	}
+	else if (!strcmp(name, "zk_packets_received") || !strcmp(name, "zk_packets_sent"))
+	{
+		size_t n = strlen(name);
+		if (n + 6 < sz) {
+			memcpy(name + n, "_total", 7);
+			*type_out = METRIC_TYPE_COUNTER;
+			return 1;
+		}
+	}
+	else if (!strcmp(name, "zk_approximate_data_size"))
+	{
+		size_t n = strlen(name);
+		if (n + 6 < sz) {
+			memcpy(name + n, "_bytes", 7);
+			return 1;
+		}
+	}
+	else if (!strcmp(name, "zk_fsync_threshold_exceed_count"))
+	{
+		size_t n = strlen(name);
+		if (n + 6 < sz) {
+			memcpy(name + n, "_total", 7);
+			*type_out = METRIC_TYPE_COUNTER;
+			return 1;
+		}
+	}
+	return 0;
 }
 
 static void zookeeper_skip_ws(const char **p, const char *end)
@@ -92,16 +133,18 @@ static alligator_ht *zookeeper_parse_prom_labels(const char *start, const char *
 	return lbl;
 }
 
-static void zookeeper_emit_numeric(context_arg *carg, char *name, alligator_ht *lbl, const char *valstr, size_t vlen)
+static int zookeeper_emit_numeric(context_arg *carg, char *name, alligator_ht *lbl, const char *valstr, size_t vlen)
 {
 	int rc = metric_value_validator((char *)valstr, vlen);
 	if (!rc)
 	{
 		labels_hash_free(lbl);
-		return;
+		return 0;
 	}
 
-	zookeeper_metric_set(carg, name);
+	uint8_t mtype = METRIC_TYPE_GAUGE;
+	zookeeper_normalize_metric_name(name, ZK_NAME_SIZE, &mtype);
+	zookeeper_metric_set(carg, name, mtype);
 
 	if (rc == DATATYPE_INT)
 	{
@@ -119,18 +162,28 @@ static void zookeeper_emit_numeric(context_arg *carg, char *name, alligator_ht *
 		metric_add(name, lbl, &val, rc, carg);
 	}
 	else
+	{
 		labels_hash_free(lbl);
+		return 0;
+	}
+	return 1;
 }
 
 void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "zk_mode", METRIC_TYPE_GAUGE, "ZooKeeper node mode state.");
+	namespace_metric_family_set(NULL, carg, "zk_up", METRIC_TYPE_GAUGE, "1 if ZooKeeper mntr scrape succeeded.");
 
 	if (!metrics || !size)
+	{
+		int64_t up = 0;
+		metric_add_auto("zk_up", &up, DATATYPE_INT, carg);
 		return;
+	}
 
 	const char *p = metrics;
 	const char *end = metrics + size;
+	int got = 0;
 
 	while (p < end)
 	{
@@ -209,7 +262,7 @@ void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 				metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "follower");
 			else if (strstr(valp, "leader") == valp)
 				metric_add_labels("zk_mode", &val, DATATYPE_INT, carg, "mode", "leader");
-			carg->parser_status = 1;
+			got = 1;
 			p = line_end;
 			continue;
 		}
@@ -225,41 +278,50 @@ void zookeeper_mntr_handler(char *metrics, size_t size, context_arg *carg)
 		while (vlen && (valp[vlen - 1] == ' ' || valp[vlen - 1] == '\t'))
 			--vlen;
 
-		zookeeper_emit_numeric(carg, name, lbl, valp, vlen);
+		if (zookeeper_emit_numeric(carg, name, lbl, valp, vlen))
+			got = 1;
 		p = line_end;
 	}
+
+	int64_t up = got ? 1 : 0;
+	metric_add_auto("zk_up", &up, DATATYPE_INT, carg);
+	carg->parser_status = got ? 1 : 0;
 }
 void zookeeper_wchs_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "zk_total_watches", METRIC_TYPE_GAUGE, "ZooKeeper total watches.");
+	namespace_metric_family_set(NULL, carg, "zk_watches", METRIC_TYPE_GAUGE, "ZooKeeper total watches.");
 
 	char *cur = strstr(metrics, "Total watches:");
 	if (!cur)
 		return;
 	int64_t pvalue = strtoll(cur + 14, NULL, 10);
-	metric_add_auto("zk_total_watches", &pvalue, DATATYPE_INT, carg);
+	metric_add_auto("zk_watches", &pvalue, DATATYPE_INT, carg);
 	carg->parser_status = 1;
 }
 void zookeeper_isro_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "zk_readwrite", METRIC_TYPE_GAUGE, "ZooKeeper read/write mode state.");
+	namespace_metric_family_set(NULL, carg, "zk_read_only", METRIC_TYPE_GAUGE, "1 if ZooKeeper is in read-only mode.");
+	namespace_metric_family_set(NULL, carg, "zk_isro_status", METRIC_TYPE_GAUGE, "ZooKeeper isro response encoded as a state label.");
 
-	int64_t val = 1;
+	int64_t one = 1;
+	int64_t read_only = 0;
 	if (!strncmp(metrics, "ro", 2))
 	{
-		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "ro");
+		read_only = 1;
+		metric_add_labels("zk_isro_status", &one, DATATYPE_INT, carg, "status", "ro");
 		carg->parser_status = 0;
 	}
 	else if (!strncmp(metrics, "rw", 2))
 	{
-		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "rw");
+		metric_add_labels("zk_isro_status", &one, DATATYPE_INT, carg, "status", "rw");
 		carg->parser_status = 1;
 	}
 	else if (!strncmp(metrics, "null", 4))
 	{
-		metric_add_labels("zk_readwrite", &val, DATATYPE_INT, carg, "status", "null");
+		metric_add_labels("zk_isro_status", &one, DATATYPE_INT, carg, "status", "null");
 		carg->parser_status = 0;
 	}
+	metric_add_auto("zk_read_only", &read_only, DATATYPE_INT, carg);
 }
 
 string* zookeeper_mntr_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings)

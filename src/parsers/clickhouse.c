@@ -43,10 +43,12 @@ void table_struct_free(void *funcarg, void* arg)
 {
 	ch_table_kv *chtable = arg;
 	context_arg *carg = funcarg;
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Table_Stats", METRIC_TYPE_GAUGE, "ClickHouse aggregated table storage statistics.");
-	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_compressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_compressed_bytes");
-	metric_add_labels3("Clickhouse_Table_Stats", &chtable->data_uncompressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "data_uncompressed_bytes");
-	metric_add_labels3("Clickhouse_Table_Stats", &chtable->marks_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table, "type", "marks_bytes");
+	namespace_metric_family_set(NULL, carg, "clickhouse_table_data_compressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse table compressed data size in bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_table_data_uncompressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse table uncompressed data size in bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_table_marks_bytes", METRIC_TYPE_GAUGE, "ClickHouse table marks size in bytes.");
+	metric_add_labels2("clickhouse_table_data_compressed_bytes", &chtable->data_compressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table);
+	metric_add_labels2("clickhouse_table_data_uncompressed_bytes", &chtable->data_uncompressed_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table);
+	metric_add_labels2("clickhouse_table_marks_bytes", &chtable->marks_bytes, DATATYPE_INT, carg, "database", chtable->database, "table", chtable->table);
 
 	free(chtable->key);
 	free(chtable);
@@ -56,7 +58,7 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 {
 	string *str = string_new();
 	char metric_name[CLICKHOUSE_ASYNC_METRIC_SIZE];
-	strlcpy(metric_name, "Clickhouse_System_", 19);
+	strlcpy(metric_name, "clickhouse_metrics_", 20);
 	for (uint64_t i = 0; i < size; )
 	{
 		uint64_t len = strcspn(metrics + i, "\r\n");
@@ -67,9 +69,9 @@ void clickhouse_system_handler(char *metrics, size_t size, context_arg *carg)
 
 		double value;
 
-		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-20);
-		strlcpy(metric_name + 18, str->s, metric_name_size+1);
-		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 19)) {
+		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-21);
+		strlcpy(metric_name + 19, str->s, metric_name_size+1);
+		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 20)) {
 			i += len;
 			i += strspn(metrics + i, "\r\n");
 			continue;
@@ -93,7 +95,7 @@ void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_
 {
 	string *str = string_new();
 	char metric_name[CLICKHOUSE_ASYNC_METRIC_SIZE];
-	strlcpy(metric_name, "Clickhouse_Asynchronous_", 25);
+	strlcpy(metric_name, "clickhouse_async_metrics_", 26);
 	for (uint64_t i = 0; i < size; )
 	{
 		uint64_t len = strcspn(metrics + i, "\r\n");
@@ -154,9 +156,9 @@ void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_
 
 		double value;
 
-		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-26);
-		strlcpy(metric_name + 24, str->s, metric_name_size+1);
-		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 25)) {
+		size_t metric_name_size = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE-27);
+		strlcpy(metric_name + 25, str->s, metric_name_size+1);
+		if (!prometheus_metric_name_normalizer(metric_name, metric_name_size + 26)) {
 			i += len;
 			i += strspn(metrics + i, "\r\n");
 			continue;
@@ -178,13 +180,46 @@ void clickhouse_system_asynchronous_handler(char *metrics, size_t size, context_
 
 void clickhouse_system_events_handler(char *metrics, size_t size, context_arg *carg)
 {
-	plain_parse(metrics, size, "\t", "\r\n", "Clickhouse_Events_", 18, (void*)carg);
+	string *str = string_new();
+	char metric_name[CLICKHOUSE_ASYNC_METRIC_SIZE];
+	const char *prefix = "clickhouse_profile_events_";
+	size_t prefix_len = 26;
+
+	strlcpy(metric_name, prefix, prefix_len + 1);
+	for (uint64_t i = 0; i < size; )
+	{
+		uint64_t len = strcspn(metrics + i, "\r\n");
+		if (!len)
+			break;
+
+		string_copy(str, metrics + i, len);
+
+		size_t name_len = strcspn_n(str->s, " \t", CLICKHOUSE_ASYNC_METRIC_SIZE - prefix_len - 8);
+		strlcpy(metric_name + prefix_len, str->s, name_len + 1);
+		if (!prometheus_metric_name_normalizer(metric_name, prefix_len + name_len)) {
+			i += len;
+			i += strspn(metrics + i, "\r\n");
+			continue;
+		}
+		strlcpy(metric_name + prefix_len + name_len, "_total", 7);
+
+		size_t value_off = name_len + strspn(str->s + name_len, " \t");
+		double value = strtod(str->s + value_off, NULL);
+		namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_COUNTER, "ClickHouse system.events counter.");
+		metric_add_auto(metric_name, &value, DATATYPE_DOUBLE, carg);
+
+		i += len;
+		i += strspn(metrics + i, "\r\n");
+	}
+	string_free(str);
 	carg->parser_status = 1;
 }
 
 void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Column_Stats", METRIC_TYPE_GAUGE, "ClickHouse per-column storage statistics.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_column_data_compressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse per-column compressed data size in bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_column_data_uncompressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse per-column uncompressed data size in bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_column_marks_bytes", METRIC_TYPE_GAUGE, "ClickHouse per-column marks size in bytes.");
 
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -262,9 +297,9 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		metric_add_labels4("Clickhouse_Column_Stats", &data_compressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_compressed_bytes");
-		metric_add_labels4("Clickhouse_Column_Stats", &data_uncompressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "data_uncompressed_bytes");
-		metric_add_labels4("Clickhouse_Column_Stats", &marks_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column, "type", "marks_bytes");
+		metric_add_labels3("clickhouse_column_data_compressed_bytes", &data_compressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column);
+		metric_add_labels3("clickhouse_column_data_uncompressed_bytes", &data_uncompressed_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column);
+		metric_add_labels3("clickhouse_column_marks_bytes", &marks_bytes, DATATYPE_INT, carg, "database", database, "table", table, "column", column);
 
 		snprintf(key, 128, "%s:%s", database, table);
 		uint32_t key_hash = tommy_strhash_u32(0, key);
@@ -299,7 +334,14 @@ void clickhouse_columns_handler(char *metrics, size_t size, context_arg *carg)
 
 void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Merges_Stats", METRIC_TYPE_GAUGE, "ClickHouse merge and mutation progress statistics.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_progress", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation progress ratio.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_parts", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation parts count.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_size_compressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation compressed size in bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_size_marks", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation marks size.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_read_uncompressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation uncompressed bytes read.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_rows_read", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation rows read.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_written_uncompressed_bytes", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation uncompressed bytes written.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_merge_rows_written", METRIC_TYPE_GAUGE, "ClickHouse merge/mutation rows written.");
 
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -384,14 +426,14 @@ void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		metric_add_labels4("Clickhouse_Merges_Stats", &progress, DATATYPE_DOUBLE, carg, "database", database, "table", table, "mutation", is_mutation, "type", "progress");
-		metric_add_labels4("Clickhouse_Merges_Stats", &num_parts, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "num_parts");
-		metric_add_labels4("Clickhouse_Merges_Stats", &total_size_bytes_compressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "total_size_bytes_compressed");
-		metric_add_labels4("Clickhouse_Merges_Stats", &total_size_marks, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "total_size_marks");
-		metric_add_labels4("Clickhouse_Merges_Stats", &bytes_read_uncompressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "bytes_read_uncompressed");
-		metric_add_labels4("Clickhouse_Merges_Stats", &rows_read, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "rows_read");
-		metric_add_labels4("Clickhouse_Merges_Stats", &bytes_written_uncompressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "bytes_written_uncompressed");
-		metric_add_labels4("Clickhouse_Merges_Stats", &rows_written, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation, "type", "rows_written");
+		metric_add_labels3("clickhouse_merge_progress", &progress, DATATYPE_DOUBLE, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_parts", &num_parts, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_size_compressed_bytes", &total_size_bytes_compressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_size_marks", &total_size_marks, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_read_uncompressed_bytes", &bytes_read_uncompressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_rows_read", &rows_read, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_written_uncompressed_bytes", &bytes_written_uncompressed, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
+		metric_add_labels3("clickhouse_merge_rows_written", &rows_written, DATATYPE_INT, carg, "database", database, "table", table, "mutation", is_mutation);
 	}
 	free(database);
 	free(table);
@@ -401,8 +443,11 @@ void clickhouse_merges_handler(char *metrics, size_t size, context_arg *carg)
 
 void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Dictionary_Count", METRIC_TYPE_COUNTER, "ClickHouse dictionary counters.");
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Dictionary_Stats", METRIC_TYPE_GAUGE, "ClickHouse dictionary gauges.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_dictionary_queries_total", METRIC_TYPE_COUNTER, "ClickHouse dictionary query count.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_dictionary_elements", METRIC_TYPE_GAUGE, "ClickHouse dictionary element count.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_dictionary_allocated_bytes", METRIC_TYPE_GAUGE, "ClickHouse dictionary allocated bytes.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_dictionary_hit_ratio", METRIC_TYPE_GAUGE, "ClickHouse dictionary hit ratio.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_dictionary_load_factor", METRIC_TYPE_GAUGE, "ClickHouse dictionary load factor.");
 
 	int64_t i = 0;
 	char *name = malloc(CH_NAME_SIZE);
@@ -448,13 +493,11 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 		cur++;
 		i+=cur;
 
-		metric_add_labels2("Clickhouse_Dictionary_Count", &query_count, DATATYPE_INT, carg, "name", name, "type", "query");
-		metric_add_labels2("Clickhouse_Dictionary_Count", &element_count, DATATYPE_INT, carg, "name", name, "type", "element");
-
-		metric_add_labels2("Clickhouse_Dictionary_Stats", &bytes_allocated, DATATYPE_INT, carg, "name", name, "type", "bytes_allocated");
-
-		metric_add_labels2("Clickhouse_Dictionary_Stats", &hit_rate, DATATYPE_DOUBLE, carg, "name", name, "type", "hit_rate");
-		metric_add_labels2("Clickhouse_Dictionary_Stats", &load_factor, DATATYPE_DOUBLE, carg, "name", name, "type", "load_factor");
+		metric_add_labels("clickhouse_dictionary_queries_total", &query_count, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("clickhouse_dictionary_elements", &element_count, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("clickhouse_dictionary_allocated_bytes", &bytes_allocated, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("clickhouse_dictionary_hit_ratio", &hit_rate, DATATYPE_DOUBLE, carg, "name", name);
+		metric_add_labels("clickhouse_dictionary_load_factor", &load_factor, DATATYPE_DOUBLE, carg, "name", name);
 	}
 	free(name);
 	carg->parser_status = 1;
@@ -462,7 +505,18 @@ void clickhouse_dictionary_handler(char *metrics, size_t size, context_arg *carg
 
 void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "Clickhouse_Replicas_Stats", METRIC_TYPE_GAUGE, "ClickHouse replica health and queue statistics.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_is_leader", METRIC_TYPE_GAUGE, "1 if this ClickHouse replica is the leader.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_readonly", METRIC_TYPE_GAUGE, "1 if this ClickHouse replica is readonly.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_future_parts", METRIC_TYPE_GAUGE, "ClickHouse replica future parts.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_parts_to_check", METRIC_TYPE_GAUGE, "ClickHouse replica parts to check.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_queue_size", METRIC_TYPE_GAUGE, "ClickHouse replica queue size.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_inserts_in_queue", METRIC_TYPE_GAUGE, "ClickHouse replica inserts in queue.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_merges_in_queue", METRIC_TYPE_GAUGE, "ClickHouse replica merges in queue.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_log_max_index", METRIC_TYPE_GAUGE, "ClickHouse replica log max index.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_log_pointer", METRIC_TYPE_GAUGE, "ClickHouse replica log pointer.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_total", METRIC_TYPE_GAUGE, "ClickHouse total replicas.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_absolute_delay_seconds", METRIC_TYPE_GAUGE, "ClickHouse replica absolute delay in seconds.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replica_active", METRIC_TYPE_GAUGE, "ClickHouse active replicas.");
 
 	int64_t i = 0;
 	char *database = malloc(CH_NAME_SIZE);
@@ -555,18 +609,18 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		cur++;
 		i+=cur;
 
-		metric_add_labels3("Clickhouse_Replicas_Stats", &leader, DATATYPE_INT, carg, "database", database, "table", table, "role", "leader");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &readonly, DATATYPE_INT, carg, "database", database, "table", table, "role", "readonly");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &future_parts, DATATYPE_INT, carg, "database", database, "table", table, "type", "future_parts");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &parts_to_check, DATATYPE_INT, carg, "database", database, "table", table, "type", "parts_to_check");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &queue_size, DATATYPE_INT, carg, "database", database, "table", table, "type", "queue_size");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &inserts_in_queue, DATATYPE_INT, carg, "database", database, "table", table, "type", "inserts_in_queue");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &merges_in_queue, DATATYPE_INT, carg, "database", database, "table", table, "type", "merges_in_queue");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &log_max_index, DATATYPE_INT, carg, "database", database, "table", table, "type", "log_max_index");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &log_pointer, DATATYPE_INT, carg, "database", database, "table", table, "type", "log_pointer");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "total_replicas");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &absolute_delay, DATATYPE_INT, carg, "database", database, "table", table, "type", "absolute_delay");
-		metric_add_labels3("Clickhouse_Replicas_Stats", &active_replicas, DATATYPE_INT, carg, "database", database, "table", table, "type", "active_replicas");
+		metric_add_labels2("clickhouse_replica_is_leader", &leader, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_readonly", &readonly, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_future_parts", &future_parts, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_parts_to_check", &parts_to_check, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_queue_size", &queue_size, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_inserts_in_queue", &inserts_in_queue, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_merges_in_queue", &merges_in_queue, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_log_max_index", &log_max_index, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_log_pointer", &log_pointer, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_total", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_absolute_delay_seconds", &absolute_delay, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replica_active", &active_replicas, DATATYPE_INT, carg, "database", database, "table", table);
 	}
 	free(database);
 	free(table);

@@ -2,6 +2,13 @@
 
 ## Clickhouse
 
+Имена метрик (OpenMetrics):
+
+- `system.metrics` → `clickhouse_metrics_<Name>`
+- `system.asynchronous_metrics` → `clickhouse_async_metrics_<Name>`
+- `system.events` → `clickhouse_profile_events_<Name>_total` (counter)
+- table/column/merge/dictionary/replica → отдельные семьи (`clickhouse_table_*_bytes`, `clickhouse_replica_*`, …) вместо `Clickhouse_*_Stats{type=…}`
+
 Чтобы включить сбор статистики с CH, используйте следующую опцию:
 ### через HTTP-сокет
 ```

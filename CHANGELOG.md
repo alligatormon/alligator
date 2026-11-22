@@ -2,6 +2,12 @@ Changelog
 
 ## [unreleased]
 
+- Parsers (breaking metric renames toward OpenMetrics / exporter-style names):
+  - **Unbound:** histogram fixed for Prometheus (`unbound_duration_microseconds{bucket=µs}` → cumulative `unbound_response_time_seconds_{bucket,sum,count}` with `le` in seconds, like unbound_exporter); timing/counters renamed (`unbound_recursion_time_seconds_*`, `unbound_queries_total{thread}`, `unbound_unwanted_*_total`, `unbound_time_up_seconds_total`, `unbound_memory_caches_bytes`, …); added `unbound_up`.
+  - **ClickHouse:** `Clickhouse_System_*` → `clickhouse_metrics_*`; `Clickhouse_Asynchronous_*` → `clickhouse_async_metrics_*`; `Clickhouse_Events_*` → `clickhouse_profile_events_*_total` (counter); `Clickhouse_*_Stats{type=…}` split into dedicated families (`clickhouse_table_*_bytes`, `clickhouse_column_*`, `clickhouse_merge_*`, `clickhouse_dictionary_*`, `clickhouse_replica_*`).
+  - **HAProxy:** `haproxy_stat{type=…,name,svname}` → per-column families with labels `proxy`/`server` (`haproxy_bytes_in_total`, `haproxy_http_responses_total{code}`, `haproxy_server_up`, …); timings ms→seconds; `Haproxy_*` info → `haproxy_<lowercase>`; pool totals drop false `_total` (`haproxy_pools_allocated_bytes`); `haproxy_sess_count` → `haproxy_sessions`.
+  - **RabbitMQ:** plural prefixes → singular (`rabbitmq_nodes_*` → `rabbitmq_node_*`, `rabbitmq_queues_*` → `rabbitmq_queue_*`, …); `rabbitmq_*_state` → `rabbitmq_queue_up` / `rabbitmq_connection_up`; exchange publish → `rabbitmq_exchange_messages_published_{in,out}_total`; cluster links → `rabbitmq_node_cluster_link_{recv,sent}_bytes_total`.
+  - **ZooKeeper:** `zk_avg/min/max_latency` → `*_ms`; `zk_packets_{received,sent}` → `*_total`; `zk_approximate_data_size` → `*_bytes`; `zk_readwrite` → `zk_read_only` + `zk_isro_status`; `zk_total_watches` → `zk_watches`; added `zk_up`.
 - ICMP: drop legacy `icmp_entrypoint_read` (always `1` on `/probe` oneshots; redundant with `alligator_icmp_*_total` for scheduled blackbox). `read_counter` remains an internal lifecycle flag.
 - Fix: ICMP `uv_getaddrinfo` in-flight oneshots set `lock`/`dns_awaiting` so a second `GET /probe` does not `smart_aggregator_del`+`carg_free` the carg before `icmp_resolved` (event-loop UAF). Delete during resolve is deferred until the resolve callback.
 - Probe: optional `namespace` on `probe { … }` stores `/probe` results in that metric namespace (write + OpenMetrics export). Default remains `default`. See `doc/probe.md`.
@@ -21,6 +27,7 @@ Changelog
 
 Host metric renames in this release (old name is gone):
 
+- ClickHouse / HAProxy / RabbitMQ / ZooKeeper service parser renames (see unreleased parser bullet above)
 - `postgresql_error` → `postgresql_errors_total` (counter; accumulates by `name`,`reason`)
 - `cpu_usage_time` → `cpu_time_seconds_total`
 - `cpu_usage_core_seconds_total` → `cpu_time_core_seconds_total`

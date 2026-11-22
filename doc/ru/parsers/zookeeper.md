@@ -43,10 +43,12 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge | `mntr` | Числовые поля из вывода `mntr`. Наборы Prometheus `{label="value"}` в строке `mntr` становятся лейблами (не частью имени метрики). |
+| `zk_*` | gauge/counter | `mntr` | Числовые поля из `mntr`. Prometheus `{label="value"}` становятся лейблами. Известные переименования: `zk_avg_latency`→`zk_avg_latency_ms`, `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
 | `zk_mode` | gauge | `mntr` | Роль узла: `standalone`, `follower` или `leader`. |
-| `zk_readwrite` | gauge | `isro` | Режим чтения/записи: `ro`, `rw` или `null`. |
-| `zk_total_watches` | gauge | `wchs` | Общее число watches. |
+| `zk_up` | gauge | `mntr` | 1, если последний scrape `mntr` вернул данные. |
+| `zk_read_only` | gauge | `isro` | 1, если ZooKeeper ответил `ro`. |
+| `zk_isro_status` | gauge | `isro` | Ответ `isro` как лейбл `status` (`ro`/`rw`/`null`). |
+| `zk_watches` | gauge | `wchs` | Общее число watches. |
 
 Все экспортируемые семейства включают метаданные Prometheus `# HELP` и `# TYPE gauge`.
 

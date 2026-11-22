@@ -31,4 +31,10 @@ aggregate {
 
 ### Metrics
 
-Колонки CSV `show stat` и пары `show info` становятся метриками `haproxy_*` (строки frontend/backend/server и info процесса).
+Колонки CSV `show stat` экспортируются отдельными OpenMetrics-семействами (не одной `haproxy_stat{type=…}`), с лейблами `proxy` и `server`:
+
+- counters: `haproxy_sessions_total`, `haproxy_bytes_in_total`, `haproxy_http_responses_total{code=…}`, …
+- gauges: `haproxy_current_sessions`, `haproxy_weight`, `haproxy_server_up`, …
+- тайминги из CSV (мс) конвертируются в секунды: `haproxy_*_time_average_seconds`, `haproxy_check_duration_seconds`
+
+`show info` → `haproxy_<lowercase_key>` (например `haproxy_connrate`). Pools: `haproxy_pool_*` / `haproxy_pools_*`. `show sess`: `haproxy_sessions`.
