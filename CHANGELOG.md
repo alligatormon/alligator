@@ -15,6 +15,7 @@ Changelog
   - **Redis:** `redis_latency_stat_ms` → `redis_latency_stat_seconds` (ms→seconds).
   - **Patroni:** `patroni_cluster_{receive_lag,replay_lag,lag}` → `*_bytes` (WAL lag is bytes, not time).
   - **Nginx:** added `nginx_up` for stub_status scrape success.
+  - **Nginx upstream check:** flush last upstream group (live/dead/percent were dropped at EOF); renames `nginx_upstream_upstream_{live,dead}{_count,_percent}` → `nginx_upstream_{live,dead}{_percent}`; `nginx_upstream_check_{rise,fall}_count` stay (current success/failure streak, not config thresholds); added `nginx_upstream_check_up`. Grafana: `dashboards/alligator-nginx-upstream-check.json`.
 - ICMP: drop legacy `icmp_entrypoint_read` (always `1` on `/probe` oneshots; redundant with `alligator_icmp_*_total` for scheduled blackbox). `read_counter` remains an internal lifecycle flag.
 - Fix: ICMP `uv_getaddrinfo` in-flight oneshots set `lock`/`dns_awaiting` so a second `GET /probe` does not `smart_aggregator_del`+`carg_free` the carg before `icmp_resolved` (event-loop UAF). Delete during resolve is deferred until the resolve callback.
 - Probe: optional `namespace` on `probe { … }` stores `/probe` results in that metric namespace (write + OpenMetrics export). Default remains `default`. See `doc/probe.md`.
@@ -34,7 +35,7 @@ Changelog
 
 Host metric renames in this release (old name is gone):
 
-- ClickHouse / HAProxy / RabbitMQ / ZooKeeper / Redis / Patroni service parser renames (see unreleased parser bullet above); Nginx adds `nginx_up` (additive)
+- ClickHouse / HAProxy / RabbitMQ / ZooKeeper / Redis / Patroni / Nginx upstream check service parser renames (see unreleased parser bullet above); Nginx stub_status adds `nginx_up` (additive)
 - `postgresql_error` → `postgresql_errors_total` (counter; accumulates by `name`,`reason`)
 - `cpu_usage_time` → `cpu_time_seconds_total`
 - `cpu_usage_core_seconds_total` → `cpu_time_core_seconds_total`

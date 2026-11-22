@@ -90,4 +90,16 @@ aggregate {
 
 Handler **`nginx_upstream_check`** отделён от **`nginx`** (stub_status).
 
+### Метрики upstream check
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `nginx_upstream_check_up` | gauge | 1, если последний CSV scrape вернул хотя бы одну peer-строку |
+| `nginx_upstream_check_status{upstream,server,status,type}` | gauge | Состояние peer (`status=up\|down`) |
+| `nginx_upstream_live` / `nginx_upstream_dead` | gauge | Число live/dead peer на upstream |
+| `nginx_upstream_live_percent` / `nginx_upstream_dead_percent` | gauge | Доля live/dead на upstream |
+| `nginx_upstream_check_rise_count` / `nginx_upstream_check_fall_count` | gauge | Текущая серия успехов/неудач (сбрасывается при смене состояния peer) |
+
+Dashboard nginx upstream check для Grafana + Prometheus доступен по [ссылке](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-nginx-upstream-check.json)
+
 Для проверки сертификатов X509 в файловой системе см. описание в [контексте x509](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).

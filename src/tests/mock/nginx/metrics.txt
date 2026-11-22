@@ -464,10 +464,11 @@
 nginx_upstream_check_fall_count
 nginx_upstream_check_rise_count
 nginx_upstream_check_status
-nginx_upstream_upstream_dead_count
-nginx_upstream_upstream_dead_percent
-nginx_upstream_upstream_live_count
-nginx_upstream_upstream_live_percent
+nginx_upstream_check_up
+nginx_upstream_dead
+nginx_upstream_dead_percent
+nginx_upstream_live
+nginx_upstream_live_percent
 server="10.11.121.145:80",
 server="10.11.2.11:80",
 server="10.11.2.13:80",

@@ -159,6 +159,62 @@ void api_test_parser_nginx_stub_status()
     parser_push_roundtrip("nginx", nginx_parser_push);
 }
 
+void api_test_parser_nginx_upstream_check()
+{
+    /* Two upstream groups: last group must be flushed after EOF. */
+    char *msg =
+        "0,A,10.0.0.1:80,up,2,3,http,0\n"
+        "1,A,10.0.0.2:80,up,2,3,http,0\n"
+        "2,B,10.0.0.3:80,up,1,2,http,0\n"
+        "3,B,10.0.0.4:80,down,1,2,http,0\n";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    nginx_upstream_check_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_check_up", "nginx_upstream_check_up", 1);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_live{upstream=\"A\"}", "nginx_upstream_live", 2);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_dead{upstream=\"A\"}", "nginx_upstream_dead", 0);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_live_percent{upstream=\"A\"}", "nginx_upstream_live_percent", 100);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_live{upstream=\"B\"}", "nginx_upstream_live", 1);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_dead{upstream=\"B\"}", "nginx_upstream_dead", 1);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_live_percent{upstream=\"B\"}", "nginx_upstream_live_percent", 50);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_dead_percent{upstream=\"B\"}", "nginx_upstream_dead_percent", 50);
+    metric_test_run(CMP_EQUAL,
+        "nginx_upstream_check_status{upstream=\"B\",server=\"10.0.0.4:80\",status=\"down\",type=\"http\"}",
+        "nginx_upstream_check_status", 1);
+    metric_test_run(CMP_EQUAL,
+        "nginx_upstream_check_rise_count{upstream=\"A\",server=\"10.0.0.1:80\",type=\"http\"}",
+        "nginx_upstream_check_rise_count", 2);
+    metric_test_run(CMP_EQUAL,
+        "nginx_upstream_check_fall_count{upstream=\"A\",server=\"10.0.0.1:80\",type=\"http\"}",
+        "nginx_upstream_check_fall_count", 3);
+    free(carg);
+
+    /* Single upstream still emits group gauges (post-loop flush). */
+    char *one =
+        "0,solo,10.1.1.1:80,up,1,1,http,0\n"
+        "1,solo,10.1.1.2:80,down,1,1,http,0\n";
+    context_arg *one_carg = calloc(1, sizeof(*one_carg));
+    nginx_upstream_check_handler(one, strlen(one), one_carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, one_carg->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_live{upstream=\"solo\"}", "nginx_upstream_live", 1);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_dead{upstream=\"solo\"}", "nginx_upstream_dead", 1);
+    free(one_carg);
+
+    context_arg *bad = calloc(1, sizeof(*bad));
+    nginx_upstream_check_handler("not-csv", 7, bad);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bad->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_check_up", "nginx_upstream_check_up", 0);
+    free(bad);
+
+    context_arg *empty = calloc(1, sizeof(*empty));
+    nginx_upstream_check_handler(NULL, 0, empty);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, empty->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_upstream_check_up", "nginx_upstream_check_up", 0);
+    free(empty);
+
+    parser_push_roundtrip("nginx_upstream_check", nginx_upstream_check_parser_push);
+}
+
 void api_test_parser_fail2ban()
 {
     char *msg =

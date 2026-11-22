@@ -90,4 +90,16 @@ aggregate {
 
 Handler **`nginx_upstream_check`** is separate from **`nginx`** (stub_status).
 
+### Upstream check metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `nginx_upstream_check_up` | gauge | 1 if the last CSV scrape produced at least one peer row |
+| `nginx_upstream_check_status{upstream,server,status,type}` | gauge | Peer health (`status=up\|down`) |
+| `nginx_upstream_live` / `nginx_upstream_dead` | gauge | Live/dead peer counts per upstream |
+| `nginx_upstream_live_percent` / `nginx_upstream_dead_percent` | gauge | Live/dead percent per upstream |
+| `nginx_upstream_check_rise_count` / `nginx_upstream_check_fall_count` | gauge | Current consecutive success/failure streak (resets when the peer flips) |
+
+The nginx upstream check dashboard for Grafana + Prometheus is available at the following [link](https://github.com/alligatormon/alligator/tree/master/dashboards/alligator-nginx-upstream-check.json)
+
 For checking X509 certificates on the filesystem, please refer to the explanation provided in the x509 [context](https://github.com/alligatormon/alligator/blob/master/doc/x509.md).
