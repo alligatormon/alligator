@@ -4721,7 +4721,9 @@ static void run_parser_suites(char **argv)
     api_test_multicollector_empty_label_value();
     api_test_parser_redis_and_dynatrace();
     api_test_parser_redis_info();
+    api_test_parser_redis_latency_stat();
     api_test_parser_redis_query();
+    api_test_parser_patroni_cluster_lag_bytes();
     api_test_parser_json_and_named();
     api_test_parser_json_pquery();
     api_test_parser_named_extended();

@@ -55,7 +55,7 @@ query {
 | `redis_role` / `redis_master_link_status` | gauge | Состояние через лейблы |
 | Прочие числовые поля `INFO` | gauge | Fallback `redis_<field>` |
 
-Доп. handlers: `redis_cluster`, `redis_memory_stat`, `redis_latency_stat` (`redis_latency_stat_ms`), `redis_ping`.
+Доп. handlers: `redis_cluster`, `redis_memory_stat`, `redis_latency_stat` (`redis_latency_stat_seconds`, ms→секунды), `redis_ping`.
 
 Отдельного `redis_up` нет — для успеха scrape используйте `alligator_parser_ok{parser="redis"}` и session-метрики.
 

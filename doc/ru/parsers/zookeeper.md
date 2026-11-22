@@ -43,7 +43,7 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge/counter | `mntr` | Числовые поля из `mntr`. Prometheus `{label="value"}` становятся лейблами. Известные переименования: `zk_avg_latency`→`zk_avg_latency_ms`, `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
+| `zk_*` | gauge/counter | `mntr` | Числовые поля из `mntr`. Prometheus `{label="value"}` становятся лейблами. Известные переименования: `zk_{avg,min,max}_latency`→`zk_*_latency_seconds` (ms→секунды), `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
 | `zk_mode` | gauge | `mntr` | Роль узла: `standalone`, `follower` или `leader`. |
 | `zk_up` | gauge | `mntr` | 1, если последний scrape `mntr` вернул данные. |
 | `zk_read_only` | gauge | `isro` | 1, если ZooKeeper ответил `ro`. |
@@ -62,6 +62,8 @@ zk_server_state	leader
 zk_readlatency{quantile="0.5"}	0
 zk_jvm_buffer_pool_capacity_bytes{pool="direct"}	385546
 ```
+
+`zk_avg_latency` экспортируется как `zk_avg_latency_seconds` с конвертацией ms→секунды (например, `10` → `0.01`).
 
 Экспортируется как `zk_readlatency{quantile="0.5"}` и `zk_jvm_buffer_pool_capacity_bytes{pool="direct"}`, а не как сплющенные имена вида `zk_readlatency_quantile__0_5__`.
 

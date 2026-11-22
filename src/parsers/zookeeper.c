@@ -19,15 +19,18 @@ static inline void zookeeper_metric_set(context_arg *carg, const char *metric_na
 	namespace_metric_family_set(NULL, carg, metric_name, type, "ZooKeeper exported metric value.");
 }
 
-/* Rename/select TYPE for well-known mntr fields; returns 1 if name was rewritten in-place. */
-static uint8_t zookeeper_normalize_metric_name(char *name, size_t sz, uint8_t *type_out)
+/* Rename/select TYPE for well-known mntr fields; returns 1 if name was rewritten in-place.
+ * When *ms_to_sec_out is set, the raw mntr value is milliseconds and must be emitted as seconds. */
+static uint8_t zookeeper_normalize_metric_name(char *name, size_t sz, uint8_t *type_out, int *ms_to_sec_out)
 {
 	*type_out = METRIC_TYPE_GAUGE;
+	*ms_to_sec_out = 0;
 	if (!strcmp(name, "zk_avg_latency") || !strcmp(name, "zk_min_latency") || !strcmp(name, "zk_max_latency"))
 	{
 		size_t n = strlen(name);
-		if (n + 3 < sz) {
-			memcpy(name + n, "_ms", 4);
+		if (n + 8 < sz) {
+			memcpy(name + n, "_seconds", 9);
+			*ms_to_sec_out = 1;
 			return 1;
 		}
 	}
@@ -143,8 +146,16 @@ static int zookeeper_emit_numeric(context_arg *carg, char *name, alligator_ht *l
 	}
 
 	uint8_t mtype = METRIC_TYPE_GAUGE;
-	zookeeper_normalize_metric_name(name, ZK_NAME_SIZE, &mtype);
+	int ms_to_sec = 0;
+	zookeeper_normalize_metric_name(name, ZK_NAME_SIZE, &mtype, &ms_to_sec);
 	zookeeper_metric_set(carg, name, mtype);
+
+	if (ms_to_sec)
+	{
+		double val = strtod(valstr, NULL) / 1000.0;
+		metric_add(name, lbl, &val, DATATYPE_DOUBLE, carg);
+		return 1;
+	}
 
 	if (rc == DATATYPE_INT)
 	{

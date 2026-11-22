@@ -740,13 +740,13 @@ int8_t redis_memory_stat_validator(context_arg *carg, char *data, size_t size)
 
 void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "redis_latency_stat_ms", METRIC_TYPE_GAUGE, "Redis latency statistic in milliseconds.");
+	namespace_metric_family_set(NULL, carg, "redis_latency_stat_seconds", METRIC_TYPE_GAUGE,
+		"Redis LATENCY LATEST statistic (ms converted to seconds).");
 
 	char field[REDIS_NAME_SIZE];
 	char indicator[REDIS_NAME_SIZE];
 	char metric_name[REDIS_NAME_SIZE];
-	strlcpy(metric_name, "redis_latency_stat_ms", REDIS_NAME_SIZE);
-	int64_t metric_data;
+	strlcpy(metric_name, "redis_latency_stat_seconds", REDIS_NAME_SIZE);
 	uint64_t arg = 0;
 
 	char *tmp = strstr(metrics, "\r\n");
@@ -771,9 +771,9 @@ void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			if (arg == 1)
 			{
-				metric_data = strtoll(field + 1, NULL, 10);
-				carglog(carg, L_DEBUG, "metric: '%s', indicator: '%s', data: %"u64"\n", metric_name, indicator, metric_data);
-				metric_add_labels(metric_name, &metric_data, DATATYPE_INT, carg, "operation", indicator);
+				double seconds = strtoll(field + 1, NULL, 10) / 1000.0;
+				carglog(carg, L_DEBUG, "metric: '%s', indicator: '%s', data: %f\n", metric_name, indicator, seconds);
+				metric_add_labels(metric_name, &seconds, DATATYPE_DOUBLE, carg, "operation", indicator);
 			}
 			++arg;
 		}

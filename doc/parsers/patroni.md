@@ -35,4 +35,4 @@ Examples:
 - `patroni_cluster_unlocked`, `patroni_xlog_location`, `patroni_replication_sync_priority`
 - `patroni_role`, `patroni_state`
 - `patroni_settings_*`
-- `patroni_cluster_{members,receive_lag,replay_lag,lag}`
+- `patroni_cluster_members`, `patroni_cluster_{receive_lag,replay_lag,lag}_bytes` (WAL lag in bytes)

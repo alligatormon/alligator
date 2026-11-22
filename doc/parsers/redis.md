@@ -55,7 +55,7 @@ query {
 | `redis_role` / `redis_master_link_status` | gauge | Label-encoded state |
 | Other numeric `INFO` keys | gauge | Fallback `redis_<field>` |
 
-Additional handlers: `redis_cluster`, `redis_memory_stat`, `redis_latency_stat` (`redis_latency_stat_ms`), `redis_ping`.
+Additional handlers: `redis_cluster`, `redis_memory_stat`, `redis_latency_stat` (`redis_latency_stat_seconds`, ms→seconds), `redis_ping`.
 
 There is no dedicated `redis_up`; use `alligator_parser_ok{parser="redis"}` (and session metrics) for scrape success.
 

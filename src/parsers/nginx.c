@@ -11,7 +11,12 @@
 
 void nginx_handler(char *metrics, size_t size, context_arg *carg)
 {
+	namespace_metric_family_set(NULL, carg, "nginx_up", METRIC_TYPE_GAUGE,
+		"1 if the last Nginx stub_status scrape succeeded.");
+
 	if (!metrics || !size) {
+		uint64_t up = 0;
+		metric_add_auto("nginx_up", &up, DATATYPE_UINT, carg);
 		carg->parser_status = 0;
 		return;
 	}
@@ -27,6 +32,8 @@ void nginx_handler(char *metrics, size_t size, context_arg *carg)
 
 	char *copy = strndup(metrics, size);
 	if (!copy) {
+		uint64_t up = 0;
+		metric_add_auto("nginx_up", &up, DATATYPE_UINT, carg);
 		carg->parser_status = 0;
 		return;
 	}
@@ -43,6 +50,8 @@ void nginx_handler(char *metrics, size_t size, context_arg *carg)
 	free(copy);
 
 	if (!got_active && !got_counters) {
+		uint64_t up = 0;
+		metric_add_auto("nginx_up", &up, DATATYPE_UINT, carg);
 		carg->parser_status = 0;
 		return;
 	}
@@ -54,6 +63,8 @@ void nginx_handler(char *metrics, size_t size, context_arg *carg)
 	metric_add_auto("nginx_accepts_total", &accepts, DATATYPE_INT, carg);
 	metric_add_auto("nginx_handled_total", &handled, DATATYPE_INT, carg);
 	metric_add_auto("nginx_requests_total", &requests, DATATYPE_INT, carg);
+	uint64_t up = 1;
+	metric_add_auto("nginx_up", &up, DATATYPE_UINT, carg);
 	carg->parser_status = 1;
 }
 

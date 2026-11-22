@@ -222,19 +222,19 @@ void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg)
 
 		json_t *jreceive_lag = json_object_get(replicate, "receive_lag");
 		int64_t receive_lag = json_integer_value(jreceive_lag);
-		patroni_metric_set(carg, "patroni_cluster_receive_lag");
-		metric_add_labels4("patroni_cluster_receive_lag", &receive_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
+		patroni_metric_set(carg, "patroni_cluster_receive_lag_bytes");
+		metric_add_labels4("patroni_cluster_receive_lag_bytes", &receive_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 
 
 		json_t *jreplay_lag = json_object_get(replicate, "replay_lag");
 		int64_t replay_lag = json_integer_value(jreplay_lag);
-		patroni_metric_set(carg, "patroni_cluster_replay_lag");
-		metric_add_labels4("patroni_cluster_replay_lag", &replay_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
+		patroni_metric_set(carg, "patroni_cluster_replay_lag_bytes");
+		metric_add_labels4("patroni_cluster_replay_lag_bytes", &replay_lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 
 		json_t *jlag = json_object_get(replicate, "lag");
 		int64_t lag = json_integer_value(jlag);
-		patroni_metric_set(carg, "patroni_cluster_lag");
-		metric_add_labels4("patroni_cluster_lag", &lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
+		patroni_metric_set(carg, "patroni_cluster_lag_bytes");
+		metric_add_labels4("patroni_cluster_lag_bytes", &lag, DATATYPE_INT, carg, "state", state, "host", host, "port", port, "role", role);
 	}
 
 	json_decref(root);

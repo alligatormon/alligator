@@ -24,8 +24,11 @@ aggregate {
 
 ### Metrics
 
+- `nginx_up` — 1, если последний scrape stub_status успешен
 - `nginx_connections{state="active|reading|writing|waiting"}`
 - `nginx_accepts_total`, `nginx_handled_total`, `nginx_requests_total`
+
+У stub_status нет latency и HTTP status counters; для RED latency/errors используйте парсеры access-log (grok/mtail) или модули nginx Prometheus/VTS через `prometheus_metrics`.
 
 Имя handler — **`nginx`** (исходник `src/parsers/nginx.c`). Unit tests: [`src/tests/unit2/parsers.h`](../../../src/tests/unit2/parsers.h) (`api_test_parser_nginx_stub_status`).
 

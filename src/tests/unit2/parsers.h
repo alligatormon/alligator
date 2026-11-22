@@ -64,6 +64,8 @@ void otlp_logs_ingest_handler(string *response, http_reply_data *http_data, cons
 void dynatrace_response_catch(char *metrics, size_t size, context_arg *carg);
 void redis_query(char *metrics, size_t size, context_arg *carg);
 void redis_handler(char *metrics, size_t size, context_arg *carg);
+void redis_latency_stat_handler(char *metrics, size_t size, context_arg *carg);
+void patroni_cluster_handler(char *metrics, size_t size, context_arg *carg);
 void json_handler(char *metrics, size_t size, context_arg *carg);
 void named_handler(char *metrics, size_t size, context_arg *carg);
 void squid_counters_handler(char *metrics, size_t size, context_arg *carg);
@@ -139,12 +141,20 @@ void api_test_parser_nginx_stub_status()
     metric_test_run(CMP_EQUAL, "nginx_accepts_total", "nginx_accepts_total", 10);
     metric_test_run(CMP_EQUAL, "nginx_handled_total", "nginx_handled_total", 9);
     metric_test_run(CMP_EQUAL, "nginx_requests_total", "nginx_requests_total", 25);
+    metric_test_run(CMP_EQUAL, "nginx_up", "nginx_up", 1);
     free(carg);
 
     context_arg *bad = calloc(1, sizeof(*bad));
     nginx_handler("not stub_status", 15, bad);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, bad->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_up", "nginx_up", 0);
     free(bad);
+
+    context_arg *empty = calloc(1, sizeof(*empty));
+    nginx_handler(NULL, 0, empty);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, empty->parser_status);
+    metric_test_run(CMP_EQUAL, "nginx_up", "nginx_up", 0);
+    free(empty);
 
     parser_push_roundtrip("nginx", nginx_parser_push);
 }
@@ -1826,7 +1836,11 @@ void api_test_parser_zookeeper_dont_work() {
 void api_test_parser_zookeeper() {
     char *isro = "rw";
     char *wchs = "2 connections watching 13 paths\nTotal watches:15\n";
-    char *mntr = "zk_avg_latency\t10\nzk_server_state\tleader\n";
+    char *mntr =
+        "zk_avg_latency\t5000\n"
+        "zk_min_latency\t1000\n"
+        "zk_max_latency\t9000\n"
+        "zk_server_state\tleader\n";
     char *mntr_labels =
         "zk_avg_latency\t0.3539\n"
         "zk_server_state\tfollower\n"
@@ -1846,7 +1860,9 @@ void api_test_parser_zookeeper() {
     carg->parser_status = 0;
     zookeeper_mntr_handler(mntr, strlen(mntr), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "zk_avg_latency_ms", "zk_avg_latency_ms", 10);
+    metric_test_run(CMP_EQUAL, "zk_avg_latency_seconds", "zk_avg_latency_seconds", 5);
+    metric_test_run(CMP_EQUAL, "zk_min_latency_seconds", "zk_min_latency_seconds", 1);
+    metric_test_run(CMP_EQUAL, "zk_max_latency_seconds", "zk_max_latency_seconds", 9);
     metric_test_run(CMP_EQUAL, "zk_mode", "zk_mode", 1);
 
     carg->parser_status = 0;
@@ -1870,7 +1886,8 @@ void api_test_parser_zookeeper() {
     metric_str_build(NULL, out, 1, NULL);
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE zk_mode gauge\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP zk_avg_latency_ms ZooKeeper exported metric value.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP zk_avg_latency_seconds ZooKeeper exported metric value.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_avg_latency_seconds") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_readlatency{quantile=\"0.5\"}") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_jvm_buffer_pool_capacity_bytes{pool=\"direct\"}") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "zk_jvm_gc_collection_seconds_count{gc=\"PS MarkSweep\"}") != NULL);
@@ -4717,6 +4734,40 @@ void api_test_parser_redis_info()
     metric_test_run(CMP_EQUAL, "redis_cmdstat_calls_total{cmd=\"get\"}", "redis_cmdstat_calls_total", 10);
     metric_test_run(CMP_GREATER, "redis_cmdstat_duration_seconds_total{cmd=\"get\"}", "redis_cmdstat_duration_seconds_total", 0);
     metric_test_run(CMP_GREATER, "redis_cmdstat_duration_seconds{cmd=\"get\"}", "redis_cmdstat_duration_seconds", 0);
+    free(carg);
+}
+
+void api_test_parser_redis_latency_stat()
+{
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    /* LATENCY LATEST: event, timestamp, latency_ms, max_latency_ms — emit ms→seconds at arg==1 */
+    char latency_body[] = "*1\r\n*4\r\n$3\r\ncmd\r\n:111\r\n:5000\r\n:9000\r\n";
+    redis_latency_stat_handler(latency_body, strlen(latency_body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "redis_latency_stat_seconds{operation=\"cmd\"}", "redis_latency_stat_seconds", 5);
+    free(carg);
+}
+
+void api_test_parser_patroni_cluster_lag_bytes()
+{
+    /* patroni_settings is { char *node_name; } — layout-compatible local stand-in */
+    struct { char *node_name; } pset = { .node_name = "replica1" };
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    carg->data = &pset;
+    char *cluster =
+        "{\"members\":["
+        "{\"name\":\"leader1\",\"role\":\"leader\",\"state\":\"running\",\"host\":\"10.0.0.1\",\"port\":5432},"
+        "{\"name\":\"replica1\",\"role\":\"replica\",\"state\":\"streaming\",\"host\":\"10.0.0.2\",\"port\":5432,"
+        "\"receive_lag\":1000,\"replay_lag\":2000,\"lag\":3000}"
+        "]}";
+    patroni_cluster_handler(cluster, strlen(cluster), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "patroni_cluster_members", "patroni_cluster_members", 2);
+    metric_test_run(CMP_EQUAL, "patroni_cluster_receive_lag_bytes{host=\"10.0.0.2\",role=\"replica\"}", "patroni_cluster_receive_lag_bytes", 1000);
+    metric_test_run(CMP_EQUAL, "patroni_cluster_replay_lag_bytes{host=\"10.0.0.2\",role=\"replica\"}", "patroni_cluster_replay_lag_bytes", 2000);
+    metric_test_run(CMP_EQUAL, "patroni_cluster_lag_bytes{host=\"10.0.0.2\",role=\"replica\"}", "patroni_cluster_lag_bytes", 3000);
     free(carg);
 }
 

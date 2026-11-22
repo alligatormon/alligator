@@ -1153,7 +1153,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_min_latency{host=~\"$host\"}",
+                      "expr": "zk_min_latency_seconds{host=~\"$host\"}",
                       "legendFormat": "min {{host}}",
                       "range": true
                     },
@@ -1174,7 +1174,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_avg_latency_ms{host=~\"$host\"}",
+                      "expr": "zk_avg_latency_seconds{host=~\"$host\"}",
                       "legendFormat": "avg {{host}}",
                       "range": true
                     },
@@ -1195,7 +1195,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "zk_max_latency{host=~\"$host\"}",
+                      "expr": "zk_max_latency_seconds{host=~\"$host\"}",
                       "legendFormat": "max {{host}}",
                       "range": true
                     },
@@ -1266,11 +1266,11 @@
                     },
                     {
                       "color": "red",
-                      "value": 80
+                      "value": 0.08
                     }
                   ]
                 },
-                "unit": "ms"
+                "unit": "s"
               },
               "overrides": []
             },
@@ -3706,7 +3706,7 @@
           "text": "srv1.example.com",
           "value": "srv1.example.com"
         },
-        "definition": "label_values(zk_avg_latency_ms,host)",
+        "definition": "label_values(zk_avg_latency_seconds,host)",
         "hide": "dontHide",
         "includeAll": false,
         "label": "host",
@@ -3718,7 +3718,7 @@
           "kind": "DataQuery",
           "spec": {
             "qryType": 1,
-            "query": "label_values(zk_avg_latency_ms,host)",
+            "query": "label_values(zk_avg_latency_seconds,host)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "version": "v0"

@@ -41,7 +41,7 @@ query {
 
 | Metric | Type | Source | Description |
 |--------|------|--------|-------------|
-| `zk_*` | gauge/counter | `mntr` | Numeric fields from the `mntr` output. Prometheus `{label="value"}` sets on the `mntr` line become labels (not part of the metric name). Well-known renames: `zk_avg_latency`→`zk_avg_latency_ms`, `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
+| `zk_*` | gauge/counter | `mntr` | Numeric fields from the `mntr` output. Prometheus `{label="value"}` sets on the `mntr` line become labels (not part of the metric name). Well-known renames: `zk_{avg,min,max}_latency`→`zk_*_latency_seconds` (ms→seconds), `zk_packets_*`→`zk_packets_*_total`, `zk_approximate_data_size`→`zk_approximate_data_size_bytes`. |
 | `zk_mode` | gauge | `mntr` | Node role: `standalone`, `follower`, or `leader`. |
 | `zk_up` | gauge | `mntr` | 1 if the last `mntr` scrape produced data. |
 | `zk_read_only` | gauge | `isro` | 1 if ZooKeeper answered `ro`. |
@@ -60,6 +60,8 @@ zk_server_state	leader
 zk_readlatency{quantile="0.5"}	0
 zk_jvm_buffer_pool_capacity_bytes{pool="direct"}	385546
 ```
+
+`zk_avg_latency` is exported as `zk_avg_latency_seconds` with milliseconds converted to seconds (e.g. `10` → `0.01`).
 
 Exported as `zk_readlatency{quantile="0.5"}` and `zk_jvm_buffer_pool_capacity_bytes{pool="direct"}`, not flattened names like `zk_readlatency_quantile__0_5__`.
 
