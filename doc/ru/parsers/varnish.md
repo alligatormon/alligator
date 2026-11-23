@@ -29,7 +29,10 @@ aggregate {
 
 ### Metrics
 
-Каждый ключ varnishstat становится `varnish_<key>`, например:
+Каждый ключ varnishstat становится `varnish_<key>`. Counters (`flag=c`) получают суффикс `_total` и `TYPE counter`; gauges/bitmaps остаются gauges. HELP берётся из description varnishstat, если он есть.
 
-- `varnish_backend_*`, `varnish_cache_*`
-- `varnish_*_bodybytes`
+Примеры:
+
+- `varnish_cache_hit_total`, `varnish_backend_req_total`
+- `varnish_n_object`, `varnish_threads` (gauges)
+- `varnish_*_bodybytes_total`

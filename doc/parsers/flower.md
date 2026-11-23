@@ -26,9 +26,11 @@ See [`src/tests/system/flower/alligator.yaml`](../../src/tests/system/flower/all
 
 Cluster totals:
 
-- `flower_tasks_total_active`, `flower_tasks_total_processed`, `flower_tasks_total_failed`, `flower_tasks_total_succeeded`, `flower_tasks_total_retried`
+- `flower_cluster_tasks_active` (gauge)
+- `flower_cluster_tasks_{processed,failed,succeeded,retried}_total` (counters)
 
 Per worker:
 
 - `flower_worker_up`
-- `flower_tasks_{active,processed,failed,succeeded,retried}{worker=…}`
+- `flower_tasks_active{worker=…}` (gauge)
+- `flower_tasks_{processed,failed,succeeded,retried}_total{worker=…}` (counters)

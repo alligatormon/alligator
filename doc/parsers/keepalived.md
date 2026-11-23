@@ -7,6 +7,8 @@ aggregate {
 }
 ```
 
+Metrics from `/tmp/keepalived.stats` and `/tmp/keepalived.data` use lowercase `keepalived_*` / `keepalived_data_*` names. Stats-file numerics are counters with a `_total` suffix; data-file values are gauges unless the line is a `… counter N` field (exported as `*_total`).
+
 ### To collect statistics
 In addition to the common method of checking Keepalived, it also supports notifications about state changes. To configure this, specify the following configuration in the `vrrp_instance` context:
 ```

@@ -9,6 +9,8 @@ aggregate {
 }
 ```
 
+Метрики из `/tmp/keepalived.stats` и `/tmp/keepalived.data` — в lowercase `keepalived_*` / `keepalived_data_*`. Числа из stats — counters с `_total`; значения data — gauges, кроме строк `… counter N` (экспортируются как `*_total`).
+
 ### Сбор статистики
 Помимо обычного способа проверки Keepalived, также поддерживаются уведомления об изменении состояния. Для настройки укажите следующую конфигурацию в контексте `vrrp_instance`:
 ```

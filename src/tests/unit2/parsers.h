@@ -58,6 +58,7 @@ string* rabbitmq_vhosts_mesg(host_aggregator_info *hi, void *arg, void *env, voi
 int8_t beanstalkd_validator(context_arg *carg, char *data, size_t size);
 string* gdnsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* nsd_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
+string* powerdns_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 string* nginx_mesg(host_aggregator_info *hi, void *arg, void *env, void *proxy_settings);
 void dynatrace_metrics_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
 void otlp_logs_ingest_handler(string *response, http_reply_data *http_data, const char *configbody, context_arg *carg);
@@ -1679,6 +1680,76 @@ void api_test_parser_unbound() {
     free(carg);
 }
 
+void api_test_parser_powerdns() {
+    char *msg =
+        "["
+        "{\"name\":\"udp-answers-bytes\",\"type\":\"StatisticItem\",\"value\":\"12345\"},"
+        "{\"name\":\"tcp-answers-bytes\",\"type\":\"StatisticItem\",\"value\":\"678\"},"
+        "{\"name\":\"udp-queries\",\"type\":\"StatisticItem\",\"value\":\"99\"},"
+        "{\"name\":\"packetcache-size\",\"type\":\"StatisticItem\",\"value\":\"100\"},"
+        "{\"name\":\"packetcache-bytes\",\"type\":\"StatisticItem\",\"value\":\"2048\"},"
+        "{\"name\":\"uptime\",\"type\":\"StatisticItem\",\"value\":\"3600\"},"
+        "{\"name\":\"xfr-queue\",\"type\":\"StatisticItem\",\"value\":\"3\"},"
+        "{\"name\":\"latency\",\"type\":\"StatisticItem\",\"value\":\"42\"}"
+        "]";
+    context_arg *carg = calloc(1, sizeof(*carg));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, carg);
+    powerdns_handler(msg, strlen(msg), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+
+    /* Cumulative *answers-bytes → COUNTER + _total (not blanket *_bytes gauge). */
+    metric_test_run(CMP_EQUAL, "powerdns_udp_answers_bytes_total", "powerdns_udp_answers_bytes_total", 12345);
+    metric_test_run(CMP_EQUAL, "powerdns_tcp_answers_bytes_total", "powerdns_tcp_answers_bytes_total", 678);
+    metric_test_run(CMP_EQUAL, "powerdns_udp_queries_total", "powerdns_udp_queries_total", 99);
+    /* True gauges stay without _total. */
+    metric_test_run(CMP_EQUAL, "powerdns_packetcache_size", "powerdns_packetcache_size", 100);
+    metric_test_run(CMP_EQUAL, "powerdns_packetcache_bytes", "powerdns_packetcache_bytes", 2048);
+    metric_test_run(CMP_EQUAL, "powerdns_uptime", "powerdns_uptime", 3600);
+    metric_test_run(CMP_EQUAL, "powerdns_xfr_queue", "powerdns_xfr_queue", 3);
+    metric_test_run(CMP_EQUAL, "powerdns_latency", "powerdns_latency", 42);
+
+    string *out = string_init(8192);
+    metric_str_build(NULL, out, 1, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE powerdns_udp_answers_bytes_total counter\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE powerdns_packetcache_size gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE powerdns_packetcache_bytes gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE powerdns_xfr_queue gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE powerdns_uptime gauge\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "powerdns_udp_answers_bytes ") == NULL);
+    string_free(out);
+
+    host_aggregator_info *hi = calloc(1, sizeof(*hi));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
+    hi->host = strdup("127.0.0.1");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi->host);
+    hi->query = "";
+    string *pm = powerdns_mesg(hi, NULL, NULL, NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pm);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(pm->s, "/api/v1/servers/localhost/statistics") != NULL);
+    string_free(pm);
+    free(hi->host);
+    free(hi);
+
+    alligator_ht *saved_ctx = ac->aggregate_ctx;
+    ac->aggregate_ctx = alligator_ht_init(NULL);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ac->aggregate_ctx);
+    powerdns_parser_push();
+    aggregate_context *pctx = alligator_ht_search(ac->aggregate_ctx, actx_compare, "powerdns", tommy_strhash_u32(0, "powerdns"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, pctx);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, pctx->handlers);
+    assert_equal_string(__FILE__, __FUNCTION__, __LINE__, "powerdns", pctx->handler[0].key);
+    aggregate_context *prm = alligator_ht_remove(ac->aggregate_ctx, actx_compare, "powerdns", tommy_strhash_u32(0, "powerdns"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, prm);
+    free(prm->handler);
+    free(prm->key);
+    free(prm);
+    alligator_ht_done(ac->aggregate_ctx);
+    free(ac->aggregate_ctx);
+    ac->aggregate_ctx = saved_ctx;
+    free(carg);
+}
+
 void api_test_parser_syslogng() {
     char *msg = "SourceName;SourceId;SourceInstance;State;Type;Number\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_K#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.file;d_mesg#0;/var/log/messages;a;dropped;0\ndst.file;d_mesg#0;/var/log/messages;a;processed;43178060\ndst.file;d_mesg#0;/var/log/messages;a;queued;0\ndst.file;d_mesg#0;/var/log/messages;a;memory_usage;0\ndst.file;d_mesg#0;/var/log/messages;a;written;43178060\ndestination;d_proj_Y;;a;processed;0\nsrc.journald;s_sys#0;journal;a;processed;43223578\nsrc.journald;s_sys#0;journal;a;stamp;1724824846\ndestination;d_elasticproj_S_http_proj_Z;;a;processed;39615830\ndestination;d_kern;;a;processed;0\ndestination;d_mlal;;a;processed;0\ndestination;d_elasticproj_S_http_proj_G;;a;processed;39615830\nglobal;msg_allocated_bytes;;a;value;18446744073709550560\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_S#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_H#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nparser;#anon-parser0;;a;discarded;43223578\nsrc.internal;s_sys#1;;a;processed;5377\nsrc.internal;s_sys#1;;a;stamp;1724824645\nfilter;#anon-filter0;;a;matched;0\nfilter;#anon-filter0;;a;not_matched;43223578\nfilter;#anon-filter1;;a;matched;0\nfilter;#anon-filter1;;a;not_matched;43223578\nfilter;#anon-filter2;;a;matched;17\nfilter;#anon-filter2;;a;not_matched;43223561\nfilter;f_boot;;a;matched;0\nfilter;f_boot;;a;not_matched;43228955\nfilter;#anon-filter4;;a;matched;0\nfilter;#anon-filter4;;a;not_matched;43223561\ndestination;d_elasticproj_S_http_proj_S;;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_X#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ncenter;;queued;a;processed;360155435\nfilter;#anon-filter3;;a;matched;17\nfilter;#anon-filter3;;a;not_matched;0\nfilter;f_kernel;;a;matched;0\nfilter;f_kernel;;a;not_matched;43228955\ndestination;d_auth;;a;processed;36815\nfilter;f_proj_Y;;a;matched;0\nfilter;f_proj_Y;;a;not_matched;43228955\ndestination;d_elasticproj_S_http_proj_A;;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_A#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\ndestination;d_elasticproj_S_http_proj_X;;a;processed;39615830\ndestination;d_cron;;a;processed;13920\ndst.file;d_cron#0;/var/log/cron;a;dropped;0\ndst.file;d_cron#0;/var/log/cron;a;processed;13920\ndst.file;d_cron#0;/var/log/cron;a;queued;0\ndst.file;d_cron#0;/var/log/cron;a;memory_usage;0\ndst.file;d_cron#0;/var/log/cron;a;written;13920\nparser;p_docker_metadata;;a;discarded;0\ndestination;d_elasticproj_S_http_proj_H;;a;processed;39615830\ndestination;d_elasticproj_S_http_proj_K;;a;processed;39615830\nglobal;internal_queue_length;;a;processed;0\nglobal;scratch_buffers_count;;a;queued;614949122474534\nfilter;f_dockerd;;a;matched;316926640\nfilter;f_dockerd;;a;not_matched;28905000\nglobal;sdata_updates;;a;processed;0\nfilter;f_news;;a;matched;0\nfilter;f_news;;a;not_matched;43228955\nglobal;scratch_buffers_bytes;;a;queued;5632\nfilter;f_emergency;;a;matched;0\nfilter;f_emergency;;a;not_matched;43228955\ndst.file;d_auth#0;/var/log/secure;a;dropped;0\ndst.file;d_auth#0;/var/log/secure;a;processed;36815\ndst.file;d_auth#0;/var/log/secure;a;queued;0\ndst.file;d_auth#0;/var/log/secure;a;memory_usage;0\ndst.file;d_auth#0;/var/log/secure;a;written;36815\nfilter;f_default;;a;matched;43178060\nfilter;f_default;;a;not_matched;50895\ndestination;d_mesg;;a;processed;43178060\nfilter;f_auth;;a;matched;36815\nfilter;f_auth;;a;not_matched;43192140\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_Z#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nsource;s_sys;;a;processed;43228955\ndestination;d_spol;;a;processed;0\ncenter;;received;a;processed;43228955\nfilter;f_cron;;a;matched;13920\nfilter;f_cron;;a;not_matched;43215035\ndestination;d_boot;;a;processed;0\ndestination;d_elasticproj_S_http_proj_H;;a;processed;39615830\nglobal;msg_clones;;a;processed;316926657\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;dropped;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;processed;39615830\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;queued;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;memory_usage;0\ndst.http;d_elasticproj_S_http_proj_G#0;http,http://srv1.es-example.com:80/_bulk;a;written;39615830\nglobal;payload_reallocs;;a;processed;127480221\n.\n";
     context_arg *carg = calloc(1, sizeof(*carg));
@@ -2620,15 +2691,15 @@ void api_test_parser_flower() {
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_GREATER, "flower_tasks_active", "flower_tasks_active", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_failed", "flower_tasks_failed", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_processed", "flower_tasks_processed", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_retried", "flower_tasks_retried", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_succeeded", "flower_tasks_succeeded", -1);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_active", "flower_tasks_total_active", 0);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_failed", "flower_tasks_total_failed", 151);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_processed", "flower_tasks_total_processed", 638229);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_retried", "flower_tasks_total_retried", 0);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_succeeded", "flower_tasks_total_succeeded", 636849);
+    metric_test_run(CMP_GREATER, "flower_tasks_failed_total", "flower_tasks_failed_total", -1);
+    metric_test_run(CMP_GREATER, "flower_tasks_processed_total", "flower_tasks_processed_total", -1);
+    metric_test_run(CMP_GREATER, "flower_tasks_retried_total", "flower_tasks_retried_total", -1);
+    metric_test_run(CMP_GREATER, "flower_tasks_succeeded_total", "flower_tasks_succeeded_total", -1);
+    metric_test_run(CMP_EQUAL, "flower_cluster_tasks_active", "flower_cluster_tasks_active", 0);
+    metric_test_run(CMP_EQUAL, "flower_cluster_tasks_failed_total", "flower_cluster_tasks_failed_total", 151);
+    metric_test_run(CMP_EQUAL, "flower_cluster_tasks_processed_total", "flower_cluster_tasks_processed_total", 638229);
+    metric_test_run(CMP_EQUAL, "flower_cluster_tasks_retried_total", "flower_cluster_tasks_retried_total", 0);
+    metric_test_run(CMP_EQUAL, "flower_cluster_tasks_succeeded_total", "flower_cluster_tasks_succeeded_total", 636849);
     metric_test_run(CMP_EQUAL, "flower_worker_up", "flower_worker_up", 1);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));

@@ -8,9 +8,9 @@
 #include "main.h"
 #define FLOWER_LABEL_SIZE 1000
 
-static inline void flower_metric_set(context_arg *carg, const char *metric_name)
+static inline void flower_metric_set(context_arg *carg, const char *metric_name, uint8_t type, const char *help)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Flower (Celery) exported metric value.");
+	namespace_metric_family_set(NULL, carg, metric_name, type, help);
 }
 
 void flower_handler(char *metrics, size_t size, context_arg *carg)
@@ -19,45 +19,65 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 	size_t n;
 	char label[FLOWER_LABEL_SIZE];
 
+	(void)size;
+
+	flower_metric_set(carg, "flower_cluster_tasks_active", METRIC_TYPE_GAUGE,
+		"Celery Flower active tasks across the cluster.");
+	flower_metric_set(carg, "flower_cluster_tasks_processed_total", METRIC_TYPE_COUNTER,
+		"Celery Flower processed tasks across the cluster.");
+	flower_metric_set(carg, "flower_cluster_tasks_failed_total", METRIC_TYPE_COUNTER,
+		"Celery Flower failed tasks across the cluster.");
+	flower_metric_set(carg, "flower_cluster_tasks_succeeded_total", METRIC_TYPE_COUNTER,
+		"Celery Flower succeeded tasks across the cluster.");
+	flower_metric_set(carg, "flower_cluster_tasks_retried_total", METRIC_TYPE_COUNTER,
+		"Celery Flower retried tasks across the cluster.");
+	flower_metric_set(carg, "flower_tasks_active", METRIC_TYPE_GAUGE,
+		"Celery Flower active tasks for a worker.");
+	flower_metric_set(carg, "flower_tasks_processed_total", METRIC_TYPE_COUNTER,
+		"Celery Flower processed tasks for a worker.");
+	flower_metric_set(carg, "flower_tasks_failed_total", METRIC_TYPE_COUNTER,
+		"Celery Flower failed tasks for a worker.");
+	flower_metric_set(carg, "flower_tasks_succeeded_total", METRIC_TYPE_COUNTER,
+		"Celery Flower succeeded tasks for a worker.");
+	flower_metric_set(carg, "flower_tasks_retried_total", METRIC_TYPE_COUNTER,
+		"Celery Flower retried tasks for a worker.");
+	flower_metric_set(carg, "flower_worker_up", METRIC_TYPE_GAUGE,
+		"1 if the Flower worker is reported online.");
+
 	cur = strstr(cur, "Active:");
 	if (!cur)
 		return;
 	cur += 8;
 	int64_t total_active = atoll(cur);
-	flower_metric_set(carg, "flower_tasks_total_active");
-	metric_add_auto("flower_tasks_total_active", &total_active, DATATYPE_INT, carg);
+	metric_add_auto("flower_cluster_tasks_active", &total_active, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Processed:");
 	if (!cur)
 		return;
 	cur += 11;
 	int64_t total_processed = atoll(cur);
-	flower_metric_set(carg, "flower_tasks_total_processed");
-	metric_add_auto("flower_tasks_total_processed", &total_processed, DATATYPE_INT, carg);
+	metric_add_auto("flower_cluster_tasks_processed_total", &total_processed, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Failed:");
 	if (!cur)
 		return;
 	cur += 8;
 	int64_t total_failed = atoll(cur);
-	flower_metric_set(carg, "flower_tasks_total_failed");
-	metric_add_auto("flower_tasks_total_failed", &total_failed, DATATYPE_INT, carg);
+	metric_add_auto("flower_cluster_tasks_failed_total", &total_failed, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Succeeded:");
 	if (!cur)
 		return;
 	cur += 11;
 	int64_t total_succeeded = atoll(cur);
-	flower_metric_set(carg, "flower_tasks_total_succeeded");
-	metric_add_auto("flower_tasks_total_succeeded", &total_succeeded, DATATYPE_INT, carg);
+	metric_add_auto("flower_cluster_tasks_succeeded_total", &total_succeeded, DATATYPE_INT, carg);
 
 	cur = strstr(cur, "Retried:");
 	if (!cur)
 		return;
 	cur += 9;
 	int64_t total_retried = atoll(cur);
-	flower_metric_set(carg, "flower_tasks_total_retried");
-	metric_add_auto("flower_tasks_total_retried", &total_retried, DATATYPE_INT, carg);
+	metric_add_auto("flower_cluster_tasks_retried_total", &total_retried, DATATYPE_INT, carg);
 
 	while ((cur = strstr(cur, "<tr id=")))
 	{
@@ -93,7 +113,6 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 		int64_t status = 0;
 		if(!strncmp(cur, "True", 4))
 			status = 1;
-		flower_metric_set(carg, "flower_worker_up");
 		metric_add_labels("flower_worker_up", &status, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
@@ -101,40 +120,35 @@ void flower_handler(char *metrics, size_t size, context_arg *carg)
 			return;
 		cur += 4;
 		int64_t task_active = atoll(cur);
-			flower_metric_set(carg, "flower_tasks_active");
-			metric_add_labels("flower_tasks_active", &task_active, DATATYPE_INT, carg, "worker",  label);
+		metric_add_labels("flower_tasks_active", &task_active, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
 		if (!cur)
 			return;
 		cur += 4;
 		int64_t task_processed = atoll(cur);
-			flower_metric_set(carg, "flower_tasks_processed");
-			metric_add_labels("flower_tasks_processed", &task_processed, DATATYPE_INT, carg, "worker",  label);
+		metric_add_labels("flower_tasks_processed_total", &task_processed, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
 		if (!cur)
 			return;
 		cur += 4;
 		int64_t task_failed = atoll(cur);
-			flower_metric_set(carg, "flower_tasks_failed");
-			metric_add_labels("flower_tasks_failed", &task_failed, DATATYPE_INT, carg, "worker",  label);
+		metric_add_labels("flower_tasks_failed_total", &task_failed, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
 		if (!cur)
 			return;
 		cur += 4;
 		int64_t task_succeeded = atoll(cur);
-			flower_metric_set(carg, "flower_tasks_succeeded");
-			metric_add_labels("flower_tasks_succeeded", &task_succeeded, DATATYPE_INT, carg, "worker",  label);
+		metric_add_labels("flower_tasks_succeeded_total", &task_succeeded, DATATYPE_INT, carg, "worker",  label);
 
 		cur = strstr(cur, "<td>");
 		if (!cur)
 			return;
 		cur += 4;
 		int64_t task_retried = atoll(cur);
-			flower_metric_set(carg, "flower_tasks_retried");
-			metric_add_labels("flower_tasks_retried", &task_retried, DATATYPE_INT, carg, "worker",  label);
+		metric_add_labels("flower_tasks_retried_total", &task_retried, DATATYPE_INT, carg, "worker",  label);
 	}
 	carg->parser_status = 1;
 }

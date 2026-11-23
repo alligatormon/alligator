@@ -29,7 +29,10 @@ See [`src/tests/system/varnish/alligator.json`](../../src/tests/system/varnish/a
 
 ### Metrics
 
-Each varnishstat key becomes `varnish_<key>`, for example:
+Each varnishstat key becomes `varnish_<key>`. Counters (`flag=c`) get a `_total` suffix and `TYPE counter`; gauges/bitmaps stay gauges. HELP uses the varnishstat description when present.
 
-- `varnish_backend_*`, `varnish_cache_*`
-- `varnish_*_bodybytes`
+Examples:
+
+- `varnish_cache_hit_total`, `varnish_backend_req_total`
+- `varnish_n_object`, `varnish_threads` (gauges)
+- `varnish_*_bodybytes_total`

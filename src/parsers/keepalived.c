@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <ctype.h>
+#include <string.h>
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
@@ -10,9 +12,31 @@
 #define KEEPALIVEDLEN_BIG 2048
 #define KEEPALIVEDLEN 1024
 
-static inline void keepalived_metric_set(context_arg *carg, const char *metric_name)
+static void keepalived_lowercase(char *s)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Keepalived exported VRRP/health metric value.");
+	for (; s && *s; s++)
+		*s = (char)tolower((unsigned char)*s);
+}
+
+/* Counters: append _total, or replace trailing _counter with _total. */
+static void keepalived_as_counter(char *name, size_t sz)
+{
+	size_t len = strlen(name);
+
+	if (len >= 8 && !strcmp(name + len - 8, "_counter")) {
+		memcpy(name + len - 8, "_total", 7);
+		return;
+	}
+	if (len >= 6 && !strcmp(name + len - 6, "_total"))
+		return;
+	if (len + 6 >= sz)
+		return;
+	memcpy(name + len, "_total", 7);
+}
+
+static inline void keepalived_metric_set(context_arg *carg, const char *metric_name, uint8_t type, const char *help)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, type, help);
 }
 
 void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t indent)
@@ -28,7 +52,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 
 	char name[KEEPALIVEDLEN];
 	char metric_name[KEEPALIVEDLEN];
-	strlcpy(metric_name, "Keepalived_", KEEPALIVEDLEN);
+	strlcpy(metric_name, "keepalived_", KEEPALIVEDLEN);
 	uint64_t cur_indent = 0;
 	for (uint64_t i = 0; i < size; i++)
 	{
@@ -53,6 +77,7 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 		{
 			prometheus_metric_name_normalizer(name + cur_indent, name_size - cur_indent);
 			strlcpy(metric_name + 11, name + cur_indent, KEEPALIVEDLEN - 11);
+			keepalived_lowercase(metric_name + 11);
 
 			str_get_next(field, name, KEEPALIVEDLEN, ":", &j);
 
@@ -62,7 +87,10 @@ void keepalived_recurse(context_arg *carg, char *metrics, size_t size, uint64_t 
 			if (isdigit((unsigned char)*ptrtoval))
 			{
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
-				keepalived_metric_set(carg, metric_name);
+				/* keepalived.stats values are cumulative counters. */
+				keepalived_as_counter(metric_name, sizeof(metric_name));
+				keepalived_metric_set(carg, metric_name, METRIC_TYPE_COUNTER,
+					"Keepalived VRRP statistics counter.");
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 
@@ -113,7 +141,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 
 	char name[KEEPALIVEDLEN];
 	char metric_name[KEEPALIVEDLEN];
-	strlcpy(metric_name, "Keepalived_Data_", KEEPALIVEDLEN);
+	strlcpy(metric_name, "keepalived_data_", KEEPALIVEDLEN);
 	uint64_t cur_indent = 0;
 	for (uint64_t i = 0; i < size; i++)
 	{
@@ -140,6 +168,7 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 			prometheus_metric_name_normalizer(name + cur_indent, name_size - cur_indent);
 			uint64_t metric_name_size = strlcpy(metric_name + 16, name + cur_indent, KEEPALIVEDLEN - 16);
 			metric_name_size += 16;
+			keepalived_lowercase(metric_name + 16);
 
 			if (!strcmp(name + cur_indent, "Password"))
 				continue;
@@ -181,20 +210,22 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
-				//if (!strstr(ptrtoval, "usecs"))
-				//	val_data /= 1000000;
-				keepalived_metric_set(carg, metric_name);
+				keepalived_metric_set(carg, metric_name, METRIC_TYPE_GAUGE,
+					"Keepalived VRRP data gauge.");
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 			else if ((ptrtocnt = strstr(field, "counter")))
 			{
 				char *ptrtoval = ptrtocnt + 8;
 				metric_name[metric_name_size - 1] = 0;
+				keepalived_lowercase(metric_name + 16);
+				keepalived_as_counter(metric_name, sizeof(metric_name));
 
 				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\"} '%s'\n", metric_name, context, instance, ptrtoval);
 
 				int64_t val_data = strtoll(ptrtoval, NULL, 10);
-				keepalived_metric_set(carg, metric_name);
+				keepalived_metric_set(carg, metric_name, METRIC_TYPE_COUNTER,
+					"Keepalived VRRP data counter.");
 				metric_add_labels2(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance);
 			}
 			else if (!strstr(field, "="))
@@ -206,7 +237,8 @@ void keepalived_recurse_data(context_arg *carg, char *metrics, size_t size)
 				carglog(carg, L_DEBUG, "\t\t'%s {context=\"%s\", instance=\"%s\", key=\"%s\"{from '%s'} 1\n", metric_name, context, instance, ptrtoval, name);
 
 				int64_t val_data = 1;
-				keepalived_metric_set(carg, metric_name);
+				keepalived_metric_set(carg, metric_name, METRIC_TYPE_GAUGE,
+					"Keepalived VRRP data label marker.");
 				metric_add_labels3(metric_name, &val_data, DATATYPE_INT, ac->system_carg, "context", context, "instance", instance, "key", ptrtoval);
 			}
 		}

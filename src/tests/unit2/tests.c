@@ -4778,6 +4778,7 @@ static void run_config_query_suites(char **argv)
     api_test_kafka_consumer_split_query();
     api_test_parser_nsd();
     api_test_parser_unbound();
+    api_test_parser_powerdns();
     api_test_parser_syslogng();
     api_test_parser_rsyslog();
     api_test_parser_wazuh();
