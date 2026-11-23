@@ -20,7 +20,7 @@ aggregate {
 
 ### Metrics
 
-Счётчики очередей и воркеров становятся `gearmand_*`.
+Gauge очередей и воркеров становятся `gearmand_*` (`gearmand_jobs` / `gearmand_server_jobs`, плюс running/available_workers).
 
 Опциональные проверки process / socket:
 

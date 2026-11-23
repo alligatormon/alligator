@@ -2,6 +2,27 @@ Changelog
 
 ## [unreleased]
 
+- Parsers (OpenMetrics naming/types follow-up, wave 2):
+  - **druid:** literal camelCase → snake_case (`self_discovered`, `is_leader`, `curr_size`, …); compaction dynamic keys camel→snake; broker/historical loadstatus → `*_inventory_initialized` / `*_cache_initialized`; labels `data_source` / `group_id` / `detailed_state`.
+  - **unbound:** `unbound_query_edns_do_total`, `unbound_num_total`, `unbound_time_elapsed_seconds_total`.
+  - **couchbase:** labels `bucket_type` / `node_uuid` (was camelCase).
+  - **beanstalkd:** counter families gain `_total` (`cmd_*`, `total_*`, `job_timeouts`, `uptime`, tube stats).
+  - **proxysql:** global/pool COUNTER metrics gain `_total`.
+  - **frr:** drop false `_total` on gauges (`frr_bgp_*_count`, `frr_routes` / `frr_routes_fib`, peer prefix counts).
+  - **openclaw:** `openclaw_cron_jobs_total` → `openclaw_cron_jobs` (gauge).
+  - **elasticsearch:** `elasticsearch_indice_*` → `elasticsearch_index_*` (label `index`).
+  - **clickhouse:** `clickhouse_replica_total` → `clickhouse_replicas` (gauge).
+- Parsers (OpenMetrics naming/types follow-up):
+  - **beanstalkd:** `beanstalkd_error` → `beanstalkd_errors_total` (increments via `metric_update`); `cmd_*` / `total_*` / `uptime` / `job_timeouts` typed as COUNTER (incl. `plain_parse` family callback).
+  - **auditd:** `auditd_event` → `auditd_events_total`; labels `auid`/`uid`/`gid` (lowercase).
+  - **gearmand:** `gearmand_total` / `gearmand_server_total` → `gearmand_jobs` / `gearmand_server_jobs` (gauges, not counters).
+  - **nifi / hadoop:** prefixes `nifi_` / `hadoop_` (lowercase); dynamic keys normalized + lowercased; Hadoop label `modeler_type`.
+  - **nats:** COUNTER for cumulative `*_total` / in|out msgs|bytes / http_req_stats; route/varz counters gain `_total` where missing.
+  - **squid:** `mgr:counters` emitted as COUNTER; names ending in `_total` typed as COUNTER elsewhere.
+  - **consul:** prefix `consul_` when missing; Counters get `_total`; Samples stay gauges; values via `json_number_value` (no float→0).
+  - **snmp:** Counter32/Counter64 BER tags set `# TYPE` to COUNTER (names unchanged).
+  - **labels:** OpenStack `admin_state` / `disabled_reason`; Couchbase `status_id` / `design_document` / `error_message` + name normalizer on dynamic keys; Druid `data_source` / `group_id`.
+  - **opennebula:** datastore metrics use label `name` (was misleading `hostname`).
 - Parsers (OpenMetrics typing/naming): **powerdns** — hyphens normalized; cumulative stats → `COUNTER` + `_total` (incl. `*_answers_bytes_total`; only true cache/memory `*_bytes` stay gauges), size/latency/uptime/`xfr_queue` stay gauges; **flower** — cluster `flower_cluster_tasks_*` / per-worker `flower_tasks_*_total` with correct COUNTER/GAUGE (replaces `flower_tasks_total_*` and untyped gauges); **keepalived** — lowercase `keepalived_*` / `keepalived_data_*`, stats counters + `_total`, data `… counter` → `*_total`; **varnish** — use varnishstat `flag` (`c`→COUNTER+`_total`, else GAUGE) and description as HELP.
 - Parsers: more OpenMetrics unit/name fixes — `ntp_precision_seconds` (was ms); lighttpd `requests_total` parse fix; flower `succeeded`/`worker_up` and shared total/worker task families; `frr_bfd_peer_uptime_seconds`; `monit_service_response_time_seconds`; redis memory/cpu/errors/ttl (`*_bytes`, `redis_cpu_seconds_total`, `redis_errors_total`, `redis_avg_ttl_seconds` ms→s); httpd Prom-style families; ProxySQL/PgBouncer latency/wait → seconds; squid/opennebula/openstack/aerospike sizes → bytes (aerospike `*_kbytes`→`*_bytes` ×1024; opennebula datastore MB→bytes); druid task duration → seconds; memcached listen-disabled → seconds; dnsmasq/nsd/openvpn/named/nats/wazuh/squid fqdn+disk counters gain `_total`. Elasticsearch left unchanged.
 - Squid `mgr:mem`: actually export per-pool gauges (`squid_pool_*`); former skipped chunk/allocated counts; `*_kb` / `kilobytes_per_chunk` → `*_bytes` / `chunk_size_bytes` (×1024); empty TSV cells no longer shift columns. PgBouncer/Odyssey system test expectations updated for `*_wait_seconds`.

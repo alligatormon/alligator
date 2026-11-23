@@ -376,7 +376,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_query_edns_DO_total{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_do_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "DO (DNSSEC OK)",
                       "range": true
                     },
@@ -942,7 +942,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "irate(unbound_query_edns_DO_total{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "irate(unbound_query_edns_do_total{host=~\"$host\"}[$__rate_interval])",
                       "legendFormat": "DO (DNSSEC OK)",
                       "range": true
                     },
@@ -1118,7 +1118,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(irate(unbound_total_num{host=~\"$host\",num=\"queries\"}[5m]))",
+                      "expr": "sum(irate(unbound_num_total{host=~\"$host\",num=\"queries\"}[5m]))",
                       "legendFormat": "hits",
                       "range": true
                     },
@@ -1139,7 +1139,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(irate(unbound_total_num{host=~\"$host\",num=\"cachemiss\"}[5m]))",
+                      "expr": "sum(irate(unbound_num_total{host=~\"$host\",num=\"cachemiss\"}[5m]))",
                       "legendFormat": "misses",
                       "range": true
                     },
@@ -1160,7 +1160,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(irate(unbound_total_num{host=~\"$host\", num=\"expired\"}[5m]))",
+                      "expr": "sum(irate(unbound_num_total{host=~\"$host\", num=\"expired\"}[5m]))",
                       "instant": false,
                       "legendFormat": "expired",
                       "range": true
@@ -1182,7 +1182,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(irate(unbound_total_num{host=~\"$host\", num=\"prefetch\"}[5m]))",
+                      "expr": "sum(irate(unbound_num_total{host=~\"$host\", num=\"prefetch\"}[5m]))",
                       "instant": false,
                       "legendFormat": "prefetch",
                       "range": true
@@ -1204,7 +1204,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(irate(unbound_total_num{host=~\"$host\", num=\"recursivereplies\"}[5m]))",
+                      "expr": "sum(irate(unbound_num_total{host=~\"$host\", num=\"recursivereplies\"}[5m]))",
                       "instant": false,
                       "legendFormat": "recursivereplies",
                       "range": true
@@ -1644,7 +1644,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(increase(unbound_total_num{host=~\"$host\",num=\"cachehits\"}[5m]))",
+                      "expr": "sum(increase(unbound_num_total{host=~\"$host\",num=\"cachehits\"}[5m]))",
                       "legendFormat": "Hits",
                       "range": true
                     },
@@ -1665,7 +1665,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(increase(unbound_total_num{host=~\"$host\",num=\"cachemiss\"}[5m]))",
+                      "expr": "sum(increase(unbound_num_total{host=~\"$host\",num=\"cachemiss\"}[5m]))",
                       "legendFormat": "Misses",
                       "range": true
                     },
@@ -1789,7 +1789,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(rate(unbound_total_num{host=~\"$host\",num=\"queries\"}[5m]))",
+                      "expr": "sum(rate(unbound_num_total{host=~\"$host\",num=\"queries\"}[5m]))",
                       "range": true
                     },
                     "version": "v0"
@@ -1876,7 +1876,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "sum(increase(unbound_total_num{host=~\"$host\",num=\"queries\"}[$__range]))",
+                      "expr": "sum(increase(unbound_num_total{host=~\"$host\",num=\"queries\"}[$__range]))",
                       "range": true
                     },
                     "version": "v0"

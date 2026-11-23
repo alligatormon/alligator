@@ -2,7 +2,7 @@
 
 ## FRR (Free Range Routing)
 
-Scrapes FRR daemon VTY Unix sockets the same way [frr_exporter](https://github.com/tynany/frr_exporter) does: `enable` then a JSON (or text) show command, NUL-framed. Metric names match the exporter (`frr_bgp_*`, `frr_bfd_*`, `frr_ospf_*`, `frr_route_*`, `frr_status_up`) so existing dashboards and alerts keep working.
+Scrapes FRR daemon VTY Unix sockets the same way [frr_exporter](https://github.com/tynany/frr_exporter) does: `enable` then a JSON (or text) show command, NUL-framed. Metric names are close to the exporter (`frr_bgp_*`, `frr_bfd_*`, `frr_ospf_*`, `frr_routes` / `frr_routes_fib`, `frr_status_up`); false `_total` suffixes on gauges are dropped.
 
 Handler name is **`frr`**.
 
@@ -50,9 +50,9 @@ aggregate {
 
 - `frr_status_up{version,os}`
 - `frr_collector_up{collector}`, `frr_scrape_duration_seconds{collector}`
-- BGP: `frr_bgp_rib_count_total`, `frr_bgp_rib_memory_bytes`, `frr_bgp_peers_*`, `frr_bgp_peer_groups_*`, `frr_bgp_peer_message_{received,sent}_total`, `frr_bgp_peer_prefixes_*`, `frr_bgp_peer_state`, `frr_bgp_peer_uptime_seconds`
+- BGP: `frr_bgp_rib_count`, `frr_bgp_rib_memory_bytes`, `frr_bgp_peers_*`, `frr_bgp_peer_groups_*`, `frr_bgp_peer_message_{received,sent}_total`, `frr_bgp_peer_prefixes_*`, `frr_bgp_peer_state`, `frr_bgp_peer_uptime_seconds`
 - BFD: `frr_bfd_peer_count`, `frr_bfd_peer_uptime_seconds`, `frr_bfd_peer_state`
 - OSPF: `frr_ospf_neighbors`, `frr_ospf_neighbor_adjacencies`, LSA counters, `frr_ospf_neighbor_state`, `frr_ospf_data_ls_max_age`
-- Route: `frr_route_total`, `frr_route_total_fib`
+- Route: `frr_routes`, `frr_routes_fib`
 
 Unit tests: [`src/tests/unit2/parsers.h`](../../src/tests/unit2/parsers.h) (`api_test_parser_frr`), fixtures under `src/tests/mock/frr/`.

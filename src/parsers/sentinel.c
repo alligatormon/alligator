@@ -15,9 +15,15 @@ static inline void sentinel_metric_set(context_arg *carg, const char *metric_nam
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Redis Sentinel exported metric value.");
 }
 
+static void sentinel_plain_family(context_arg *carg, char *metric_name, size_t metric_name_size)
+{
+	(void)metric_name_size;
+	sentinel_metric_set(carg, metric_name);
+}
+
 static inline void sentinel_plain_parse(char *text, uint64_t size, context_arg *carg)
 {
-	plain_parse_family(text, size, ":", "\r\n", "sentinel_", 9, carg, sentinel_metric_set);
+	plain_parse_family(text, size, ":", "\r\n", "sentinel_", 9, carg, sentinel_plain_family);
 }
 
 void sentinel_handler(char *metrics, size_t size, context_arg *carg)

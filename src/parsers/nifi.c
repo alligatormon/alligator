@@ -1,4 +1,5 @@
 #include <jansson.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -7,11 +8,22 @@
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
 #include "common/logs.h"
+#include "common/validator.h"
 #define NIFI_METRIC_SIZE 1000
 
 static inline void nifi_metric_set(context_arg *carg, const char *metric_name)
 {
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Apache NiFi exported metric value.");
+}
+
+static void nifi_finalize_name(char *name)
+{
+	size_t i;
+	size_t len = strlen(name);
+
+	prometheus_metric_name_normalizer(name, len);
+	for (i = 0; i < len; i++)
+		name[i] = (char)tolower((unsigned char)name[i]);
 }
 
 void nifi_handler(char *metrics, size_t size, context_arg *carg)
@@ -30,8 +42,8 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 	size_t i;
 	char metricname[NIFI_METRIC_SIZE];
 	char metricname2[NIFI_METRIC_SIZE];
-	strlcpy(metricname, "Nifi_", 6);
-	strlcpy(metricname2, "Nifi_", 6);
+	strlcpy(metricname, "nifi_", 6);
+	strlcpy(metricname2, "nifi_", 6);
 
 	json_t *system_diagnostics = json_object_get(root, "systemDiagnostics");
 	if (!system_diagnostics)
@@ -56,6 +68,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			int64_t tvalue = json_integer_value(value_json1);
 			strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
+			nifi_finalize_name(metricname);
 			nifi_metric_set(carg, metricname);
 			metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 		}
@@ -63,6 +76,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			double dvalue = json_real_value(value_json1);
 			strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
+			nifi_finalize_name(metricname);
 			nifi_metric_set(carg, metricname);
 			metric_add_auto(metricname, &dvalue, DATATYPE_DOUBLE, carg);
 		}
@@ -81,6 +95,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					int64_t tvalue = json_integer_value(value_json2);
 					strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+					nifi_finalize_name(metricname2);
 					nifi_metric_set(carg, metricname2);
 					metric_add_auto(metricname2, &tvalue, DATATYPE_INT, carg);
 				}
@@ -88,6 +103,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					double dvalue = json_real_value(value_json2);
 					strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+					nifi_finalize_name(metricname2);
 					nifi_metric_set(carg, metricname2);
 					metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 				}
@@ -98,7 +114,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					{
 						double dvalue = atof(customkey);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
-
+						nifi_finalize_name(metricname2);
 						nifi_metric_set(carg, metricname2);
 						metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 					}
@@ -135,6 +151,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					{
 						int64_t tvalue = json_integer_value(value_json2);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+						nifi_finalize_name(metricname2);
 						nifi_metric_set(carg, metricname2);
 						metric_add_labels(metricname2, &tvalue, DATATYPE_INT, carg, "identifier", identifier);
 					}
@@ -142,6 +159,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					{
 						double dvalue = json_real_value(value_json2);
 						strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
+						nifi_finalize_name(metricname2);
 						nifi_metric_set(carg, metricname2);
 						metric_add_labels(metricname2, &dvalue, DATATYPE_DOUBLE, carg, "identifier", identifier);
 					}
@@ -152,7 +170,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 						{
 							double dvalue = atof(customkey);
 							strlcpy(metricname2+size1, key2, NIFI_METRIC_SIZE-size1);
-
+							nifi_finalize_name(metricname2);
 							nifi_metric_set(carg, metricname2);
 							metric_add_auto(metricname2, &dvalue, DATATYPE_DOUBLE, carg);
 						}
@@ -170,7 +188,7 @@ void nifi_handler(char *metrics, size_t size, context_arg *carg)
 					continue;
 
 				strlcpy(metricname+5, key1, NIFI_METRIC_SIZE-5);
-
+				nifi_finalize_name(metricname);
 				nifi_metric_set(carg, metricname);
 				metric_add_auto(metricname, &dvalue, DATATYPE_DOUBLE, carg);
 			}

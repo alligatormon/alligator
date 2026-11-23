@@ -70,7 +70,7 @@ cAdvisor отдаёт серии `container_*` (CPU, RSS, filesystem, сеть) 
 - `opennebula_monitoring_vnet_total` — сумма `SIZE` address range
 - `opennebula_monitoring_vnet_leases` — `USED_LEASES`
 
-Datastore (лейбл `hostname` — имя datastore):
+Datastore (лейбл `name` — имя datastore):
 
 - `opennebula_monitoring_datastore_status` — 0=ON, 1=OFF
 - `opennebula_monitoring_datastore_total_bytes` / `datastore_free_bytes` / `datastore_used_bytes`

@@ -1,4 +1,5 @@
 #include <jansson.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -9,12 +10,23 @@
 #include "common/json_query.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "common/validator.h"
 #include "main.h"
 #define HADOOP_METRIC_SIZE 1000
 
 static inline void hadoop_metric_set(context_arg *carg, const char *metric_name)
 {
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Hadoop JMX exported metric value.");
+}
+
+static void hadoop_finalize_name(char *name)
+{
+	size_t i;
+	size_t len = strlen(name);
+
+	prometheus_metric_name_normalizer(name, len);
+	for (i = 0; i < len; i++)
+		name[i] = (char)tolower((unsigned char)name[i]);
 }
 
 void hadoop_handler(char *metrics, size_t size, context_arg *carg)
@@ -36,7 +48,7 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 	size_t arr_sz = json_array_size(beans);
 	char metricname[HADOOP_METRIC_SIZE];
 	char *modelerType;
-	strlcpy(metricname, "Hadoop_", 8);
+	strlcpy(metricname, "hadoop_", 8);
 
 	for (i = 0; i < arr_sz; i++)
 	{
@@ -55,20 +67,22 @@ void hadoop_handler(char *metrics, size_t size, context_arg *carg)
 			if (json_typeof(jobj) == JSON_REAL)
 			{
 				strlcpy(metricname+7, val, HADOOP_METRIC_SIZE-8);
+				hadoop_finalize_name(metricname);
 				double tvalue = json_real_value(jobj);
 				hadoop_metric_set(carg, metricname);
 				if (modelerType)
-					metric_add_labels(metricname, &tvalue, DATATYPE_DOUBLE, carg, "modelerType", modelerType);
+					metric_add_labels(metricname, &tvalue, DATATYPE_DOUBLE, carg, "modeler_type", modelerType);
 				else
 					metric_add_auto(metricname, &tvalue, DATATYPE_DOUBLE, carg);
 			}
 			else if (json_typeof(jobj) == JSON_INTEGER)
 			{
 				strlcpy(metricname+7, val, HADOOP_METRIC_SIZE-8);
+				hadoop_finalize_name(metricname);
 				int64_t tvalue = json_integer_value(jobj);
 				hadoop_metric_set(carg, metricname);
 				if (modelerType)
-					metric_add_labels(metricname, &tvalue, DATATYPE_INT, carg, "modelerType", modelerType);
+					metric_add_labels(metricname, &tvalue, DATATYPE_INT, carg, "modeler_type", modelerType);
 				else
 					metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
 			}

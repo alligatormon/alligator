@@ -46,7 +46,7 @@ Nova:
 - `openstack_nova_up`
 - `openstack_nova_flavors` / `openstack_nova_flavor{id,name,vcpus,ram,disk,is_public}`
 - `openstack_nova_availability_zones` / `openstack_nova_security_groups`
-- `openstack_nova_agent_state{id,hostname,service,adminState,zone}`
+- `openstack_nova_agent_state{id,hostname,service,admin_state,zone}`
 - `openstack_nova_vcpus_available` / `vcpus_used` / `memory_*_bytes` / `local_storage_*_bytes` / `free_disk_bytes` / `current_workload` (`hostname`)
 - `openstack_nova_total_vms` / `openstack_nova_running_vms` / `openstack_nova_server_status{...}`
 
@@ -92,7 +92,7 @@ Cinder:
 - `openstack_cinder_volumes` / `volume_bytes` / `volume_status` / `volume_status_counter{status}`
 - `openstack_cinder_snapshots` / `snapshot_bytes`
 - `openstack_cinder_backups` / `backup_bytes`
-- `openstack_cinder_agent_state{uuid,hostname,service,adminState,zone}`
+- `openstack_cinder_agent_state{uuid,hostname,service,admin_state,zone}`
 - `openstack_cinder_pool_capacity_free_bytes` / `pool_capacity_total_bytes`
 
 Glance:

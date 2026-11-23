@@ -4,7 +4,7 @@
 
 Обработчик entrypoint `auditd` разбирает записи audit-лога Linux в нативном формате `key=value` и экспортирует их как метрики Prometheus.
 
-Каждая непустая входная строка увеличивает счётчик `auditd_event` на единицу. Выбранные поля audit становятся метками метрик.
+Каждая непустая входная строка увеличивает счётчик `auditd_events_total` на единицу. Выбранные поля audit становятся метками метрик.
 
 Этот обработчик **считает события audit-лога**. Он не разбирает статус демона auditd из `auditctl -s` и внутреннюю статистику очереди.
 
@@ -47,7 +47,7 @@ type=SYSCALL msg=audit(1710000000.123:456): arch=c000003e syscall=59 success=yes
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `auditd_event` | counter | Количество полученных записей audit-лога. |
+| `auditd_events_total` | counter | Количество полученных записей audit-лога. |
 
 ### Метки
 
@@ -57,16 +57,16 @@ type=SYSCALL msg=audit(1710000000.123:456): arch=c000003e syscall=59 success=yes
 | `success` | `success` | Обычно `yes` или `no`. |
 | `exe` | `exe` | Путь к исполняемому файлу. Поддерживаются значения в кавычках с пробелами. |
 | `key` | `key` | Ключ audit-правила, например `my-rule` или `(null)`. |
-| `AUID` | `auid` or `AUID` | Сохраняется как `AUID`. |
-| `UID` | `uid` or `UID` | Сохраняется как `UID`. |
-| `GID` | `gid` or `GID` | Сохраняется как `GID`. |
+| `auid` | `auid` or `AUID` | Audit user id. |
+| `uid` | `uid` or `UID` | User id. |
+| `gid` | `gid` or `GID` | Group id. |
 
 Пример exposition:
 
 ```
-# HELP auditd_event Number of audit log events received, labeled by event attributes.
-# TYPE auditd_event counter
-auditd_event{type="SYSCALL",success="yes",exe="/usr/bin/bash",key="my-rule",AUID="1000",UID="1000",GID="1000"} 42
+# HELP auditd_events_total Number of audit log events received, labeled by event attributes.
+# TYPE auditd_events_total counter
+auditd_events_total{type="SYSCALL",success="yes",exe="/usr/bin/bash",key="my-rule",auid="1000",uid="1000",gid="1000"} 42
 ```
 
 Используйте `rate()` или `increase()` для этого счётчика, чтобы измерять частоту событий по комбинациям меток.

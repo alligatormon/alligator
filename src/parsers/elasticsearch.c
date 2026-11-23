@@ -691,7 +691,7 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 	char string2[1000];
 	size_t stringlen2;
 	strlcpy(string, "elasticsearch_", 15);
-	strlcpy(string2, "elasticsearch_indice_", 22);
+	strlcpy(string2, "elasticsearch_index_", 22);
 
 	json_object_foreach(root, key, value)
 	{
@@ -722,33 +722,34 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 		}
 	}
 
-	strlcpy(string, "elasticsearch_indice_shard_", 28);
+	strlcpy(string, "elasticsearch_index_shard_", 28);
 
 	json_object_foreach(indices, key, value)
 	{
 		json_t *indice_status_json = json_object_get(value, "status");
 		char* indice_status = (char*)json_string_value(indice_status_json);
-		es_emit_traffic_light3(carg, "elasticsearch_indice_status", indice_status,
-			"cluster", cluster_name, "indice", (char*)key);
+		es_emit_traffic_light3(carg, "elasticsearch_index_status", indice_status,
+			"cluster", cluster_name, "index", (char*)key);
 
 		json_object_foreach(value, key2, value2)
 		{
 			stringlen2 = strlen(key2);
-			size_t copy = es_copy_bytes(sizeof(string2), 21, stringlen2);
+			/* prefix "elasticsearch_index_" is 20 chars (was 21 for indice_) */
+			size_t copy = es_copy_bytes(sizeof(string2), 20, stringlen2);
 			if (copy)
-				strlcpy(string2+21, key2, copy);
+				strlcpy(string2+20, key2, copy);
 			int type = json_typeof(value2);
 			if (type == JSON_INTEGER)
 			{
 				vl = json_integer_value(value2);
 				elasticsearch_metric_set(carg, string2);
-				metric_add_labels2(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "indice", (char*)key);
+				metric_add_labels2(string2, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key);
 			}
 			else if (type == JSON_REAL)
 			{
 				dl = json_real_value(value2);
 				elasticsearch_metric_set(carg, string2);
-				metric_add_labels2(string2, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "indice", (char*)key);
+				metric_add_labels2(string2, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "index", (char*)key);
 			}
 			json_object_foreach(value2, key3, value3)
 			{
@@ -757,42 +758,43 @@ void elasticsearch_health_handler(char *metrics, size_t size, context_arg *carg)
 				char* shard_status = (char*)json_string_value(shard_status_json);
 				if (shard_status)
 				{
-					es_emit_traffic_light4(carg, "elasticsearch_indice_shard_status", shard_status,
-						"cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+					es_emit_traffic_light4(carg, "elasticsearch_index_shard_status", shard_status,
+						"cluster", cluster_name, "index", (char*)key, "shard", (char*)key3);
 				}
 
 				json_t *shard_active_json = json_object_get(value3, "primary_active");
 				if (json_typeof(shard_active_json) == JSON_TRUE)
 				{
 					uint64_t clst = 1;
-					elasticsearch_metric_set(carg, "elasticsearch_indice_shard_active");
-					metric_add_labels3("elasticsearch_indice_shard_active", &clst, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+					elasticsearch_metric_set(carg, "elasticsearch_index_shard_active");
+					metric_add_labels3("elasticsearch_index_shard_active", &clst, DATATYPE_UINT, carg, "cluster", cluster_name, "index", (char*)key, "shard", (char*)key3);
 				}
 				else if (json_typeof(shard_active_json) == JSON_FALSE)
 				{
-					elasticsearch_metric_set(carg, "elasticsearch_indice_shard_active");
-					metric_add_labels3("elasticsearch_indice_shard_active", &clfls, DATATYPE_UINT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+					elasticsearch_metric_set(carg, "elasticsearch_index_shard_active");
+					metric_add_labels3("elasticsearch_index_shard_active", &clfls, DATATYPE_UINT, carg, "cluster", cluster_name, "index", (char*)key, "shard", (char*)key3);
 				}
 
 				json_object_foreach(value3, key4, value4)
 				{
 					stringlen = strlen(key4);
-					size_t copy4 = es_copy_bytes(sizeof(string), 27, stringlen);
+					/* prefix "elasticsearch_index_shard_" is 26 chars (was 27 for indice_) */
+					size_t copy4 = es_copy_bytes(sizeof(string), 26, stringlen);
 					if (copy4)
-						strlcpy(string+27, key4, copy4);
+						strlcpy(string+26, key4, copy4);
 
 					int type4 = json_typeof(value4);
 					if (type4 == JSON_INTEGER)
 					{
 						vl = json_integer_value(value4);
 						elasticsearch_metric_set(carg, string);
-						metric_add_labels3(string, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+						metric_add_labels3(string, &vl, DATATYPE_INT, carg, "cluster", cluster_name, "index", (char*)key, "shard", (char*)key3);
 					}
 					else if (type4 == JSON_REAL)
 					{
 						dl = json_real_value(value4);
 						elasticsearch_metric_set(carg, string);
-						metric_add_labels3(string, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "indice", (char*)key, "shard", (char*)key3);
+						metric_add_labels3(string, &dl, DATATYPE_DOUBLE, carg, "cluster", cluster_name, "index", (char*)key, "shard", (char*)key3);
 					}
 				}
 			}

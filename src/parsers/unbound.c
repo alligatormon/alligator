@@ -259,7 +259,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 		else if (!strcmp(key, "time.elapsed"))
 		{
 			double dval = strtod(metrics + i, NULL);
-			unbound_emit_f64(carg, "unbound_time_elapsed_seconds", METRIC_TYPE_COUNTER,
+			unbound_emit_f64(carg, "unbound_time_elapsed_seconds_total", METRIC_TYPE_COUNTER,
 				"Seconds since last statistics printout.", dval);
 		}
 		else if (!strcmp(key, "total.tcpusage"))
@@ -360,7 +360,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 		else if (!strcmp(key, "num.query.edns.DO"))
 		{
 			uint64_t val = strtoull(metrics + i, NULL, 10);
-			unbound_emit_u64(carg, "unbound_query_edns_DO_total", METRIC_TYPE_COUNTER,
+			unbound_emit_u64(carg, "unbound_query_edns_do_total", METRIC_TYPE_COUNTER,
 				"Queries with EDNS DO bit set.", val);
 		}
 		else if (!strcmp(key, "num.query.tcp"))
@@ -408,7 +408,7 @@ void unbound_handler(char *metrics, size_t size, context_arg *carg)
 			if (!strncmp(key, "total.num.", 10))
 			{
 				uint8_t type = METRIC_TYPE_COUNTER;
-				unbound_emit_u64_l1(carg, "unbound_total_num", type,
+				unbound_emit_u64_l1(carg, "unbound_num_total", type,
 					"Unbound total.num.* counters.", "num", lastdot, val);
 			}
 			else

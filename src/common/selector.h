@@ -114,7 +114,8 @@ char *normalize_spaces(char *str);
 char *trim(char *s);
 uint64_t get_file_atime(char *filename);
 int8_t match_mapper(match_rules *mrules, char *str, size_t size, char *name);
-typedef void (*plain_parse_family_cb)(context_arg *carg, const char *metric_name);
+/* May mutate metric_name in place (e.g. append _total). */
+typedef void (*plain_parse_family_cb)(context_arg *carg, char *metric_name, size_t metric_name_size);
 void plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, void *carg);
 void plain_parse_family(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg, plain_parse_family_cb family_cb);
 uint64_t selector_count_field(char *str, char *pattern, uint64_t sz);

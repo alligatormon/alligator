@@ -24,4 +24,4 @@ See [`src/tests/system/hadoop/alligator.yaml`](../../src/tests/system/hadoop/all
 
 ### Metrics
 
-Each numeric JMX bean field becomes `Hadoop_<field_name>`. Optional label `modelerType` is taken from the bean when present.
+Each numeric JMX bean field becomes `hadoop_<field_name>`. Optional label `modeler_type` is taken from the bean when present.

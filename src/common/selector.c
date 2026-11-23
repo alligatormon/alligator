@@ -1033,21 +1033,21 @@ void plain_parse_family(char *text, uint64_t size, char *sep, char *nlsep, char 
 		{
 			int64_t val = strtoll(tmp, NULL, 10);
 			if (family_cb)
-				family_cb(carg, metric_name);
+				family_cb(carg, metric_name, sizeof(metric_name));
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		else if (rc == DATATYPE_UINT)
 		{
 			uint64_t val = strtoull(tmp, NULL, 10);
 			if (family_cb)
-				family_cb(carg, metric_name);
+				family_cb(carg, metric_name, sizeof(metric_name));
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		else if (rc == DATATYPE_DOUBLE)
 		{
 			double val = strtod(tmp, NULL);
 			if (family_cb)
-				family_cb(carg, metric_name);
+				family_cb(carg, metric_name, sizeof(metric_name));
 			metric_add_auto(metric_name, &val, rc, carg);
 		}
 		prev = tmp;

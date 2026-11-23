@@ -43,23 +43,34 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 
 			json_t *jsonname = json_object_get(arr_obj, "Name");
 			char *tname = (char*)json_string_value(jsonname);
+			if (!tname)
+				continue;
 
 			json_t *jsonvalue;
-			int64_t tvalue;
+			double tvalue;
+			/* Gauges use Value; Counters and Samples expose Sum. Samples stay gauges. */
+			uint8_t mtype = (j == 1) ? METRIC_TYPE_COUNTER : METRIC_TYPE_GAUGE;
 			if (j == 0)
-			{
 				jsonvalue = json_object_get(arr_obj, "Value");
-				tvalue = json_integer_value(jsonvalue);
-			}
-			else if (j > 0)
-			{
+			else
 				jsonvalue = json_object_get(arr_obj, "Sum");
-				tvalue = json_integer_value(jsonvalue);
-			}
+			tvalue = json_number_value(jsonvalue);
 
-			size_t sz = strlcpy(metricname, tname, CONSUL_METRIC_SIZE);
-			metric_name_normalizer(metricname, sz);
-			namespace_metric_family_set(NULL, carg, metricname, (j == 0) ? METRIC_TYPE_GAUGE : METRIC_TYPE_COUNTER, "Consul telemetry metric exported from /v1/agent/metrics.");
+			size_t prefix_len = 0;
+			if (strncmp(tname, "consul_", 7) != 0)
+				prefix_len = strlcpy(metricname, "consul_", CONSUL_METRIC_SIZE);
+			else
+				metricname[0] = 0;
+			size_t sz = strlcpy(metricname + prefix_len, tname, CONSUL_METRIC_SIZE - prefix_len);
+			metric_name_normalizer(metricname, prefix_len + sz);
+			if (mtype == METRIC_TYPE_COUNTER) {
+				size_t nlen = strlen(metricname);
+				if (nlen < 6 || strcmp(metricname + nlen - 6, "_total")) {
+					if (nlen + 7 < CONSUL_METRIC_SIZE)
+						memcpy(metricname + nlen, "_total", 7);
+				}
+			}
+			namespace_metric_family_set(NULL, carg, metricname, mtype, "Consul telemetry metric exported from /v1/agent/metrics.");
 
 			json_t *labels = json_object_get(arr_obj, "Labels");
 			if (labels)
@@ -75,10 +86,10 @@ void consul_handler(char *metrics, size_t size, context_arg *carg)
 						labels_hash_insert_nocache(lbl, (char*)key, value);
 				}
 
-				metric_add(metricname, lbl, &tvalue, DATATYPE_INT, carg);
+				metric_add(metricname, lbl, &tvalue, DATATYPE_DOUBLE, carg);
 			}
 			else
-				metric_add_auto(metricname, &tvalue, DATATYPE_INT, carg);
+				metric_add_auto(metricname, &tvalue, DATATYPE_DOUBLE, carg);
 		}
 	}
 

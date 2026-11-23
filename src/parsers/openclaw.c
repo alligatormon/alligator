@@ -50,7 +50,7 @@ static void openclaw_metric_families(context_arg *carg)
 		"Agent state (0=idle, 1=working, 2=thinking, 3=error).");
 	namespace_metric_family_set(NULL, carg, "openclaw_agent_last_activity_timestamp_seconds", METRIC_TYPE_GAUGE,
 		"Unix timestamp of last agent session file activity.");
-	namespace_metric_family_set(NULL, carg, "openclaw_cron_jobs_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "openclaw_cron_jobs", METRIC_TYPE_GAUGE,
 		"Total OpenClaw cron jobs.");
 	namespace_metric_family_set(NULL, carg, "openclaw_cron_jobs_enabled", METRIC_TYPE_GAUGE,
 		"Enabled OpenClaw cron jobs.");
@@ -690,14 +690,14 @@ static void openclaw_collect_cron(context_arg *carg, const char *home)
 	snprintf(path, sizeof(path), "%s/cron/jobs.json", home);
 	data = openclaw_read_file(path, NULL);
 	if (!data) {
-		metric_add_auto("openclaw_cron_jobs_total", &total, DATATYPE_UINT, carg);
+		metric_add_auto("openclaw_cron_jobs", &total, DATATYPE_UINT, carg);
 		metric_add_auto("openclaw_cron_jobs_enabled", &enabled_n, DATATYPE_UINT, carg);
 		return;
 	}
 	root = json_loads(data, 0, &err);
 	free(data);
 	if (!root) {
-		metric_add_auto("openclaw_cron_jobs_total", &total, DATATYPE_UINT, carg);
+		metric_add_auto("openclaw_cron_jobs", &total, DATATYPE_UINT, carg);
 		metric_add_auto("openclaw_cron_jobs_enabled", &enabled_n, DATATYPE_UINT, carg);
 		return;
 	}
@@ -753,7 +753,7 @@ static void openclaw_collect_cron(context_arg *carg, const char *home)
 			metric_add_labels2("openclaw_cron_job_created_at_seconds", &num, DATATYPE_DOUBLE, carg, "job_name", job_name, "job_id", job_id);
 		}
 	}
-	metric_add_auto("openclaw_cron_jobs_total", &total, DATATYPE_UINT, carg);
+	metric_add_auto("openclaw_cron_jobs", &total, DATATYPE_UINT, carg);
 	metric_add_auto("openclaw_cron_jobs_enabled", &enabled_n, DATATYPE_UINT, carg);
 	json_decref(root);
 }

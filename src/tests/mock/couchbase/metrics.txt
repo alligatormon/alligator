@@ -210,44 +210,44 @@ alligator_session_duration_seconds {proto="tcp", type="aggregator", host="localh
 alligator_session_duration_seconds {proto="tcp", type="aggregator", host="localhost", stage="write"} 0
 alligator_session_duration_seconds {proto="tcp", type="aggregator", host="localhost", stage="write"} 0
 alligator_session_duration_seconds {proto="tcp", type="aggregator", host="localhost", stage="write"} 0
-couchbase_bucket_autoCompactionSettings {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
-couchbase_bucket_basicStats_dataUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 33004544
-couchbase_bucket_basicStats_diskFetches {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
-couchbase_bucket_basicStats_diskUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 46561750
-couchbase_bucket_basicStats_itemCount {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 31591
-couchbase_bucket_basicStats_memUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 56384776
-couchbase_bucket_basicStats_opsPerSec {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
-couchbase_bucket_basicStats_quotaPercentUsed {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 53.772713
-couchbase_bucket_basicStats_vbActiveNumNonResident {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
-couchbase_bucket_maxTTL {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
-couchbase_bucket_node_clusterCompatibility {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 393222
-couchbase_bucket_node_cpuCount {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 6
-couchbase_bucket_node_interestingStats_cmd_get {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_couch_docs_actual_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 46561750
-couchbase_bucket_node_interestingStats_couch_docs_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 33004544
-couchbase_bucket_node_interestingStats_couch_spatial_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_couch_spatial_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_couch_views_actual_disk_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_couch_views_data_size {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_curr_items {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 31591
-couchbase_bucket_node_interestingStats_curr_items_tot {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 31591
-couchbase_bucket_node_interestingStats_ep_bg_fetched {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_get_hits {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_mem_used {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 56384776
-couchbase_bucket_node_interestingStats_ops {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_vb_active_num_non_resident {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_interestingStats_vb_replica_curr_items {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_mcdMemoryAllocated {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1589
-couchbase_bucket_node_mcdMemoryReserved {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1589
-couchbase_bucket_node_memoryFree {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 913506304
-couchbase_bucket_node_memoryTotal {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
-couchbase_bucket_node_nodeEncryption {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_ports_direct {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 11210
-couchbase_bucket_node_ports_distTCP {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 21100
-couchbase_bucket_node_ports_distTLS {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 21150
-couchbase_bucket_node_ports_httpsCAPI {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 18092
-couchbase_bucket_node_ports_httpsMgmt {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 18091
-couchbase_bucket_node_replication {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_autoCompactionSettings {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_dataUsed {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 33004544
+couchbase_bucket_basicStats_diskFetches {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_diskUsed {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 46561750
+couchbase_bucket_basicStats_itemCount {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 31591
+couchbase_bucket_basicStats_memUsed {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 56384776
+couchbase_bucket_basicStats_opsPerSec {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_basicStats_quotaPercentUsed {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 53.772713
+couchbase_bucket_basicStats_vbActiveNumNonResident {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_maxTTL {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 0
+couchbase_bucket_node_clusterCompatibility {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 393222
+couchbase_bucket_node_cpuCount {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 6
+couchbase_bucket_node_interestingStats_cmd_get {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_docs_actual_disk_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 46561750
+couchbase_bucket_node_interestingStats_couch_docs_data_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 33004544
+couchbase_bucket_node_interestingStats_couch_spatial_data_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_spatial_disk_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_views_actual_disk_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_couch_views_data_size {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_curr_items {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 31591
+couchbase_bucket_node_interestingStats_curr_items_tot {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 31591
+couchbase_bucket_node_interestingStats_ep_bg_fetched {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_get_hits {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_mem_used {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 56384776
+couchbase_bucket_node_interestingStats_ops {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_vb_active_num_non_resident {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_interestingStats_vb_replica_curr_items {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_mcdMemoryAllocated {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 1589
+couchbase_bucket_node_mcdMemoryReserved {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 1589
+couchbase_bucket_node_memoryFree {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 913506304
+couchbase_bucket_node_memoryTotal {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_nodeEncryption {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_ports_direct {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 11210
+couchbase_bucket_node_ports_distTCP {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 21100
+couchbase_bucket_node_ports_distTLS {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 21150
+couchbase_bucket_node_ports_httpsCAPI {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 18092
+couchbase_bucket_node_ports_httpsMgmt {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 18091
+couchbase_bucket_node_replication {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
 couchbase_bucket_node_stat_allocstall {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
 couchbase_bucket_node_stat_avg_active_timestamp_drift {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
 couchbase_bucket_node_stat_avg_bg_wait_time {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
@@ -463,20 +463,20 @@ couchbase_bucket_node_stat_vb_replica_queue_size {hostname="172.17.0.4:8091", bu
 couchbase_bucket_node_stat_vb_replica_resident_items_ratio {hostname="172.17.0.4:8091", bucket="travel-sample"} 100
 couchbase_bucket_node_stat_vb_total_queue_age {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
 couchbase_bucket_node_stat_xdc_ops {hostname="172.17.0.4:8091", bucket="travel-sample"} 0
-couchbase_bucket_node_systemStats_allocstall {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_systemStats_cpu_cores_available {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 6
-couchbase_bucket_node_systemStats_cpu_stolen_rate {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 0
-couchbase_bucket_node_systemStats_cpu_utilization_rate {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 7.249071
-couchbase_bucket_node_systemStats_mem_free {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 913506304
-couchbase_bucket_node_systemStats_mem_limit {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
-couchbase_bucket_node_systemStats_mem_total {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 2083606528
-couchbase_bucket_node_systemStats_swap_total {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1073737728
-couchbase_bucket_node_systemStats_swap_used {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 370933760
-couchbase_bucket_node_thisNode {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", nodeUUID="d1d57546f859aee447d2f029b6e8308d"} 1
-couchbase_bucket_quota_ram {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
-couchbase_bucket_quota_rawRAM {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
-couchbase_bucket_replicaIndex {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
-couchbase_bucket_replicaNumber {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_bucket_node_systemStats_allocstall {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_systemStats_cpu_cores_available {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 6
+couchbase_bucket_node_systemStats_cpu_stolen_rate {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 0
+couchbase_bucket_node_systemStats_cpu_utilization_rate {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 7.249071
+couchbase_bucket_node_systemStats_mem_free {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 913506304
+couchbase_bucket_node_systemStats_mem_limit {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_systemStats_mem_total {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 2083606528
+couchbase_bucket_node_systemStats_swap_total {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 1073737728
+couchbase_bucket_node_systemStats_swap_used {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 370933760
+couchbase_bucket_node_thisNode {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93", hostname="172.17.0.4:8091", node_uuid="d1d57546f859aee447d2f029b6e8308d"} 1
+couchbase_bucket_quota_ram {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
+couchbase_bucket_quota_rawRAM {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 104857600
+couchbase_bucket_replicaIndex {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_bucket_replicaNumber {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
 couchbase_bucket_stat_allocstall {bucket="travel-sample"} 0
 couchbase_bucket_stat_avg_active_timestamp_drift {bucket="travel-sample"} 0
 couchbase_bucket_stat_avg_bg_wait_time {bucket="travel-sample"} 0
@@ -692,8 +692,8 @@ couchbase_bucket_stat_vb_replica_queue_size {bucket="travel-sample"} 0
 couchbase_bucket_stat_vb_replica_resident_items_ratio {bucket="travel-sample"} 100
 couchbase_bucket_stat_vb_total_queue_age {bucket="travel-sample"} 0
 couchbase_bucket_stat_xdc_ops {bucket="travel-sample"} 0
-couchbase_bucket_threadsNumber {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 3
-couchbase_bucket_vBucketServerMap_numReplicas {bucketType="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
+couchbase_bucket_threadsNumber {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 3
+couchbase_bucket_vBucketServerMap_numReplicas {bucket_type="membase", name="travel-sample", uuid="dfca5aae36e56e9a23dbc26c0ae0bd93"} 1
 couchbase_node_stat_fts_curr_batches_blocked_by_herder {hostname="172.17.0.4:8091", context="@fts"} 0
 couchbase_node_stat_fts_num_bytes_used_ram {hostname="172.17.0.4:8091", context="@fts"} 102885624
 couchbase_node_stat_fts_total_queries_rejected_by_herder {hostname="172.17.0.4:8091", context="@fts"} 0
@@ -751,15 +751,15 @@ couchbase_stat_query_service_time 0
 couchbase_stat_query_warnings 0
 couchbase_stat_timestamp 1620591808296
 couchbase_task_changesDone {type="bucket_compaction", status="running", bucket="beer-sample"} 177
-couchbase_task_changesDone {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 1
-couchbase_task_error {type="rebalance", status="notRunning", statusId="1f05321a7b359e1743ffc8b7ee69a8b9", errorMessage="Rebalance failed. See logs for detailed reason. You can try rebalance again."} 1
+couchbase_task_changesDone {type="indexer", status="running", bucket="beer-sample", design_document="_design/beer"} 1
+couchbase_task_error {type="rebalance", status="notRunning", status_id="1f05321a7b359e1743ffc8b7ee69a8b9", error_message="Rebalance failed. See logs for detailed reason. You can try rebalance again."} 1
 couchbase_task_masterRequestTimedOut {type="rebalance", status="notRunning"} 0
 couchbase_task_progress {type="bucket_compaction", status="running", bucket="beer-sample"} 25
-couchbase_task_progress {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 14
-couchbase_task_progress {type="rebalance", status="running", statusId="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 60.588818
+couchbase_task_progress {type="indexer", status="running", bucket="beer-sample", design_document="_design/beer"} 14
+couchbase_task_progress {type="rebalance", status="running", status_id="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 60.588818
 couchbase_task_recommendedRefreshPeriod {type="bucket_compaction", status="running", bucket="beer-sample"} 2
-couchbase_task_recommendedRefreshPeriod {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 2
-couchbase_task_recommendedRefreshPeriod {type="rebalance", status="running", statusId="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 0.250000
+couchbase_task_recommendedRefreshPeriod {type="indexer", status="running", bucket="beer-sample", design_document="_design/beer"} 2
+couchbase_task_recommendedRefreshPeriod {type="rebalance", status="running", status_id="1a51786a937213ac456d2f066f65c08a", subtype="rebalance"} 0.250000
 couchbase_task_statusIsStale {type="rebalance", status="notRunning"} 0
 couchbase_task_totalChanges {type="bucket_compaction", status="running", bucket="beer-sample"} 682
-couchbase_task_totalChanges {type="indexer", status="running", bucket="beer-sample", designDocument="_design/beer"} 7
+couchbase_task_totalChanges {type="indexer", status="running", bucket="beer-sample", design_document="_design/beer"} 7

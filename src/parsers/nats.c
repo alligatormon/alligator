@@ -21,9 +21,28 @@
 
 #define NATS_NAME_SIZE 256
 
+static int nats_name_is_counter(const char *name)
+{
+	size_t len;
+
+	if (!name)
+		return 0;
+	len = strlen(name);
+	if (len >= 6 && !strcmp(name + len - 6, "_total"))
+		return 1;
+	if (strstr(name, "_http_req_stats"))
+		return 1;
+	if (strstr(name, "_in_msgs") || strstr(name, "_out_msgs") ||
+	    strstr(name, "_in_bytes") || strstr(name, "_out_bytes") ||
+	    strstr(name, "_slow_consumers") || strstr(name, "_total_connections"))
+		return 1;
+	return 0;
+}
+
 static inline void nats_metric_family(context_arg *carg, const char *name, const char *help)
 {
-	namespace_metric_family_set(NULL, carg, name, METRIC_TYPE_GAUGE, help);
+	uint8_t type = nats_name_is_counter(name) ? METRIC_TYPE_COUNTER : METRIC_TYPE_GAUGE;
+	namespace_metric_family_set(NULL, carg, name, type, help);
 }
 
 static int nats_json_as_int64(json_t *v, int64_t *out)
@@ -126,7 +145,7 @@ static void nats_emit_object_numbers(context_arg *carg, const char *prefix, json
 					int64_t iv;
 					if (!nats_json_as_int64(cnt, &iv))
 						continue;
-					snprintf(name, sizeof(name), "%s_http_req_stats", prefix);
+					snprintf(name, sizeof(name), "%s_http_req_stats_total", prefix);
 					nats_emit_int_label(carg, name, iv, "endpoint", (char *)ep);
 				}
 				continue;
@@ -156,7 +175,12 @@ static void nats_emit_object_numbers(context_arg *carg, const char *prefix, json
 
 		if (t == JSON_INTEGER) {
 			int64_t iv = json_integer_value(value);
-			snprintf(name, sizeof(name), "%s_%s", prefix, key);
+			if (!strcmp(key, "in_msgs") || !strcmp(key, "out_msgs") ||
+			    !strcmp(key, "in_bytes") || !strcmp(key, "out_bytes") ||
+			    !strcmp(key, "slow_consumers") || !strcmp(key, "total_connections"))
+				snprintf(name, sizeof(name), "%s_%s_total", prefix, key);
+			else
+				snprintf(name, sizeof(name), "%s_%s", prefix, key);
 			nats_emit_int(carg, name, iv);
 			continue;
 		}
@@ -302,7 +326,11 @@ void nats_routez_handler(char *metrics, size_t size, context_arg *carg)
 				if (!nats_json_as_int64(json_object_get(route, num_keys[k]), &iv))
 					continue;
 				char name[NATS_NAME_SIZE];
-				snprintf(name, sizeof(name), "nats_routez_routes_%s", num_keys[k]);
+				if (!strcmp(num_keys[k], "in_msgs") || !strcmp(num_keys[k], "out_msgs") ||
+				    !strcmp(num_keys[k], "in_bytes") || !strcmp(num_keys[k], "out_bytes"))
+					snprintf(name, sizeof(name), "nats_routez_routes_%s_total", num_keys[k]);
+				else
+					snprintf(name, sizeof(name), "nats_routez_routes_%s", num_keys[k]);
 				nats_emit_int_label(carg, name, iv, "rid", rid_buf);
 			}
 

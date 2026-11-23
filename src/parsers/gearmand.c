@@ -38,8 +38,8 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 
 
 		ctx_total = int_get_next(metrics+i, size, '\t', &cursor);
-		gearmand_metric_set(carg, "gearmand_total");
-		metric_add_labels("gearmand_total", &ctx_total, DATATYPE_INT, carg, "function", cdc);
+		gearmand_metric_set(carg, "gearmand_jobs");
+		metric_add_labels("gearmand_jobs", &ctx_total, DATATYPE_INT, carg, "function", cdc);
 
 		ctx_running = int_get_next(metrics+i, size, '\t', &cursor);
 		gearmand_metric_set(carg, "gearmand_running");
@@ -56,8 +56,8 @@ void gearmand_handler(char *metrics, size_t size, context_arg *carg)
 		i += cursor;
 	}
 
-	gearmand_metric_set(carg, "gearmand_server_total");
-	metric_add_auto("gearmand_server_total", &total, DATATYPE_INT, carg);
+	gearmand_metric_set(carg, "gearmand_server_jobs");
+	metric_add_auto("gearmand_server_jobs", &total, DATATYPE_INT, carg);
 	gearmand_metric_set(carg, "gearmand_server_running");
 	metric_add_auto("gearmand_server_running", &running, DATATYPE_INT, carg);
 	gearmand_metric_set(carg, "gearmand_server_available_workers");

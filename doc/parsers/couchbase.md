@@ -29,6 +29,6 @@ Metrics use prefixes such as:
 - `couchbase_bucket_*`, `couchbase_bucket_node_*`, `couchbase_bucket_stat_*`
 - `couchbase_node_stat_*`, `couchbase_stat_*`, `couchbase_task_*`
 
-Common labels: `name`, `bucketType`, `uuid`, `hostname`, `nodeUUID`.
+Common labels: `name`, `bucket_type`, `uuid`, `hostname`, `node_uuid`.
 
 The parser discovers buckets and nodes automatically and fans out REST requests.

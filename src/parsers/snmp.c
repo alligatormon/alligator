@@ -107,9 +107,12 @@ static const char *snmp_metric_help(const char *metric_name)
 	return "SNMP OID value scraped from the target agent.";
 }
 
+/* Set per varbind from BER tag (Counter32/64 → COUNTER). */
+static uint8_t snmp_family_type = METRIC_TYPE_GAUGE;
+
 static inline void snmp_metric_family_set(context_arg *carg, const char *metric_name)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, snmp_metric_help(metric_name));
+	namespace_metric_family_set(NULL, carg, metric_name, snmp_family_type, snmp_metric_help(metric_name));
 }
 
 static void snmp_oid_label_relative(context_arg *carg, const char *full_oid, char *out, size_t outs)
@@ -1794,6 +1797,7 @@ static void snmp_emit_varbind(context_arg *carg, snmp_vb *vb)
 
 	if (!vb->parse_ok)
 		return;
+	snmp_family_type = METRIC_TYPE_GAUGE;
 	if (vb->errstat != 0) {
 		double es = (double)vb->errstat;
 		snmp_metric_family_set(carg, "snmp_error");
@@ -1876,6 +1880,8 @@ static void snmp_emit_varbind(context_arg *carg, snmp_vb *vb)
 		}
 	} else if (vb->valtag == SNMP_TAG_COUNTER32 || vb->valtag == SNMP_TAG_GAUGE32 ||
 		   vb->valtag == SNMP_TAG_TIMETICKS) {
+		if (vb->valtag == SNMP_TAG_COUNTER32)
+			snmp_family_type = METRIC_TYPE_COUNTER;
 		uint64_t uv;
 		if (!ber_read_uinteger(vb->valbytes, vb->vallen, &uv)) {
 			double dv = (double)uv;
@@ -1921,6 +1927,7 @@ static void snmp_emit_varbind(context_arg *carg, snmp_vb *vb)
 						snmp_ml1(carg, (char *)(tcp_mname ? tcp_mname : (friendly_mname ? friendly_mname : "snmp_scrape_value")), &dv, DATATYPE_DOUBLE, "oid", oid_lab);
 		}
 	} else if (vb->valtag == SNMP_TAG_COUNTER64) {
+		snmp_family_type = METRIC_TYPE_COUNTER;
 		uint64_t uv;
 		if (!ber_read_uinteger(vb->valbytes, vb->vallen, &uv)) {
 			double dv = (double)uv;

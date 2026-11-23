@@ -1260,7 +1260,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (indice, status) (elasticsearch_indice_status{instance=\"$instance\"} == 1)",
+          "expr": "sum by (index, status) (elasticsearch_index_status{instance=\"$instance\"} == 1)",
           "format": "table",
           "intervalFactor": 1,
           "legendFormat": "",
@@ -1377,10 +1377,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "elasticsearch_indice_active_primary_shards{instance=\"$instance\"}",
+          "expr": "elasticsearch_index_active_primary_shards{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ indice }}",
+          "legendFormat": "{{ index }}",
           "range": true,
           "refId": "A"
         }
@@ -1485,10 +1485,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "elasticsearch_indice_active_shards{instance=\"$instance\"}",
+          "expr": "elasticsearch_index_active_shards{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ indice }}",
+          "legendFormat": "{{ index }}",
           "range": true,
           "refId": "A"
         }
@@ -1593,10 +1593,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "elasticsearch_indice_initializing_shards{instance=\"$instance\"}",
+          "expr": "elasticsearch_index_initializing_shards{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ indice }}",
+          "legendFormat": "{{ index }}",
           "range": true,
           "refId": "A"
         }
@@ -1701,10 +1701,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "elasticsearch_indice_unassigned_shards{instance=\"$instance\"}",
+          "expr": "elasticsearch_index_unassigned_shards{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ indice }}",
+          "legendFormat": "{{ index }}",
           "range": true,
           "refId": "A"
         }
@@ -1809,10 +1809,10 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "elasticsearch_indice_relocating_shards{instance=\"$instance\"}",
+          "expr": "elasticsearch_index_relocating_shards{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{ indice }}",
+          "legendFormat": "{{ index }}",
           "range": true,
           "refId": "A"
         }

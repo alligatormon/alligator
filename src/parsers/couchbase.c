@@ -7,6 +7,7 @@
 #include "events/context_arg.h"
 #include "common/http.h"
 #include "common/logs.h"
+#include "common/validator.h"
 #include "main.h"
 #define COUCHBASE_LEN 1000
 
@@ -24,22 +25,22 @@ void couchbase_bucket_metric_get(context_arg *carg, char *metric_name, const cha
 	if (type == JSON_REAL)
 	{
 		double metric_value = json_real_value(value);
-		metric_add_labels3(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid);
+		metric_add_labels3(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid);
 	}
 	else if (type == JSON_INTEGER)
 	{
 		int64_t metric_value = json_integer_value(value);
-		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid);
+		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid);
 	}
 	else if (type == JSON_TRUE)
 	{
 		int64_t metric_value = 1;
-		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid);
+		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid);
 	}
 	else if (type == JSON_FALSE)
 	{
 		int64_t metric_value = 0;
-		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid);
+		metric_add_labels3(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid);
 	}
 }
 
@@ -52,22 +53,22 @@ void couchbase_bucket_node_metric_get(context_arg *carg, char *metric_name, cons
 	if (type == JSON_REAL)
 	{
 		double metric_value = json_real_value(value);
-		metric_add_labels5(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid, "nodeUUID", (char*)nodeUUID, "hostname", (char*)hostname);
+		metric_add_labels5(metric_name, &metric_value, DATATYPE_DOUBLE, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid, "node_uuid", (char*)nodeUUID, "hostname", (char*)hostname);
 	}
 	else if (type == JSON_INTEGER)
 	{
 		int64_t metric_value = json_integer_value(value);
-		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid, "nodeUUID", (char*)nodeUUID, "hostname", (char*)hostname);
+		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid, "node_uuid", (char*)nodeUUID, "hostname", (char*)hostname);
 	}
 	else if (type == JSON_TRUE)
 	{
 		int64_t metric_value = 1;
-		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid, "nodeUUID", (char*)nodeUUID, "hostname", (char*)hostname);
+		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid, "node_uuid", (char*)nodeUUID, "hostname", (char*)hostname);
 	}
 	else if (type == JSON_FALSE)
 	{
 		int64_t metric_value = 0;
-		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucketType", (char*)bucketType, "uuid", (char*)uuid, "nodeUUID", (char*)nodeUUID, "hostname", (char*)hostname);
+		metric_add_labels5(metric_name, &metric_value, DATATYPE_INT, carg, "name", (char*)name, "bucket_type", (char*)bucketType, "uuid", (char*)uuid, "node_uuid", (char*)nodeUUID, "hostname", (char*)hostname);
 	}
 }
 
@@ -160,7 +161,8 @@ void couchbase_bucket_nodes_stats(char *metrics, size_t size, context_arg *carg)
 			continue;
 
 		strlcpy(metric_name + metric_size, sample_key, COUCHBASE_LEN - metric_size);
-		
+		prometheus_metric_name_normalizer(metric_name + metric_size, strlen(metric_name + metric_size));
+
 		int type = json_typeof(sample);
 		if (type == JSON_REAL)
 		{
@@ -395,11 +397,12 @@ void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
 		json_object_foreach(task, task_key, task_value)
 		{
 			strlcpy(metric_name + 15, task_key, COUCHBASE_LEN - 15);
+			prometheus_metric_name_normalizer(metric_name + 15, strlen(metric_name + 15));
 
 			alligator_ht *hash = alligator_ht_init(NULL);
 
 			if (statusId)
-				labels_hash_insert_nocache(hash, "statusId", statusId);
+				labels_hash_insert_nocache(hash, "status_id", statusId);
 			if (type)
 				labels_hash_insert_nocache(hash, "type", type);
 			if (subtype)
@@ -409,12 +412,12 @@ void couchbase_tasks_handler(char *metrics, size_t size, context_arg *carg)
 			if (bucket)
 				labels_hash_insert_nocache(hash, "bucket", bucket);
 			if (designDocument)
-				labels_hash_insert_nocache(hash, "designDocument", designDocument);
+				labels_hash_insert_nocache(hash, "design_document", designDocument);
 			if (pid)
 				labels_hash_insert_nocache(hash, "pid", pid);
 			if (errorMessage)
 			{
-				labels_hash_insert_nocache(hash, "errorMessage", errorMessage);
+				labels_hash_insert_nocache(hash, "error_message", errorMessage);
 				int64_t metric_value = 1;
 				couchbase_metric_set(carg, "couchbase_task_error");
 				metric_add("couchbase_task_error", hash, &metric_value, DATATYPE_INT, carg);

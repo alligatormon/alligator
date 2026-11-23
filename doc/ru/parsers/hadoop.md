@@ -24,4 +24,4 @@ aggregate {
 
 ### Metrics
 
-Каждое числовое поле JMX bean становится `Hadoop_<field_name>`. Опциональная метка `modelerType` берётся из bean, если есть.
+Каждое числовое поле JMX bean становится `hadoop_<field_name>`. Опциональная метка `modeler_type` берётся из bean, если есть.

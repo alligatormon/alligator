@@ -29,6 +29,6 @@ aggregate {
 - `couchbase_bucket_*`, `couchbase_bucket_node_*`, `couchbase_bucket_stat_*`
 - `couchbase_node_stat_*`, `couchbase_stat_*`, `couchbase_task_*`
 
-Метки: `name`, `bucketType`, `uuid`, `hostname`, `nodeUUID`.
+Метки: `name`, `bucket_type`, `uuid`, `hostname`, `node_uuid`.
 
 Parser сам обнаруживает buckets и nodes и делает fan-out REST-запросов.

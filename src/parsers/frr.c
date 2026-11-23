@@ -180,15 +180,15 @@ static void frr_metric_help(context_arg *carg)
 		"Whether the collector's last scrape was successful (1 = successful, 0 = unsuccessful).");
 	namespace_metric_family_set(NULL, carg, "frr_scrape_duration_seconds", METRIC_TYPE_GAUGE,
 		"Time it took for a collector's scrape to complete.");
-	namespace_metric_family_set(NULL, carg, "frr_bgp_rib_count_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bgp_rib_count", METRIC_TYPE_GAUGE,
 		"Number of routes in the RIB.");
 	namespace_metric_family_set(NULL, carg, "frr_bgp_rib_memory_bytes", METRIC_TYPE_GAUGE,
 		"Memory consumed by the RIB.");
-	namespace_metric_family_set(NULL, carg, "frr_bgp_peers_count_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bgp_peers_count", METRIC_TYPE_GAUGE,
 		"Number peers configured.");
 	namespace_metric_family_set(NULL, carg, "frr_bgp_peers_memory_bytes", METRIC_TYPE_GAUGE,
 		"Memory consumed by peers.");
-	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_groups_count_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_groups_count", METRIC_TYPE_GAUGE,
 		"Number of peer groups configured.");
 	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_groups_memory_bytes", METRIC_TYPE_GAUGE,
 		"Memory consumed by peer groups.");
@@ -196,9 +196,9 @@ static void frr_metric_help(context_arg *carg)
 		"Number of received messages.");
 	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_message_sent_total", METRIC_TYPE_COUNTER,
 		"Number of sent messages.");
-	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_prefixes_received_count_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_prefixes_received", METRIC_TYPE_GAUGE,
 		"Number of prefixes received.");
-	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_prefixes_advertised_count_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_prefixes_advertised", METRIC_TYPE_GAUGE,
 		"Number of prefixes advertised.");
 	namespace_metric_family_set(NULL, carg, "frr_bgp_peer_state", METRIC_TYPE_GAUGE,
 		"State of the peer (2 = Administratively Down, 1 = Established, 0 = Down).");
@@ -232,9 +232,9 @@ static void frr_metric_help(context_arg *carg)
 		"OSPF neighbor state (1=Down … 7=Full).");
 	namespace_metric_family_set(NULL, carg, "frr_ospf_data_ls_max_age", METRIC_TYPE_GAUGE,
 		"Amount of link state max age entries.");
-	namespace_metric_family_set(NULL, carg, "frr_route_total", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_routes", METRIC_TYPE_GAUGE,
 		"Total number of routes.");
-	namespace_metric_family_set(NULL, carg, "frr_route_total_fib", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_routes_fib", METRIC_TYPE_GAUGE,
 		"Total number of routes in FIB.");
 }
 
@@ -385,11 +385,11 @@ int frr_parse_bgp_summary(const char *body, size_t size, context_arg *carg, cons
 				uint64_t pgc = frr_json_u64(safi_obj, "peerGroupCount");
 				uint64_t pgm = frr_json_u64(safi_obj, "peerGroupMemory");
 				/* metric_add consumes the HT; dup for every emit except the last. */
-				metric_add("frr_bgp_rib_count_total", labels_dup(plabels), &rib, DATATYPE_UINT, carg);
+				metric_add("frr_bgp_rib_count", labels_dup(plabels), &rib, DATATYPE_UINT, carg);
 				metric_add("frr_bgp_rib_memory_bytes", labels_dup(plabels), &ribm, DATATYPE_UINT, carg);
-				metric_add("frr_bgp_peers_count_total", labels_dup(plabels), &pc, DATATYPE_UINT, carg);
+				metric_add("frr_bgp_peers_count", labels_dup(plabels), &pc, DATATYPE_UINT, carg);
 				metric_add("frr_bgp_peers_memory_bytes", labels_dup(plabels), &pm, DATATYPE_UINT, carg);
-				metric_add("frr_bgp_peer_groups_count_total", labels_dup(plabels), &pgc, DATATYPE_UINT, carg);
+				metric_add("frr_bgp_peer_groups_count", labels_dup(plabels), &pgc, DATATYPE_UINT, carg);
 				metric_add("frr_bgp_peer_groups_memory_bytes", plabels, &pgm, DATATYPE_UINT, carg);
 			}
 
@@ -433,11 +433,11 @@ int frr_parse_bgp_summary(const char *body, size_t size, context_arg *carg, cons
 
 					metric_add("frr_bgp_peer_message_received_total", labels_dup(labels), &msg_r, DATATYPE_UINT, carg);
 					metric_add("frr_bgp_peer_message_sent_total", labels_dup(labels), &msg_s, DATATYPE_UINT, carg);
-					metric_add("frr_bgp_peer_prefixes_received_count_total", labels_dup(labels), &pfx, DATATYPE_UINT, carg);
+					metric_add("frr_bgp_peer_prefixes_received", labels_dup(labels), &pfx, DATATYPE_UINT, carg);
 					metric_add("frr_bgp_peer_uptime_seconds", labels_dup(labels), &uptime, DATATYPE_DOUBLE, carg);
 					if (json_object_get(peer_obj, "pfxSnt")) {
 						uint64_t snt = frr_json_u64(peer_obj, "pfxSnt");
-						metric_add("frr_bgp_peer_prefixes_advertised_count_total", labels_dup(labels), &snt, DATATYPE_UINT, carg);
+						metric_add("frr_bgp_peer_prefixes_advertised", labels_dup(labels), &snt, DATATYPE_UINT, carg);
 					}
 					metric_add("frr_bgp_peer_state", labels, &peer_state, DATATYPE_DOUBLE, carg);
 				}
@@ -505,8 +505,8 @@ int frr_parse_route_summary(const char *body, size_t size, context_arg *carg, co
 		/* single VRF (older FRR) */
 		uint64_t total = frr_json_u64(root, "routesTotal");
 		uint64_t fib = frr_json_u64(root, "routesTotalFib");
-		metric_add_labels2("frr_route_total", &total, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", "default");
-		metric_add_labels2("frr_route_total_fib", &fib, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", "default");
+		metric_add_labels2("frr_routes", &total, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", "default");
+		metric_add_labels2("frr_routes_fib", &fib, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", "default");
 		json_decref(root);
 		return 0;
 	}
@@ -521,8 +521,8 @@ int frr_parse_route_summary(const char *body, size_t size, context_arg *carg, co
 			continue;
 		total = frr_json_u64(vrf_obj, "routesTotal");
 		fib = frr_json_u64(vrf_obj, "routesTotalFib");
-		metric_add_labels2("frr_route_total", &total, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", (char *)vrf);
-		metric_add_labels2("frr_route_total_fib", &fib, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", (char *)vrf);
+		metric_add_labels2("frr_routes", &total, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", (char *)vrf);
+		metric_add_labels2("frr_routes_fib", &fib, DATATYPE_UINT, carg, "afi", (char *)afi, "vrf", (char *)vrf);
 	}
 	json_decref(root);
 	return 0;

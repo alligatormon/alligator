@@ -8,7 +8,7 @@
 
 static inline void auditd_metric_set(context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "auditd_event", METRIC_TYPE_COUNTER,
+	namespace_metric_family_set(NULL, carg, "auditd_events_total", METRIC_TYPE_COUNTER,
 		"Number of audit log events received, labeled by event attributes.");
 }
 
@@ -23,11 +23,11 @@ static inline void auditd_label_insert(alligator_ht *lbl, char *key, char *value
 	} else if (!strcmp(key, "success")) {
 		labels_hash_insert_nocache(lbl, key, value);
 	} else if (!strcmp(key, "auid") || !strcmp(key, "AUID")) {
-		labels_hash_insert_nocache(lbl, "AUID", value);
+		labels_hash_insert_nocache(lbl, "auid", value);
 	} else if (!strcmp(key, "uid") || !strcmp(key, "UID")) {
-		labels_hash_insert_nocache(lbl, "UID", value);
+		labels_hash_insert_nocache(lbl, "uid", value);
 	} else if (!strcmp(key, "gid") || !strcmp(key, "GID")) {
-		labels_hash_insert_nocache(lbl, "GID", value);
+		labels_hash_insert_nocache(lbl, "gid", value);
 	}
 }
 
@@ -99,7 +99,7 @@ void auditd_handler(char *metrics, size_t size, context_arg *carg)
 		alligator_ht *lbl = alligator_ht_init(NULL);
 		auditd_parse_line(line, field_len, lbl);
 		uint64_t okval = 1;
-		metric_update("auditd_event", lbl, &okval, DATATYPE_UINT, carg);
+		metric_update("auditd_events_total", lbl, &okval, DATATYPE_UINT, carg);
 	}
 
 	carg->parser_status = 1;

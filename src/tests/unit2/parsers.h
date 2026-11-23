@@ -439,10 +439,10 @@ void api_test_parser_opennebula()
     carg = calloc(1, sizeof(*carg));
     opennebula_datastores_handler(ds, strlen(ds), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_status{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_status", 0);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_total_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_total_bytes", 104857600000);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_free_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_free_bytes", 41943040000);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_used_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_used_bytes", 62914560000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_status{name=\"one_ut_ds\"}", "opennebula_monitoring_datastore_status", 0);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_total_bytes{name=\"one_ut_ds\"}", "opennebula_monitoring_datastore_total_bytes", 104857600000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_free_bytes{name=\"one_ut_ds\"}", "opennebula_monitoring_datastore_free_bytes", 41943040000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_used_bytes{name=\"one_ut_ds\"}", "opennebula_monitoring_datastore_used_bytes", 62914560000);
     free(carg);
 
     carg = calloc(1, sizeof(*carg));
@@ -957,13 +957,13 @@ void api_test_parser_frr(char *binary)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
     carg = calloc(1, sizeof(*carg));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_bgp_summary(msg->s, msg->l, carg, "ipv4"));
-    metric_test_run(CMP_EQUAL, "frr_bgp_rib_count_total{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_rib_count_total", 1);
-    metric_test_run(CMP_EQUAL, "frr_bgp_peers_count_total{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peers_count_total", 2);
+    metric_test_run(CMP_EQUAL, "frr_bgp_rib_count{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_rib_count", 1);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peers_count{afi=\"ipv4\",local_as=\"64512\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peers_count", 2);
     metric_test_run(CMP_EQUAL, "frr_bgp_peer_state{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_state", 1);
     metric_test_run(CMP_EQUAL, "frr_bgp_peer_state{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.4\",peer_as=\"64515\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_state", 2);
     metric_test_run(CMP_EQUAL, "frr_bgp_peer_message_received_total{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_message_received_total", 100);
     metric_test_run(CMP_EQUAL, "frr_bgp_peer_uptime_seconds{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.2\",peer_as=\"64513\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_uptime_seconds", 10);
-    metric_test_run(CMP_EQUAL, "frr_bgp_peer_prefixes_received_count_total{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.3\",peer_as=\"64514\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_prefixes_received_count_total", 2);
+    metric_test_run(CMP_EQUAL, "frr_bgp_peer_prefixes_received{afi=\"ipv4\",local_as=\"64512\",peer=\"192.168.0.3\",peer_as=\"64514\",safi=\"unicast\",vrf=\"default\"}", "frr_bgp_peer_prefixes_received", 2);
     free(carg);
     string_free(msg);
 
@@ -983,8 +983,8 @@ void api_test_parser_frr(char *binary)
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, msg);
     carg = calloc(1, sizeof(*carg));
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_route_summary(msg->s, msg->l, carg, "ipv4"));
-    metric_test_run(CMP_EQUAL, "frr_route_total{afi=\"ipv4\",vrf=\"default\"}", "frr_route_total", 3);
-    metric_test_run(CMP_EQUAL, "frr_route_total_fib{afi=\"ipv4\",vrf=\"red\"}", "frr_route_total_fib", 1000511);
+    metric_test_run(CMP_EQUAL, "frr_routes{afi=\"ipv4\",vrf=\"default\"}", "frr_routes", 3);
+    metric_test_run(CMP_EQUAL, "frr_routes_fib{afi=\"ipv4\",vrf=\"red\"}", "frr_routes_fib", 1000511);
     free(carg);
     string_free(msg);
 
@@ -1527,7 +1527,7 @@ void api_test_parser_openclaw()
     metric_test_run(CMP_EQUAL, "openclaw_agent_sessions{agent_name=\"main\"}", "openclaw_agent_sessions", 2);
     metric_test_run(CMP_EQUAL, "openclaw_agent_state{agent_name=\"main\"}", "openclaw_agent_state", 1);
     metric_test_run(CMP_GREATER, "openclaw_agent_last_activity_timestamp_seconds{agent_name=\"main\"}", "openclaw_agent_last_activity_timestamp_seconds", 1000000000);
-    metric_test_run(CMP_EQUAL, "openclaw_cron_jobs_total", "openclaw_cron_jobs_total", 1);
+    metric_test_run(CMP_EQUAL, "openclaw_cron_jobs", "openclaw_cron_jobs", 1);
     metric_test_run(CMP_EQUAL, "openclaw_cron_jobs_enabled", "openclaw_cron_jobs_enabled", 1);
     metric_test_run(CMP_EQUAL, "openclaw_cron_job_enabled{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_enabled", 1);
     metric_test_run(CMP_EQUAL, "openclaw_cron_job_last_run_at_seconds{job_name=\"daily-report\",job_id=\"12345678\"}", "openclaw_cron_job_last_run_at_seconds", 1700000100);
@@ -2244,45 +2244,45 @@ void api_test_parser_beanstalkd() {
     beanstalkd_handler(msg, strlen(msg), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
-    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_urgent:", "beanstalkd_current_jobs_urgent:", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_urgent", "beanstalkd_current_jobs_urgent", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_ready", "beanstalkd_current_jobs_ready", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_reserved", "beanstalkd_current_jobs_reserved", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_delayed", "beanstalkd_current_jobs_delayed", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_jobs_buried", "beanstalkd_current_jobs_buried", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_put", "beanstalkd_cmd_put", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek", "beanstalkd_cmd_peek", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_ready", "beanstalkd_cmd_peek_ready", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_delayed", "beanstalkd_cmd_peek_delayed", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_buried", "beanstalkd_cmd_peek_buried", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve", "beanstalkd_cmd_reserve", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve_with_timeout", "beanstalkd_cmd_reserve_with_timeout", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_delete", "beanstalkd_cmd_delete", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_release", "beanstalkd_cmd_release", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_use", "beanstalkd_cmd_use", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_watch", "beanstalkd_cmd_watch", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_ignore", "beanstalkd_cmd_ignore", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_bury", "beanstalkd_cmd_bury", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_kick", "beanstalkd_cmd_kick", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_touch", "beanstalkd_cmd_touch", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats", "beanstalkd_cmd_stats", 1);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_job", "beanstalkd_cmd_stats_job", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_tube", "beanstalkd_cmd_stats_tube", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes", "beanstalkd_cmd_list_tubes", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tube_used", "beanstalkd_cmd_list_tube_used", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes_watched", "beanstalkd_cmd_list_tubes_watched", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_pause_tube", "beanstalkd_cmd_pause_tube", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_job_timeouts", "beanstalkd_job_timeouts", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_total_jobs", "beanstalkd_total_jobs", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_put_total", "beanstalkd_cmd_put_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_total", "beanstalkd_cmd_peek_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_ready_total", "beanstalkd_cmd_peek_ready_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_delayed_total", "beanstalkd_cmd_peek_delayed_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_peek_buried_total", "beanstalkd_cmd_peek_buried_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve_total", "beanstalkd_cmd_reserve_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_reserve_with_timeout_total", "beanstalkd_cmd_reserve_with_timeout_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_delete_total", "beanstalkd_cmd_delete_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_release_total", "beanstalkd_cmd_release_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_use_total", "beanstalkd_cmd_use_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_watch_total", "beanstalkd_cmd_watch_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_ignore_total", "beanstalkd_cmd_ignore_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_bury_total", "beanstalkd_cmd_bury_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_kick_total", "beanstalkd_cmd_kick_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_touch_total", "beanstalkd_cmd_touch_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_total", "beanstalkd_cmd_stats_total", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_job_total", "beanstalkd_cmd_stats_job_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_stats_tube_total", "beanstalkd_cmd_stats_tube_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes_total", "beanstalkd_cmd_list_tubes_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tube_used_total", "beanstalkd_cmd_list_tube_used_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_list_tubes_watched_total", "beanstalkd_cmd_list_tubes_watched_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_cmd_pause_tube_total", "beanstalkd_cmd_pause_tube_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_job_timeouts_total", "beanstalkd_job_timeouts_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_total_jobs_total", "beanstalkd_total_jobs_total", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_max_job_size", "beanstalkd_max_job_size", 65535);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_tubes", "beanstalkd_current_tubes", 1);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_connections", "beanstalkd_current_connections", 1);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_producers", "beanstalkd_current_producers", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_workers", "beanstalkd_current_workers", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_current_waiting", "beanstalkd_current_waiting", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_total_connections", "beanstalkd_total_connections", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_total_connections_total", "beanstalkd_total_connections_total", 1);
     metric_test_run(CMP_EQUAL, "beanstalkd_rusage_utime", "beanstalkd_rusage_utime", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_rusage_stime", "beanstalkd_rusage_stime", 0);
-    metric_test_run(CMP_GREATER, "beanstalkd_uptime", "beanstalkd_uptime", 0);
+    metric_test_run(CMP_GREATER, "beanstalkd_uptime_total", "beanstalkd_uptime_total", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_oldest_index", "beanstalkd_binlog_oldest_index", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_current_index", "beanstalkd_binlog_current_index", 0);
     metric_test_run(CMP_EQUAL, "beanstalkd_binlog_records_migrated", "beanstalkd_binlog_records_migrated", 0);
@@ -2347,19 +2347,19 @@ void api_test_parser_beanstalkd_stats_tube() {
     beanstalkd_stats_tube(msg, strlen(msg), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
-    metric_test_run(CMP_GREATER, "beanstalkd_stats_tube_current_jobs_urgent", "beanstalkd_stats_tube_current_jobs_urgent", -1);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_ready", "beanstalkd_stats_tube_current_jobs_ready", 5);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_reserved", "beanstalkd_stats_tube_current_jobs_reserved", 1);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_delayed", "beanstalkd_stats_tube_current_jobs_delayed", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_buried", "beanstalkd_stats_tube_current_jobs_buried", 10);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_total_jobs", "beanstalkd_stats_tube_total_jobs", 100);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_using", "beanstalkd_stats_tube_current_using", 3);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_watching", "beanstalkd_stats_tube_current_watching", 4);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_waiting", "beanstalkd_stats_tube_current_waiting", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_delete", "beanstalkd_stats_tube_cmd_delete", 99);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_pause_tube", "beanstalkd_stats_tube_cmd_pause_tube", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause", "beanstalkd_stats_tube_pause", 0);
-    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause_time_left", "beanstalkd_stats_tube_pause_time_left", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_urgent{tube_name=\"default\"}", "beanstalkd_stats_tube_current_jobs_urgent", 2);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_ready{tube_name=\"default\"}", "beanstalkd_stats_tube_current_jobs_ready", 5);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_reserved{tube_name=\"default\"}", "beanstalkd_stats_tube_current_jobs_reserved", 1);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_delayed{tube_name=\"default\"}", "beanstalkd_stats_tube_current_jobs_delayed", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_jobs_buried{tube_name=\"default\"}", "beanstalkd_stats_tube_current_jobs_buried", 10);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_total_jobs_total{tube_name=\"default\"}", "beanstalkd_stats_tube_total_jobs_total", 100);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_using{tube_name=\"default\"}", "beanstalkd_stats_tube_current_using", 3);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_watching{tube_name=\"default\"}", "beanstalkd_stats_tube_current_watching", 4);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_current_waiting{tube_name=\"default\"}", "beanstalkd_stats_tube_current_waiting", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_delete_total{tube_name=\"default\"}", "beanstalkd_stats_tube_cmd_delete_total", 99);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_cmd_pause_tube_total{tube_name=\"default\"}", "beanstalkd_stats_tube_cmd_pause_tube_total", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause{tube_name=\"default\"}", "beanstalkd_stats_tube_pause", 0);
+    metric_test_run(CMP_EQUAL, "beanstalkd_stats_tube_pause_time_left{tube_name=\"default\"}", "beanstalkd_stats_tube_pause_time_left", 0);
 }
 
 void api_test_parser_uwsgi() {
@@ -2586,8 +2586,8 @@ void api_test_parser_nats() {
     metric_test_run_ns(CMP_EQUAL, "nats_varz_max_connections", "nats_varz_max_connections", 65536, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_varz_ping_max", "nats_varz_ping_max", 2, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_varz_mem", "nats_varz_mem", 4251648, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats{endpoint=\"/\"}", "nats_varz_http_req_stats", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats{endpoint=\"/varz\"}", "nats_varz_http_req_stats", 1, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats_total{endpoint=\"/\"}", "nats_varz_http_req_stats_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_varz_http_req_stats_total{endpoint=\"/varz\"}", "nats_varz_http_req_stats_total", 1, nats_test_ns);
 
 
     carg = calloc(1, sizeof(*carg));
@@ -2605,10 +2605,10 @@ void api_test_parser_nats() {
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_remote_id", "nats_routez_routes_remote_id", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_ip", "nats_routez_routes_ip", 1, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_port", "nats_routez_routes_port", 61791, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_msgs", "nats_routez_routes_in_msgs", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_msgs", "nats_routez_routes_out_msgs", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_bytes", "nats_routez_routes_in_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_bytes", "nats_routez_routes_out_bytes", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_msgs_total", "nats_routez_routes_in_msgs_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_msgs_total", "nats_routez_routes_out_msgs_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_in_bytes_total", "nats_routez_routes_in_bytes_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_out_bytes_total", "nats_routez_routes_out_bytes_total", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_subscriptions", "nats_routez_routes_subscriptions", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_routez_routes_did_solicit", "nats_routez_routes_did_solicit", 1, nats_test_ns);
 
@@ -3171,26 +3171,26 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_fs_total_bytes", "elasticsearch_fs_total_bytes", 1);
     metric_test_run(CMP_EQUAL, "elasticsearch_fs_path_total_bytes", "elasticsearch_fs_path_total_bytes", 63189069824);
     metric_test_run(CMP_GREATER, "elasticsearch_http", "elasticsearch_http", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_active_primary_shards", "elasticsearch_indice_active_primary_shards", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_active_shards", "elasticsearch_indice_active_shards", 3);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_initializing_shards", "elasticsearch_indice_initializing_shards", 0);
-    metric_test_run(CMP_GREATER, "elasticsearch_indice_number_of_replicas", "elasticsearch_indice_number_of_replicas", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_number_of_shards", "elasticsearch_indice_number_of_shards", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_relocating_shards", "elasticsearch_indice_relocating_shards", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_active_primary_shards", "elasticsearch_index_active_primary_shards", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_active_shards", "elasticsearch_index_active_shards", 3);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_initializing_shards", "elasticsearch_index_initializing_shards", 0);
+    metric_test_run(CMP_GREATER, "elasticsearch_index_number_of_replicas", "elasticsearch_index_number_of_replicas", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_number_of_shards", "elasticsearch_index_number_of_shards", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_relocating_shards", "elasticsearch_index_relocating_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_completion_bytes", "elasticsearch_indices_completion_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_docs", "elasticsearch_indices_docs", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_fielddata", "elasticsearch_indices_fielddata", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_fielddata_bytes", "elasticsearch_indices_fielddata_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_flush", "elasticsearch_indices_flush", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_get", "elasticsearch_indices_get", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_active", "elasticsearch_indice_shard_active", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_active_shards", "elasticsearch_indice_shard_active_shards", 3);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_initializing_shards", "elasticsearch_indice_shard_initializing_shards", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_relocating_shards", "elasticsearch_indice_shard_relocating_shards", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"green\"}", "elasticsearch_indice_shard_status", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"yellow\"}", "elasticsearch_indice_shard_status", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_status{status=\"red\"}", "elasticsearch_indice_shard_status", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_shard_unassigned_shards", "elasticsearch_indice_shard_unassigned_shards", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_active", "elasticsearch_index_shard_active", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_active_shards", "elasticsearch_index_shard_active_shards", 3);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_initializing_shards", "elasticsearch_index_shard_initializing_shards", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_relocating_shards", "elasticsearch_index_shard_relocating_shards", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_status{status=\"green\"}", "elasticsearch_index_shard_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_status{status=\"yellow\"}", "elasticsearch_index_shard_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_status{status=\"red\"}", "elasticsearch_index_shard_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_shard_unassigned_shards", "elasticsearch_index_shard_unassigned_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_indexing", "elasticsearch_indices_indexing", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_merges", "elasticsearch_indices_merges", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_merges_bytes", "elasticsearch_indices_merges_bytes", 0);
@@ -3204,13 +3204,13 @@ void api_test_parser_elasticsearch(char *binary) {
     metric_test_run(CMP_GREATER, "elasticsearch_indices_segments", "elasticsearch_indices_segments", -92236854776001);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_segments_bytes", "elasticsearch_indices_segments_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_store_bytes", "elasticsearch_indices_store_bytes", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"green\"}", "elasticsearch_indice_status", 1);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"yellow\"}", "elasticsearch_indice_status", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_status{status=\"red\"}", "elasticsearch_indice_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_status{status=\"green\"}", "elasticsearch_index_status", 1);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_status{status=\"yellow\"}", "elasticsearch_index_status", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_status{status=\"red\"}", "elasticsearch_index_status", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_translog", "elasticsearch_indices_translog", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_translog_bytes", "elasticsearch_indices_translog_bytes", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_indices_warmer", "elasticsearch_indices_warmer", 0);
-    metric_test_run(CMP_EQUAL, "elasticsearch_indice_unassigned_shards", "elasticsearch_indice_unassigned_shards", 0);
+    metric_test_run(CMP_EQUAL, "elasticsearch_index_unassigned_shards", "elasticsearch_index_unassigned_shards", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_ingest_pipeline_xpack_monitoring_2", "elasticsearch_ingest_pipeline_xpack_monitoring_2", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_ingest_pipeline_xpack_monitoring_6", "elasticsearch_ingest_pipeline_xpack_monitoring_6", 0);
     metric_test_run(CMP_EQUAL, "elasticsearch_ingest_pipeline_xpack_monitoring_7", "elasticsearch_ingest_pipeline_xpack_monitoring_7", 0);
@@ -3380,9 +3380,9 @@ void api_test_parser_dummy_consul_hadoop()
     carg->parser_status = 0;
     consul_handler(consul_ok, strlen(consul_ok), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "runtime_alloc_bytes", "runtime_alloc_bytes", 11);
-    metric_test_run(CMP_EQUAL, "http_req", "http_req", 7);
-    metric_test_run(CMP_GREATER, "raft_apply", "raft_apply", 0);
+    metric_test_run(CMP_EQUAL, "consul_runtime_alloc_bytes{host=\"n1\"}", "consul_runtime_alloc_bytes", 11);
+    metric_test_run(CMP_EQUAL, "consul_http_req_total", "consul_http_req_total", 7);
+    metric_test_run(CMP_GREATER, "consul_raft_apply", "consul_raft_apply", 0);
 
     carg->parser_status = 0;
     consul_handler("{", 1, carg);
@@ -3397,7 +3397,7 @@ void api_test_parser_dummy_consul_hadoop()
     carg->parser_status = 0;
     hadoop_handler(hadoop_ok, strlen(hadoop_ok), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "hadoop_threads", "hadoop_threads", 5);
+    metric_test_run(CMP_EQUAL, "hadoop_threads{modeler_type=\"NameNode\"}", "hadoop_threads", 5);
     metric_test_run(CMP_EQUAL, "hadoop_heapused", "hadoop_heapused", 10);
 
     carg->parser_status = 0;
@@ -3412,11 +3412,11 @@ void api_test_parser_auditd_gdnsd()
     char *audit_msg = "type=SYSCALL msg=audit(1.1:2): success=yes auid=1000 uid=1000 gid=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n";
     auditd_handler(audit_msg, strlen(audit_msg), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "auditd_event", "auditd_event", 1);
+    metric_test_run(CMP_EQUAL, "auditd_events_total", "auditd_events_total", 1);
 
     char *audit_more = "type=SYSCALL success=yes auid=1000 uid=1000 gid=1000 exe=\"/usr/bin/bash\" key=\"k1\"\n\n\n";
     auditd_handler(audit_more, strlen(audit_more), carg);
-    metric_test_run(CMP_EQUAL, "auditd_event", "auditd_event", 2);
+    metric_test_run(CMP_EQUAL, "auditd_events_total", "auditd_events_total", 2);
 
     char *audit_spaces = "type=EXECVE success=yes exe=\"/usr/bin/node /app/server.js\" key=(null)\n";
     auditd_handler(audit_spaces, strlen(audit_spaces), carg);
@@ -3551,7 +3551,7 @@ void api_test_parser_tftp_and_gearmand()
     carg->parser_status = 0;
     gearmand_handler(gearmand_msg, strlen(gearmand_msg), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "gearmand_server_total", "gearmand_server_total", 1);
+    metric_test_run(CMP_EQUAL, "gearmand_server_jobs", "gearmand_server_jobs", 1);
     metric_test_run(CMP_GREATER, "gearmand_server_running", "gearmand_server_running", 0);
     metric_test_run(CMP_EQUAL, "gearmand_server_available_workers", "gearmand_server_available_workers", 3);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, gearmand_validator(carg, gearmand_msg, strlen(gearmand_msg)));

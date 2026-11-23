@@ -12,9 +12,17 @@
 #include "main.h"
 #define SQUID_LEN 1000
 
+static inline void squid_metric_set_typed(context_arg *carg, const char *metric_name, uint8_t type)
+{
+	namespace_metric_family_set(NULL, carg, metric_name, type, "Squid cache manager exported metric value.");
+}
+
 static inline void squid_metric_set(context_arg *carg, const char *metric_name)
 {
-	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Squid cache manager exported metric value.");
+	size_t len = metric_name ? strlen(metric_name) : 0;
+	uint8_t type = (len >= 6 && !strcmp(metric_name + len - 6, "_total"))
+		? METRIC_TYPE_COUNTER : METRIC_TYPE_GAUGE;
+	squid_metric_set_typed(carg, metric_name, type);
 }
 
 void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
@@ -110,14 +118,15 @@ void squid_counters_handler(char *metrics, size_t size, context_arg *carg)
 		{
 			double vl = strtod(value, NULL);
 			carglog(carg, L_TRACE, " '%s' -> (double) '%lf'\n", value, vl);
-			squid_metric_set(carg, name);
+			/* mgr:counters are cumulative; keep COUNTER even for rates with decimals. */
+			squid_metric_set_typed(carg, name, METRIC_TYPE_COUNTER);
 			metric_add(name, lbl, &vl, DATATYPE_DOUBLE, carg);
 		}
 		else
 		{
 			uint64_t vl = strtoull(value, NULL, 10);
 			carglog(carg, L_TRACE, " '%s' -> (uint64_t) '%"u64"'\n", value, vl);
-			squid_metric_set(carg, name);
+			squid_metric_set_typed(carg, name, METRIC_TYPE_COUNTER);
 			metric_add(name, lbl, &vl, DATATYPE_UINT, carg);
 		}
 		i += len;

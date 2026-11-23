@@ -2,7 +2,7 @@
 
 The `auditd` entrypoint handler parses Linux audit log records in the native `key=value` format and exports them as Prometheus metrics.
 
-Each non-empty input line increments the `auditd_event` counter by one. Selected audit fields become metric labels.
+Each non-empty input line increments the `auditd_events_total` counter by one. Selected audit fields become metric labels.
 
 This handler counts **audit log events**. It does not parse auditd daemon status from `auditctl -s` or internal queue statistics.
 
@@ -45,7 +45,7 @@ Parsing rules:
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `auditd_event` | counter | Number of received audit log records. |
+| `auditd_events_total` | counter | Number of received audit log records. |
 
 ### Labels
 
@@ -55,16 +55,16 @@ Parsing rules:
 | `success` | `success` | Usually `yes` or `no`. |
 | `exe` | `exe` | Executable path. Quoted values with spaces are supported. |
 | `key` | `key` | Audit rule key, for example `my-rule` or `(null)`. |
-| `AUID` | `auid` or `AUID` | Stored as `AUID`. |
-| `UID` | `uid` or `UID` | Stored as `UID`. |
-| `GID` | `gid` or `GID` | Stored as `GID`. |
+| `auid` | `auid` or `AUID` | Audit user id. |
+| `uid` | `uid` or `UID` | User id. |
+| `gid` | `gid` or `GID` | Group id. |
 
 Example exposition:
 
 ```
-# HELP auditd_event Number of audit log events received, labeled by event attributes.
-# TYPE auditd_event counter
-auditd_event{type="SYSCALL",success="yes",exe="/usr/bin/bash",key="my-rule",AUID="1000",UID="1000",GID="1000"} 42
+# HELP auditd_events_total Number of audit log events received, labeled by event attributes.
+# TYPE auditd_events_total counter
+auditd_events_total{type="SYSCALL",success="yes",exe="/usr/bin/bash",key="my-rule",auid="1000",uid="1000",gid="1000"} 42
 ```
 
 Use `rate()` or `increase()` on this counter to measure event rates per label combination.

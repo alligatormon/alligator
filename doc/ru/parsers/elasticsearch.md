@@ -30,7 +30,7 @@ aggregate {
 Основные серии (не полный список):
 
 - Здоровье кластера: `elasticsearch_cluster_status{status}`, `elasticsearch_timed_out`, счётчики шардов/индексов
-- Статус индекса/шарда: `elasticsearch_indice_status{status}` / `elasticsearch_indice_shard_status{status}` отдают green/yellow/red как `0`/`1`
+- Статус индекса/шарда: `elasticsearch_index_status{status}` / `elasticsearch_index_shard_status{status}` отдают green/yellow/red как `0`/`1`
 - Ноды: `elasticsearch_nodes_{total,successful,failed}`, `elasticsearch_node_role{role}`, per-path `elasticsearch_fs_path_{total,free,available}_bytes`
 - JVM: `elasticsearch_jvm_*`, `elasticsearch_jvm_gc_collectors{gc,key}`, `elasticsearch_jvm_mem_pools_bytes{pool,key}`
 - Disk watermarks: `elasticsearch_disk_watermark_{low,high,flood_stage}_{percent,bytes}`, `elasticsearch_disk_threshold_enabled`

@@ -607,9 +607,9 @@ void openstack_nova_services_handler(char *metrics, size_t size, context_arg *ca
 		labels_hash_insert_nocache(lbl, "id", id);
 		labels_hash_insert_nocache(lbl, "hostname", (char *)os_obj_str(it, "host"));
 		labels_hash_insert_nocache(lbl, "service", (char *)os_obj_str(it, "binary"));
-		labels_hash_insert_nocache(lbl, "adminState", (char *)os_obj_str(it, "status"));
+		labels_hash_insert_nocache(lbl, "admin_state", (char *)os_obj_str(it, "status"));
 		labels_hash_insert_nocache(lbl, "zone", (char *)os_obj_str(it, "zone"));
-		labels_hash_insert_nocache(lbl, "disabledReason", (char *)os_obj_str(it, "disabled_reason"));
+		labels_hash_insert_nocache(lbl, "disabled_reason", (char *)os_obj_str(it, "disabled_reason"));
 		metric_add("openstack_nova_agent_state", lbl, &state, DATATYPE_INT, carg);
 	}
 	os_up(carg, "openstack_nova_up");
@@ -985,7 +985,7 @@ void openstack_neutron_agents_handler(char *metrics, size_t size, context_arg *c
 		labels_hash_insert_nocache(lbl, "id", (char *)os_obj_str(it, "id"));
 		labels_hash_insert_nocache(lbl, "hostname", (char *)os_obj_str(it, "host"));
 		labels_hash_insert_nocache(lbl, "service", (char *)os_obj_str(it, "binary"));
-		labels_hash_insert_nocache(lbl, "adminState", (char *)admin);
+		labels_hash_insert_nocache(lbl, "admin_state", (char *)admin);
 		labels_hash_insert_nocache(lbl, "availability_zone", (char *)os_obj_str(it, "availability_zone"));
 		metric_add("openstack_neutron_agent_state", lbl, &state, DATATYPE_INT, carg);
 	}
@@ -1179,9 +1179,9 @@ void openstack_cinder_services_handler(char *metrics, size_t size, context_arg *
 		labels_hash_insert_nocache(lbl, "uuid", uuid);
 		labels_hash_insert_nocache(lbl, "hostname", (char *)os_obj_str(it, "host"));
 		labels_hash_insert_nocache(lbl, "service", (char *)os_obj_str(it, "binary"));
-		labels_hash_insert_nocache(lbl, "adminState", (char *)os_obj_str(it, "status"));
+		labels_hash_insert_nocache(lbl, "admin_state", (char *)os_obj_str(it, "status"));
 		labels_hash_insert_nocache(lbl, "zone", (char *)os_obj_str(it, "zone"));
-		labels_hash_insert_nocache(lbl, "disabledReason", (char *)os_obj_str(it, "disabled_reason"));
+		labels_hash_insert_nocache(lbl, "disabled_reason", (char *)os_obj_str(it, "disabled_reason"));
 		metric_add("openstack_cinder_agent_state", lbl, &state, DATATYPE_INT, carg);
 	}
 	os_up(carg, "openstack_cinder_up");

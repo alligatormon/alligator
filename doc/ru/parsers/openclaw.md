@@ -73,7 +73,7 @@ aggregate {
 | `openclaw_agent_sessions` | `agent_name` | Файлы сессий на агента |
 | `openclaw_agent_state` | `agent_name` | 0=idle, 1=working, 2=thinking, 3=error (по последнему JSONL) |
 | `openclaw_agent_last_activity_timestamp_seconds` | `agent_name` | mtime последнего файла сессии |
-| `openclaw_cron_jobs_total` | — | Задачи в `cron/jobs.json` |
+| `openclaw_cron_jobs` | — | Задачи в `cron/jobs.json` |
 | `openclaw_cron_jobs_enabled` | — | Включённые задачи |
 | `openclaw_cron_job_enabled` | `job_name`, `job_id` | 1/0 (`job_id` обрезается до 8 символов) |
 | `openclaw_cron_job_last_run_at_seconds` | `job_name`, `job_id` | Последний запуск |

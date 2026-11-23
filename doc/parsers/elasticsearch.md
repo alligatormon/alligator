@@ -28,7 +28,7 @@ The aggregator scrapes six endpoints and keeps the `elasticsearch_` metric prefi
 Notable series (non-exhaustive):
 
 - Cluster health: `elasticsearch_cluster_status{status}`, `elasticsearch_timed_out`, shard/index counts
-- Index/shard status: `elasticsearch_indice_status{status}` / `elasticsearch_indice_shard_status{status}` emit green/yellow/red as `0`/`1`
+- Index/shard status: `elasticsearch_index_status{status}` / `elasticsearch_index_shard_status{status}` emit green/yellow/red as `0`/`1`
 - Nodes: `elasticsearch_nodes_{total,successful,failed}`, `elasticsearch_node_role{role}`, per-path `elasticsearch_fs_path_{total,free,available}_bytes`
 - JVM: `elasticsearch_jvm_*`, `elasticsearch_jvm_gc_collectors{gc,key}`, `elasticsearch_jvm_mem_pools_bytes{pool,key}`
 - Disk watermarks: `elasticsearch_disk_watermark_{low,high,flood_stage}_{percent,bytes}`, `elasticsearch_disk_threshold_enabled`

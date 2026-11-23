@@ -73,7 +73,7 @@ Agents are discovered from `agents/*`. Workspaces are discovered from `workspace
 | `openclaw_agent_sessions` | `agent_name` | Session files per agent |
 | `openclaw_agent_state` | `agent_name` | 0=idle, 1=working, 2=thinking, 3=error (from latest JSONL) |
 | `openclaw_agent_last_activity_timestamp_seconds` | `agent_name` | mtime of the latest session file |
-| `openclaw_cron_jobs_total` | — | Jobs in `cron/jobs.json` |
+| `openclaw_cron_jobs` | — | Jobs in `cron/jobs.json` |
 | `openclaw_cron_jobs_enabled` | — | Enabled jobs |
 | `openclaw_cron_job_enabled` | `job_name`, `job_id` | 1/0 (`job_id` truncated to 8 chars) |
 | `openclaw_cron_job_last_run_at_seconds` | `job_name`, `job_id` | Last run |

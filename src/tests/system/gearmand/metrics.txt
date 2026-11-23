@@ -1,6 +1,6 @@
-gearmand_total
+gearmand_jobs
 gearmand_running
 gearmand_available_workers
-gearmand_server_total
+gearmand_server_jobs
 gearmand_server_running
 gearmand_server_available_workers

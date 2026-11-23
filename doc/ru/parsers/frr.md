@@ -2,7 +2,7 @@
 
 ## FRR (Free Range Routing)
 
-Собирает метрики с Unix-сокетов VTY демонов FRR так же, как [frr_exporter](https://github.com/tynany/frr_exporter): `enable`, затем show-команда, кадры с NUL. Имена метрик совпадают с экспортёром (`frr_bgp_*`, `frr_bfd_*`, `frr_ospf_*`, `frr_route_*`, `frr_status_up`).
+Собирает метрики с Unix-сокетов VTY демонов FRR так же, как [frr_exporter](https://github.com/tynany/frr_exporter): `enable`, затем show-команда, кадры с NUL. Имена метрик близки к экспортёру (`frr_bgp_*`, `frr_bfd_*`, `frr_ospf_*`, `frr_routes` / `frr_routes_fib`, `frr_status_up`); ложные `_total` у gauge убраны.
 
 Имя хендлера: **`frr`**.
 

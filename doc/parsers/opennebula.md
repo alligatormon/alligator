@@ -70,7 +70,7 @@ Virtual network (`vnet`):
 - `opennebula_monitoring_vnet_total` — sum of address-range `SIZE`
 - `opennebula_monitoring_vnet_leases` — `USED_LEASES`
 
-Datastore (label `hostname` is the datastore name):
+Datastore (label `name` is the datastore name):
 
 - `opennebula_monitoring_datastore_status` — 0=ON, 1=OFF
 - `opennebula_monitoring_datastore_total_bytes` / `datastore_free_bytes` / `datastore_used_bytes`

@@ -514,7 +514,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "clickhouse_replica_merges_in_queue", METRIC_TYPE_GAUGE, "ClickHouse replica merges in queue.");
 	namespace_metric_family_set(NULL, carg, "clickhouse_replica_log_max_index", METRIC_TYPE_GAUGE, "ClickHouse replica log max index.");
 	namespace_metric_family_set(NULL, carg, "clickhouse_replica_log_pointer", METRIC_TYPE_GAUGE, "ClickHouse replica log pointer.");
-	namespace_metric_family_set(NULL, carg, "clickhouse_replica_total", METRIC_TYPE_GAUGE, "ClickHouse total replicas.");
+	namespace_metric_family_set(NULL, carg, "clickhouse_replicas", METRIC_TYPE_GAUGE, "ClickHouse total replicas.");
 	namespace_metric_family_set(NULL, carg, "clickhouse_replica_absolute_delay_seconds", METRIC_TYPE_GAUGE, "ClickHouse replica absolute delay in seconds.");
 	namespace_metric_family_set(NULL, carg, "clickhouse_replica_active", METRIC_TYPE_GAUGE, "ClickHouse active replicas.");
 
@@ -618,7 +618,7 @@ void clickhouse_replicas_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels2("clickhouse_replica_merges_in_queue", &merges_in_queue, DATATYPE_INT, carg, "database", database, "table", table);
 		metric_add_labels2("clickhouse_replica_log_max_index", &log_max_index, DATATYPE_INT, carg, "database", database, "table", table);
 		metric_add_labels2("clickhouse_replica_log_pointer", &log_pointer, DATATYPE_INT, carg, "database", database, "table", table);
-		metric_add_labels2("clickhouse_replica_total", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table);
+		metric_add_labels2("clickhouse_replicas", &total_replicas, DATATYPE_INT, carg, "database", database, "table", table);
 		metric_add_labels2("clickhouse_replica_absolute_delay_seconds", &absolute_delay, DATATYPE_INT, carg, "database", database, "table", table);
 		metric_add_labels2("clickhouse_replica_active", &active_replicas, DATATYPE_INT, carg, "database", database, "table", table);
 	}

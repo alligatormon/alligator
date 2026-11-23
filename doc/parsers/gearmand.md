@@ -20,7 +20,7 @@ aggregate {
 
 ### Metrics
 
-Queue and worker counters become `gearmand_*` metrics.
+Queue and worker gauges become `gearmand_*` metrics (`gearmand_jobs` / `gearmand_server_jobs`, plus running/available_workers).
 
 Optional process / socket checks:
 

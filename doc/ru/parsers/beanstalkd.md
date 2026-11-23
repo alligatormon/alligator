@@ -20,7 +20,7 @@ aggregate {
 
 ### Metrics
 
-Счётчики сервера и tube становятся `beanstalkd_*`.
+Статы сервера и tube становятся `beanstalkd_*`. Накопительные поля (`cmd_*`, `total_*`, `job_timeouts`, `uptime`, tube `cmd_*` / `total_jobs`) — COUNTER с суффиксом `_total`.
 
 Опциональные проверки process / socket:
 

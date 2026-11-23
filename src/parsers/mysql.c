@@ -566,6 +566,13 @@ static void proxysql_kv_cb(mysql_row_t *row, void *ud)
 		mtype = proxysql_global_metric_type(name);
 	else
 		mtype = METRIC_TYPE_GAUGE;
+	if (mtype == METRIC_TYPE_COUNTER) {
+		size_t nlen = strlen(mname);
+		if (nlen < 6 || strcmp(mname + nlen - 6, "_total")) {
+			if (nlen + 7 < sizeof(mname))
+				memcpy(mname + nlen, "_total", 7);
+		}
+	}
 
 	proxysql_emit_double(carg, mname, mtype, "ProxySQL admin stats metric.", val);
 }
@@ -624,9 +631,19 @@ static void proxysql_pool_cb(mysql_row_t *row, void *ud)
 		ctx->rows++;
 		suffix = proxysql_pool_metric_suffix(col, suffix_buf, sizeof(suffix_buf));
 		snprintf(mname, sizeof(mname), "proxysql_connection_pool_%s", suffix);
-		namespace_metric_family_set(NULL, carg, mname, proxysql_pool_metric_type(suffix),
-			"ProxySQL stats_mysql_connection_pool metric.");
-		metric_add_labels2(mname, &val, DATATYPE_DOUBLE, carg, "hostgroup", hostgroup, "endpoint", endpoint);
+		{
+			int8_t pool_type = proxysql_pool_metric_type(suffix);
+			if (pool_type == METRIC_TYPE_COUNTER) {
+				size_t nlen = strlen(mname);
+				if (nlen < 6 || strcmp(mname + nlen - 6, "_total")) {
+					if (nlen + 7 < sizeof(mname))
+						memcpy(mname + nlen, "_total", 7);
+				}
+			}
+			namespace_metric_family_set(NULL, carg, mname, pool_type,
+				"ProxySQL stats_mysql_connection_pool metric.");
+			metric_add_labels2(mname, &val, DATATYPE_DOUBLE, carg, "hostgroup", hostgroup, "endpoint", endpoint);
+		}
 	}
 }
 

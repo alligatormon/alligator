@@ -610,10 +610,10 @@ void opennebula_datastores_handler(char *metrics, size_t size, context_arg *carg
 		total = opennebula_tag_i64(ds, ds_end, "TOTAL_MB", NULL) * 1024 * 1024;
 		free_mb = opennebula_tag_i64(ds, ds_end, "FREE_MB", NULL) * 1024 * 1024;
 		used = opennebula_tag_i64(ds, ds_end, "USED_MB", NULL) * 1024 * 1024;
-		metric_add_labels("opennebula_monitoring_datastore_status", &state, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_total_bytes", &total, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_free_bytes", &free_mb, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_used_bytes", &used, DATATYPE_INT, carg, "hostname", name);
+		metric_add_labels("opennebula_monitoring_datastore_status", &state, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("opennebula_monitoring_datastore_total_bytes", &total, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("opennebula_monitoring_datastore_free_bytes", &free_mb, DATATYPE_INT, carg, "name", name);
+		metric_add_labels("opennebula_monitoring_datastore_used_bytes", &used, DATATYPE_INT, carg, "name", name);
 		found = 1;
 		ds = ds_end;
 	}
