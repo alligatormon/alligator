@@ -245,19 +245,19 @@ void redis_queries(char *metrics, size_t size, context_arg *carg)
 
 void redis_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "redis_used_memory", METRIC_TYPE_GAUGE, "Redis memory usage statistics.");
-	namespace_metric_family_set(NULL, carg, "redis_total_system_memory", METRIC_TYPE_GAUGE, "Total system memory as reported by Redis.");
-	namespace_metric_family_set(NULL, carg, "redis_maxmemory", METRIC_TYPE_GAUGE, "Configured Redis maxmemory.");
+	namespace_metric_family_set(NULL, carg, "redis_used_memory_bytes", METRIC_TYPE_GAUGE, "Redis memory usage statistics.");
+	namespace_metric_family_set(NULL, carg, "redis_total_system_memory_bytes", METRIC_TYPE_GAUGE, "Total system memory as reported by Redis.");
+	namespace_metric_family_set(NULL, carg, "redis_maxmemory_bytes", METRIC_TYPE_GAUGE, "Configured Redis maxmemory.");
 	namespace_metric_family_set(NULL, carg, "redis_mem_fragmentation_ratio", METRIC_TYPE_GAUGE, "Redis memory fragmentation ratio.");
 	namespace_metric_family_set(NULL, carg, "redis_maxmemory_policy", METRIC_TYPE_GAUGE, "Redis maxmemory policy state.");
-	namespace_metric_family_set(NULL, carg, "redis_used_cpu", METRIC_TYPE_COUNTER, "Redis consumed CPU time by source.");
-	namespace_metric_family_set(NULL, carg, "redis_error_stat", METRIC_TYPE_COUNTER, "Redis error counters by stat label.");
+	namespace_metric_family_set(NULL, carg, "redis_cpu_seconds_total", METRIC_TYPE_COUNTER, "Redis consumed CPU time by source.");
+	namespace_metric_family_set(NULL, carg, "redis_errors_total", METRIC_TYPE_COUNTER, "Redis error counters by stat label.");
 	namespace_metric_family_set(NULL, carg, "redis_cmdstat_calls_total", METRIC_TYPE_COUNTER, "Redis command call counters.");
 	namespace_metric_family_set(NULL, carg, "redis_cmdstat_duration_seconds_total", METRIC_TYPE_COUNTER, "Redis cumulative command execution time in seconds.");
 	namespace_metric_family_set(NULL, carg, "redis_cmdstat_duration_seconds", METRIC_TYPE_GAUGE, "Redis average command execution time in seconds per call.");
 	namespace_metric_family_set(NULL, carg, "redis_keys", METRIC_TYPE_GAUGE, "Redis keys per logical database.");
 	namespace_metric_family_set(NULL, carg, "redis_expires", METRIC_TYPE_GAUGE, "Redis expiring keys per logical database.");
-	namespace_metric_family_set(NULL, carg, "redis_avg_ttl", METRIC_TYPE_GAUGE, "Redis average TTL per logical database.");
+	namespace_metric_family_set(NULL, carg, "redis_avg_ttl_seconds", METRIC_TYPE_GAUGE, "Redis average TTL per logical database in seconds.");
 	namespace_metric_family_set(NULL, carg, "redis_role", METRIC_TYPE_GAUGE, "Redis role state encoded as labels.");
 	namespace_metric_family_set(NULL, carg, "redis_master_link_status", METRIC_TYPE_GAUGE, "Redis master link status encoded as labels.");
 
@@ -290,42 +290,42 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					i += 12;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_labels("redis_used_memory", &vl, DATATYPE_UINT, carg, "type", "total");
+					metric_add_labels("redis_used_memory_bytes", &vl, DATATYPE_UINT, carg, "type", "total");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_memory_rss:", 16))
 				{
 					i += 16;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_labels("redis_used_memory", &vl, DATATYPE_UINT, carg, "type", "rss");
+					metric_add_labels("redis_used_memory_bytes", &vl, DATATYPE_UINT, carg, "type", "rss");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_memory_peak:", 17))
 				{
 					i += 17;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_labels("redis_used_memory", &vl, DATATYPE_UINT, carg, "type", "peak");
+					metric_add_labels("redis_used_memory_bytes", &vl, DATATYPE_UINT, carg, "type", "peak");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_memory_lua:", 16))
 				{
 					i += 16;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_labels("redis_used_memory", &vl, DATATYPE_UINT, carg, "type", "lua");
+					metric_add_labels("redis_used_memory_bytes", &vl, DATATYPE_UINT, carg, "type", "lua");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "total_system_memory:", 20))
 				{
 					i += 20;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_auto("redis_total_system_memory", &vl, DATATYPE_UINT, carg);
+					metric_add_auto("redis_total_system_memory_bytes", &vl, DATATYPE_UINT, carg);
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "maxmemory:", 10))
 				{
 					i += 10;
 					uint64_t vl = atoll(tmp+i);
-					metric_add_auto("redis_maxmemory", &vl, DATATYPE_UINT, carg);
+					metric_add_auto("redis_maxmemory_bytes", &vl, DATATYPE_UINT, carg);
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "mem_fragmentation_ratio:", 24))
@@ -357,28 +357,28 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 				{
 					i += 13;
 					double dl = atof(tmp+i);
-					metric_add_labels("redis_used_cpu", &dl, DATATYPE_DOUBLE, carg, "type", "sys");
+					metric_add_labels("redis_cpu_seconds_total", &dl, DATATYPE_DOUBLE, carg, "type", "sys");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_cpu_user:", 14))
 				{
 					i += 14;
 					double dl = atof(tmp+i);
-					metric_add_labels("redis_used_cpu", &dl, DATATYPE_DOUBLE, carg, "type", "user");
+					metric_add_labels("redis_cpu_seconds_total", &dl, DATATYPE_DOUBLE, carg, "type", "user");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_cpu_sys_children:", 22))
 				{
 					i += 22;
 					double dl = atof(tmp+i);
-					metric_add_labels("redis_used_cpu", &dl, DATATYPE_DOUBLE, carg, "type", "sys_children");
+					metric_add_labels("redis_cpu_seconds_total", &dl, DATATYPE_DOUBLE, carg, "type", "sys_children");
 					i += strcspn(tmp+i, "\n");
 				}
 				else if (!strncmp(tmp+i, "used_cpu_user_children:", 23))
 				{
 					i += 23;
 					double dl = atof(tmp+i);
-					metric_add_labels("redis_used_cpu", &dl, DATATYPE_DOUBLE, carg, "type", "user_children");
+					metric_add_labels("redis_cpu_seconds_total", &dl, DATATYPE_DOUBLE, carg, "type", "user_children");
 					i += strcspn(tmp+i, "\n");
 				}
 			}
@@ -402,7 +402,7 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					strlcpy(label, tmp + i_pre, label_copy + 1);
 
 					double dl = atof(tmp+i);
-					metric_add_labels("redis_error_stat", &dl, DATATYPE_DOUBLE, carg, "stat", label);
+					metric_add_labels("redis_errors_total", &dl, DATATYPE_DOUBLE, carg, "stat", label);
 					i += strcspn(tmp+i, "\n");
 				}
 			}
@@ -500,10 +500,11 @@ void redis_handler(char *metrics, size_t size, context_arg *carg)
 					break;
 				tmp2 += 8;
 				uint64_t avg_ttl = atoll(tmp2);
+				double avg_ttl_seconds = avg_ttl / 1000.0;
 
 				metric_add_labels("redis_keys", &keys, DATATYPE_UINT, carg, "db", dbname);
 				metric_add_labels("redis_expires", &expires, DATATYPE_UINT, carg, "db", dbname);
-				metric_add_labels("redis_avg_ttl", &avg_ttl, DATATYPE_UINT, carg, "db", dbname);
+				metric_add_labels("redis_avg_ttl_seconds", &avg_ttl_seconds, DATATYPE_DOUBLE, carg, "db", dbname);
 
 				for (; tmp2 && ((*tmp2 == '\n')||(*tmp2 == '\r')); tmp2++);
 				if (!tmp2 || tmp2 >= end)

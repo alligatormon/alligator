@@ -28,6 +28,6 @@ Alligator always requests `/_status?format=xml&level=full`.
 
 Dynamic `monit_*` metrics from XML service entries, plus:
 
-- `monit_service_responsetime`
+- `monit_service_response_time_seconds`
 - `monit_program_start`
 - `monit_timestamps_{access,change,modify}`

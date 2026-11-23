@@ -50,4 +50,4 @@ Metric names mirror the field names in the state files, prefixed by daemon (`waz
 
 ## Log collector JSON
 
-`wazuh-logcollector.state` is parsed as JSON. Metrics are exported under the `wazuh_logcollector` family using the configured JSON query path (`.global.files.[location]` by default).
+`wazuh-logcollector.state` is parsed as JSON. Global counters use OpenMetrics `_total` names (`wazuh_logcollector_global_files_{bytes,events,targets_drops}_total`); interval fields stay gauges without `_total`.

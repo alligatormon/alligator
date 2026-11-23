@@ -89,7 +89,7 @@ void named_counter_metrics(context_arg *carg, char *ctx_start, char *ctx_end, ch
 				start_type = strcspn(tmp, "\"");
 				value = strtoull(tmp, &tmp, 10);
 
-				snprintf(mname, NAMED_MNAME_SIZEE, "named_%s_%s_counter", ctx, type);
+				snprintf(mname, NAMED_MNAME_SIZEE, "named_%s_%s_total", ctx, type);
 				carglog(carg, L_DEBUG, "\tmname: %s, type: %s, ctx: %s, proto: %s, ip_version: %s, view: %s, zone: %s, name: '%s' : %"u64"\n", mname, type, ctx, proto ? proto : "", ip_version ? ip_version : "", view ? view : "", zone ? zone : "", name, value);
 				namespace_metric_family_set(NULL, carg, mname, METRIC_TYPE_COUNTER, "BIND named XML statistics counter grouped by context and labels.");
 

@@ -52,4 +52,4 @@ wazuh_analysisd_events_processed 123456
 
 ## Log collector JSON
 
-`wazuh-logcollector.state` разбирается как JSON. Метрики экспортируются в семейство `wazuh_logcollector` с использованием настроенного JSON query path (по умолчанию `.global.files.[location]`).
+`wazuh-logcollector.state` разбирается как JSON. Глобальные счётчики — с суффиксом `_total` (`wazuh_logcollector_global_files_{bytes,events,targets_drops}_total`); interval-поля остаются gauge без `_total`.

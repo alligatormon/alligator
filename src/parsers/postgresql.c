@@ -1378,6 +1378,8 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 				else if (!strcmp(colname, "wait_us") || !strcmp(colname, "maxwait_us"))
 				{
 					alligator_ht *hash = alligator_ht_init(NULL);
+					const char *seconds_col = !strcmp(colname, "wait_us") ? "wait_seconds" : "maxwait_seconds";
+					double wait_seconds;
 					if (*dbname)
 						labels_hash_insert_nocache(hash, database_class, dbname);
 					if (*user)
@@ -1403,8 +1405,13 @@ void pgbouncer_callback(PGresult* r, query_node *arg, context_arg *carg, char *d
 					if (*tls)
 						labels_hash_insert_nocache(hash, "tls", tls);
 
-					namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey/Pgpool wait time metric in microseconds.");
-					metric_add(metric_name, hash, &val, DATATYPE_INT, carg);
+					if (prefix)
+						snprintf(metric_name, 254, "%s_%s_%s", pooler_name, prefix, seconds_col);
+					else
+						snprintf(metric_name, 254, "%s_%s", pooler_name, seconds_col);
+					wait_seconds = (double)val / 1e6;
+					namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "PgBouncer/Odyssey/Pgpool wait time metric in seconds.");
+					metric_add(metric_name, hash, &wait_seconds, DATATYPE_DOUBLE, carg);
 				}
 				else
 				{

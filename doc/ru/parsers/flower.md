@@ -26,9 +26,9 @@ aggregate {
 
 Итоги кластера:
 
-- `flower_tasks_total_active`, `flower_tasks_total_processed`, `flower_tasks_total_failed`, `flower_tasks_total_successed`, `flower_tasks_total_retried`
+- `flower_tasks_total_active`, `flower_tasks_total_processed`, `flower_tasks_total_failed`, `flower_tasks_total_succeeded`, `flower_tasks_total_retried`
 
 По воркеру:
 
-- `flower_worker_status`
-- `flower_tasks_{active,processed,failed,successed,retried}`
+- `flower_worker_up`
+- `flower_tasks_{active,processed,failed,succeeded,retried}{worker=…}`

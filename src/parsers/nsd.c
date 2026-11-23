@@ -9,7 +9,7 @@
 
 void nsd_handler(char *metrics, size_t size, context_arg *carg)
 {
-	namespace_metric_family_set(NULL, carg, "nsd_queries", METRIC_TYPE_COUNTER, "NSD query counters by type.");
+	namespace_metric_family_set(NULL, carg, "nsd_queries_total", METRIC_TYPE_COUNTER, "NSD query counters by type.");
 
 	uint64_t i = 0;
 	char tmp[NSD_NAME_SIZE];
@@ -30,7 +30,7 @@ void nsd_handler(char *metrics, size_t size, context_arg *carg)
 		if (!strncmp(tmp, "num.type", 8))
 		{
 			val = strtoull(metrics+i, NULL, 10);
-			metric_add_labels("nsd_queries", &val, DATATYPE_UINT, carg, "type", tmp+9);
+			metric_add_labels("nsd_queries_total", &val, DATATYPE_UINT, carg, "type", tmp+9);
 		}
 		else
 		{

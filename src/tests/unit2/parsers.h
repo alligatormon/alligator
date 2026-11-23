@@ -88,7 +88,7 @@ void api_test_parser_ntp() {
     metric_test_run(CMP_EQUAL, "ntp_leap", "ntp_leap", 0);
     metric_test_run(CMP_GREATER, "ntp_root_dispersion_seconds", "ntp_root_dispersion_seconds", 0);
     metric_test_run(CMP_GREATER, "ntp_root_delay_seconds", "ntp_root_delay_seconds", 0);
-    metric_test_run(CMP_GREATER, "ntp_precision_miliseconds", "ntp_precision_miliseconds", 0);
+    metric_test_run(CMP_GREATER, "ntp_precision_seconds", "ntp_precision_seconds", 0);
     metric_test_run(CMP_GREATER, "ntp_reference_timestamp_seconds", "ntp_reference_timestamp_seconds", 1000);
     metric_test_run(CMP_GREATER, "ntp_rtt_seconds", "ntp_rtt_seconds", 1000);
     metric_test_run(CMP_GREATER, "ntp_root_distance_seconds", "ntp_root_distance_seconds", 1000);
@@ -325,12 +325,12 @@ void api_test_parser_openvpn()
     carg = calloc(1, sizeof(*carg));
     openvpn_handler(cli, strlen(cli), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tun_tap_read\"}", "openvpn_bytes", 100);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tun_tap_write\"}", "openvpn_bytes", 200);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tcp_udp_read\"}", "openvpn_bytes", 300);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"tcp_udp_write\"}", "openvpn_bytes", 400);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"auth_read\"}", "openvpn_bytes", 50);
-    metric_test_run(CMP_EQUAL, "openvpn_bytes{kind=\"post_decompress\"}", "openvpn_bytes", 4);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"tun_tap_read\"}", "openvpn_bytes_total", 100);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"tun_tap_write\"}", "openvpn_bytes_total", 200);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"tcp_udp_read\"}", "openvpn_bytes_total", 300);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"tcp_udp_write\"}", "openvpn_bytes_total", 400);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"auth_read\"}", "openvpn_bytes_total", 50);
+    metric_test_run(CMP_EQUAL, "openvpn_bytes_total{kind=\"post_decompress\"}", "openvpn_bytes_total", 4);
     free(carg);
 
     carg = calloc(1, sizeof(*carg));
@@ -387,9 +387,9 @@ void api_test_parser_opennebula()
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_max{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_cpu_max", 400);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_used{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_cpu_used", 150);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_free_cpu{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_host_free_cpu", 250);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_total{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_total", 8192);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_allocated{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_allocated", 2048);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_max{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_max", 8192);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_total_bytes{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_total_bytes", 8388608);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_allocated_bytes{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_allocated_bytes", 2097152);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_memory_max_bytes{hostname=\"one_ut_hv1\"}", "opennebula_monitoring_memory_max_bytes", 8388608);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_host_status{hostname=\"one_ut_hv2\",cluster=\"7\"}", "opennebula_monitoring_host_status", 3);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_cpu_max{hostname=\"one_ut_hv2\"}", "opennebula_monitoring_cpu_max", 700);
     free(carg);
@@ -419,7 +419,7 @@ void api_test_parser_opennebula()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_status{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_status", 3);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_cpu{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_cpu", 2.5);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_memory{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_memory", 4096);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_vm_memory_bytes{hostname=\"one_ut_vm1\"}", "opennebula_monitoring_vm_memory_bytes", 4294967296);
     free(carg);
 
     char *vnets =
@@ -439,9 +439,9 @@ void api_test_parser_opennebula()
     opennebula_datastores_handler(ds, strlen(ds), carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_status{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_status", 0);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_total{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_total", 100000);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_free{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_free", 40000);
-    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_used{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_used", 60000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_total_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_total_bytes", 104857600000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_free_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_free_bytes", 41943040000);
+    metric_test_run(CMP_EQUAL, "opennebula_monitoring_datastore_used_bytes{hostname=\"one_ut_ds\"}", "opennebula_monitoring_datastore_used_bytes", 62914560000);
     free(carg);
 
     carg = calloc(1, sizeof(*carg));
@@ -710,13 +710,13 @@ void api_test_parser_openstack(char *binary)
     metric_test_run(CMP_EQUAL, "openstack_neutron_security_groups", "openstack_neutron_security_groups", 1);
     metric_test_run(CMP_EQUAL, "openstack_neutron_up", "openstack_neutron_up", 1);
     metric_test_run(CMP_EQUAL, "openstack_cinder_volumes", "openstack_cinder_volumes", 2);
-    metric_test_run(CMP_EQUAL, "openstack_cinder_volume_gb{name=\"test-volume-attachments\"}", "openstack_cinder_volume_gb", 2);
+    metric_test_run(CMP_EQUAL, "openstack_cinder_volume_bytes{name=\"test-volume-attachments\"}", "openstack_cinder_volume_bytes", 2147483648);
     metric_test_run(CMP_EQUAL, "openstack_cinder_volume_status_counter{status=\"in-use\"}", "openstack_cinder_volume_status_counter", 1);
     metric_test_run(CMP_EQUAL, "openstack_cinder_volume_status_counter{status=\"available\"}", "openstack_cinder_volume_status_counter", 1);
     metric_test_run(CMP_EQUAL, "openstack_cinder_snapshots", "openstack_cinder_snapshots", 1);
     metric_test_run(CMP_EQUAL, "openstack_cinder_backups", "openstack_cinder_backups", 2);
-    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_free_gb{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_free_gb", 600);
-    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_total_gb{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_total_gb", 1600);
+    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_free_bytes{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_free_bytes", 644245094400);
+    metric_test_run(CMP_GREATER, "openstack_cinder_pool_capacity_total_bytes{name=\"i666testhost@FastPool01\"}", "openstack_cinder_pool_capacity_total_bytes", 1717986918400);
     metric_test_run(CMP_EQUAL, "openstack_cinder_up", "openstack_cinder_up", 1);
     metric_test_run(CMP_EQUAL, "openstack_glance_images", "openstack_glance_images", 2);
     metric_test_run(CMP_EQUAL, "openstack_glance_image_bytes{name=\"cirros-0.3.2-x86_64-disk\"}", "openstack_glance_image_bytes", 13167616);
@@ -973,7 +973,7 @@ void api_test_parser_frr(char *binary)
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, frr_parse_bfd_peers(msg->s, msg->l, carg));
     metric_test_run(CMP_EQUAL, "frr_bfd_peer_count", "frr_bfd_peer_count", 3);
     metric_test_run(CMP_EQUAL, "frr_bfd_peer_state{iface=\"eth0\",local=\"10.10.141.81\",peer=\"10.10.141.61\",vrf=\"default\"}", "frr_bfd_peer_state", 1);
-    metric_test_run(CMP_EQUAL, "frr_bfd_peer_uptime{iface=\"eth0\",local=\"10.10.141.81\",peer=\"10.10.141.61\",vrf=\"default\"}", "frr_bfd_peer_uptime", 847716);
+    metric_test_run(CMP_EQUAL, "frr_bfd_peer_uptime_seconds{iface=\"eth0\",local=\"10.10.141.81\",peer=\"10.10.141.61\",vrf=\"default\"}", "frr_bfd_peer_uptime_seconds", 847716);
     free(carg);
     string_free(msg);
 
@@ -1087,7 +1087,7 @@ void api_test_parser_dnsmasq()
     carg = calloc(1, sizeof(*carg));
     dnsmasq_handler(buf, (size_t)n, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "dnsmasq_hits", "dnsmasq_hits", 42);
+    metric_test_run(CMP_EQUAL, "dnsmasq_hits_total", "dnsmasq_hits_total", 42);
     free(carg);
 
     n = test_dnsmasq_pack_txt(buf, (int)sizeof(buf), "cachesize.bind", "150");
@@ -1101,8 +1101,8 @@ void api_test_parser_dnsmasq()
     carg = calloc(1, sizeof(*carg));
     dnsmasq_handler(buf, (size_t)n, carg);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries", 10);
-    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries_failed{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries_failed", 2);
+    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries_total{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries_total", 10);
+    metric_test_run(CMP_EQUAL, "dnsmasq_servers_queries_failed_total{server=\"8.8.8.8#53\"}", "dnsmasq_servers_queries_failed_total", 2);
     free(carg);
 
     carg = calloc(1, sizeof(*carg));
@@ -1587,7 +1587,7 @@ void api_test_parser_nsd() {
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
 
-    metric_test_run(CMP_EQUAL, "nsd_queries", "nsd_queries", 0);
+    metric_test_run(CMP_EQUAL, "nsd_queries_total", "nsd_queries_total", 0);
     metric_test_run(CMP_EQUAL, "nsd_num", "nsd_num", 0);
     metric_test_run(CMP_EQUAL, "nsd_num_rcode", "nsd_num_rcode", 0);
     metric_test_run(CMP_EQUAL, "nsd_server0", "nsd_server0", 0);
@@ -1781,8 +1781,8 @@ void api_test_parser_wazuh()
         "}";
     wazuh_logcollector_parser_json(logcollector, strlen(logcollector), carg, "wazuh-logcollector.state");
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_events", "wazuh_logcollector_global_files_events{location=\"/var/log/secure\"}", 12853);
-    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_targets_drops", "wazuh_logcollector_global_files_targets_drops{location=\"/var/log/secure\"}", 2808);
+    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_events_total", "wazuh_logcollector_global_files_events_total{location=\"/var/log/secure\"}", 12853);
+    metric_test_run(CMP_EQUAL, "wazuh_logcollector_global_files_targets_drops_total", "wazuh_logcollector_global_files_targets_drops_total{location=\"/var/log/secure\"}", 2808);
 
     metric_test_run(CMP_EQUAL, "wazuh_agentd_status", "wazuh_agentd_status", 1);
     metric_test_run(CMP_EQUAL, "wazuh_agentd_queue_size", "wazuh_agentd_queue_size", 42);
@@ -1794,8 +1794,8 @@ void api_test_parser_wazuh()
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, out);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_agentd_status gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_agentd_status Wazuh API exported metric value.\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_logcollector_global_files_events counter\n") != NULL);
-    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_logcollector_global_files_events Total log events collected since logcollector startup, by location.\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_logcollector_global_files_events_total counter\n") != NULL);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_logcollector_global_files_events_total Total log events collected since logcollector startup, by location.\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# TYPE wazuh_logcollector_interval_files_bytes gauge\n") != NULL);
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, strstr(out->s, "# HELP wazuh_logcollector_interval_files_bytes Bytes read from monitored log files during the last statistics interval, by location.\n") != NULL);
     string_free(out);
@@ -2030,7 +2030,7 @@ void api_test_parser_sentinel()
 
 void api_test_parser_aerospike()
 {
-    char stats[] = "\2\1\0\0\0\0\0\0statistics\tuptime=100;cluster_size=3;\n";
+    char stats[] = "\2\1\0\0\0\0\0\0statistics\tuptime=100;cluster_size=3;heap_active_kbytes=2048;heap_allocated_kbytes=4096;heap_mapped_kbytes=8192;\n";
     char status_resp[] = "\2\1\0\0\0\0\0\0status\tok\n";
     char namespace_resp[] = "\2\1\0\0\0\0\0\0namespace/test\tobjects=42;client_read_success=5;\n";
     context_arg *carg = calloc(1, sizeof(*carg));
@@ -2040,6 +2040,9 @@ void api_test_parser_aerospike()
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
     metric_test_run(CMP_EQUAL, "aerospike_uptime", "aerospike_uptime", 100);
     metric_test_run(CMP_EQUAL, "aerospike_cluster_size", "aerospike_cluster_size", 3);
+    metric_test_run(CMP_EQUAL, "aerospike_heap_active_bytes", "aerospike_heap_active_bytes", 2097152);
+    metric_test_run(CMP_EQUAL, "aerospike_heap_allocated_bytes", "aerospike_heap_allocated_bytes", 4194304);
+    metric_test_run(CMP_EQUAL, "aerospike_heap_mapped_bytes", "aerospike_heap_mapped_bytes", 8388608);
 
     carg->parser_status = 0;
     aerospike_status_handler(status_resp, sizeof(status_resp) - 1, carg);
@@ -2390,7 +2393,7 @@ void api_test_parser_lighttpd() {
     metric_test_run(CMP_EQUAL, "lighttpd_disabled", "lighttpd_disabled", 0);
     metric_test_run(CMP_EQUAL, "lighttpd_load", "lighttpd_load", 1);
     metric_test_run(CMP_GREATER, "lighttpd_connected", "lighttpd_connected", 1);
-    metric_test_run(CMP_GREATER, "lighttpd_requests", "lighttpd_requests", 0);
+    metric_test_run(CMP_GREATER, "lighttpd_requests_total", "lighttpd_requests_total", 0);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
@@ -2445,14 +2448,14 @@ void api_test_parser_httpd() {
     alligator_multiparser(carg->full_body->s, carg->full_body->l, carg->parser_handler, NULL, carg);
 
     assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_Total_Accesses", "HTTPD_Total_Accesses", 3, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_Total_kBytes", "HTTPD_Total_kBytes", 6, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_Uptime", "HTTPD_Uptime", 361, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_ReqPerSec", "HTTPD_ReqPerSec", 0.008310, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_BytesPerSec", "HTTPD_BytesPerSec", 17.019400, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_BytesPerReq", "HTTPD_BytesPerReq", 2048, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_BusyWorkers", "HTTPD_BusyWorkers", 1, httpd_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "HTTPD_IdleWorkers", "HTTPD_IdleWorkers", 4, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_accesses_total", "httpd_accesses_total", 3, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_sent_bytes_total", "httpd_sent_bytes_total", 6144, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_uptime_seconds", "httpd_uptime_seconds", 361, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_request_rate", "httpd_request_rate", 0.008310, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_bytes_per_second", "httpd_bytes_per_second", 17.019400, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_bytes_per_request", "httpd_bytes_per_request", 2048, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_busy_workers", "httpd_busy_workers", 1, httpd_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "httpd_idle_workers", "httpd_idle_workers", 4, httpd_test_ns);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
@@ -2554,10 +2557,10 @@ void api_test_parser_nats() {
     metric_test_run_ns(CMP_EQUAL, "nats_connz_offset", "nats_connz_offset", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_limit", "nats_connz_limit", 1024, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_subscriptions", "nats_connz_subscriptions", 1, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_bytes", "nats_connz_out_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_bytes", "nats_connz_in_bytes", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_msgs", "nats_connz_out_msgs", 0, nats_test_ns);
-    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_msgs", "nats_connz_in_msgs", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_bytes_total", "nats_connz_out_bytes_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_bytes_total", "nats_connz_in_bytes_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_out_msgs_total", "nats_connz_out_msgs_total", 0, nats_test_ns);
+    metric_test_run_ns(CMP_EQUAL, "nats_connz_in_msgs_total", "nats_connz_in_msgs_total", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_pending_bytes", "nats_connz_pending_bytes", 0, nats_test_ns);
     metric_test_run_ns(CMP_EQUAL, "nats_connz_server_id", "nats_connz_server_id", 1, nats_test_ns);
 
@@ -2620,13 +2623,13 @@ void api_test_parser_flower() {
     metric_test_run(CMP_GREATER, "flower_tasks_failed", "flower_tasks_failed", -1);
     metric_test_run(CMP_GREATER, "flower_tasks_processed", "flower_tasks_processed", -1);
     metric_test_run(CMP_GREATER, "flower_tasks_retried", "flower_tasks_retried", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_successed", "flower_tasks_successed", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_total_active", "flower_tasks_total_active", -1);
-    metric_test_run(CMP_GREATER, "flower_tasks_total_failed", "flower_tasks_total_failed", -1);
+    metric_test_run(CMP_GREATER, "flower_tasks_succeeded", "flower_tasks_succeeded", -1);
+    metric_test_run(CMP_EQUAL, "flower_tasks_total_active", "flower_tasks_total_active", 0);
+    metric_test_run(CMP_EQUAL, "flower_tasks_total_failed", "flower_tasks_total_failed", 151);
     metric_test_run(CMP_EQUAL, "flower_tasks_total_processed", "flower_tasks_total_processed", 638229);
     metric_test_run(CMP_EQUAL, "flower_tasks_total_retried", "flower_tasks_total_retried", 0);
-    metric_test_run(CMP_EQUAL, "flower_tasks_total_successed", "flower_tasks_total_successed", 636849);
-    metric_test_run(CMP_EQUAL, "flower_worker_status", "flower_worker_status", 1);
+    metric_test_run(CMP_EQUAL, "flower_tasks_total_succeeded", "flower_tasks_total_succeeded", 636849);
+    metric_test_run(CMP_EQUAL, "flower_worker_up", "flower_worker_up", 1);
 
     host_aggregator_info *hi = calloc(1, sizeof(*hi));
     assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, hi);
@@ -4937,9 +4940,23 @@ void api_test_parser_squid_mem()
     char body[] =
         "Current memory usage\n"
         "Pool\tobj_size\tkb/chunk\tobj/chunk\n"
-        "data\t1024\t64\t16\n"
+        "data\t1024\t64\t16\t2\t1\t1\t0\t0.5\t10\t100\t200\t1.5\t50.0\t8\t80\t90\t2.0\t80.0\t5\t40\t50\t3\t30\t40\t1.5\n"
+        "gap\t2048\t\t\t3\t1\t0\t0\t0\t4\t50\n"
         "Cumulative allocated volume\t4096\n";
     squid_mem_handler(body, strlen(body), carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, carg->parser_status);
+    metric_test_run(CMP_EQUAL, "squid_pool_object_size_bytes{pool=\"data\"}", "squid_pool_object_size_bytes", 1024);
+    metric_test_run(CMP_EQUAL, "squid_pool_chunk_size_bytes{pool=\"data\"}", "squid_pool_chunk_size_bytes", 65536);
+    metric_test_run(CMP_EQUAL, "squid_pool_objects_per_chunk{pool=\"data\"}", "squid_pool_objects_per_chunk", 16);
+    metric_test_run(CMP_EQUAL, "squid_pool_chunk_count{pool=\"data\"}", "squid_pool_chunk_count", 2);
+    metric_test_run(CMP_EQUAL, "squid_pool_allocated_count{pool=\"data\"}", "squid_pool_allocated_count", 10);
+    metric_test_run(CMP_EQUAL, "squid_pool_memory_allocated_bytes{pool=\"data\"}", "squid_pool_memory_allocated_bytes", 102400);
+    metric_test_run(CMP_EQUAL, "squid_pool_memory_in_use_bytes{pool=\"data\"}", "squid_pool_memory_in_use_bytes", 81920);
+    /* Empty KB/ch and obj/ch cells must not shift later columns. */
+    metric_test_run(CMP_EQUAL, "squid_pool_object_size_bytes{pool=\"gap\"}", "squid_pool_object_size_bytes", 2048);
+    metric_test_run(CMP_EQUAL, "squid_pool_chunk_count{pool=\"gap\"}", "squid_pool_chunk_count", 3);
+    metric_test_run(CMP_EQUAL, "squid_pool_allocated_count{pool=\"gap\"}", "squid_pool_allocated_count", 4);
+    metric_test_run(CMP_EQUAL, "squid_pool_memory_allocated_bytes{pool=\"gap\"}", "squid_pool_memory_allocated_bytes", 51200);
     free(carg);
 }
 

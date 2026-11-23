@@ -4,10 +4,10 @@ nats_connz_offset
 nats_connz_total
 nats_connz_pending_bytes
 nats_connz_subscriptions
-nats_connz_in_bytes
-nats_connz_out_bytes
-nats_connz_in_msgs
-nats_connz_out_msgs
+nats_connz_in_bytes_total
+nats_connz_out_bytes_total
+nats_connz_in_msgs_total
+nats_connz_out_msgs_total
 nats_routez_num_routes
 nats_subz_avg_fanout
 nats_subz_cache_hit_rate

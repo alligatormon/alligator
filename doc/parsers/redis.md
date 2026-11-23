@@ -42,16 +42,16 @@ query {
 
 | Family | Type | Notes |
 |--------|------|--------|
-| `redis_used_memory{type}` | gauge | `total` / `rss` / `peak` / `lua` |
-| `redis_total_system_memory` / `redis_maxmemory` | gauge | |
+| `redis_used_memory_bytes{type}` | gauge | `total` / `rss` / `peak` / `lua` |
+| `redis_total_system_memory_bytes` / `redis_maxmemory_bytes` | gauge | |
 | `redis_mem_fragmentation_ratio` | gauge | |
 | `redis_maxmemory_policy{policy}` | gauge | Presence (`1`) |
-| `redis_used_cpu{type}` | counter | `sys` / `user` / `*_children` (seconds) |
-| `redis_error_stat{stat}` | counter | From `# Errorstats` |
+| `redis_cpu_seconds_total{type}` | counter | `sys` / `user` / `*_children` (seconds) |
+| `redis_errors_total{stat}` | counter | From `# Errorstats` |
 | `redis_cmdstat_calls_total{cmd}` | counter | From `# Commandstats` |
 | `redis_cmdstat_duration_seconds_total{cmd}` | counter | Cumulative command time (usec→seconds) |
 | `redis_cmdstat_duration_seconds{cmd}` | gauge | Average seconds per call |
-| `redis_keys` / `redis_expires` / `redis_avg_ttl` | gauge | Per logical DB |
+| `redis_keys` / `redis_expires` / `redis_avg_ttl_seconds` | gauge | Per logical DB |
 | `redis_role` / `redis_master_link_status` | gauge | Label-encoded state |
 | Other numeric `INFO` keys | gauge | Fallback `redis_<field>` |
 

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <time.h>
+#include <jansson.h>
 #include "metric/namespace.h"
 #include "metric/metric_types.h"
 #include "events/context_arg.h"
@@ -27,13 +28,13 @@ static void wazuh_logcollector_metric_families_set(context_arg *carg)
 		"Wazuh logcollector global statistics period start time.");
 	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_end", METRIC_TYPE_GAUGE,
 		"Wazuh logcollector global statistics period end time.");
-	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_bytes", METRIC_TYPE_COUNTER,
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_bytes_total", METRIC_TYPE_COUNTER,
 		"Total bytes read from monitored log files since logcollector startup, by location.");
-	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_events", METRIC_TYPE_COUNTER,
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_events_total", METRIC_TYPE_COUNTER,
 		"Total log events collected since logcollector startup, by location.");
 	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_location", METRIC_TYPE_GAUGE,
 		"Monitored log file location marker (value 1) with location label.");
-	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_targets_drops", METRIC_TYPE_COUNTER,
+	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_targets_drops_total", METRIC_TYPE_COUNTER,
 		"Total log events dropped at delivery targets since logcollector startup, by location.");
 	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_global_files_targets_name", METRIC_TYPE_GAUGE,
 		"Log delivery target name marker (value 1) with location label.");
@@ -52,6 +53,83 @@ static void wazuh_logcollector_metric_families_set(context_arg *carg)
 		"Log events dropped at delivery targets during the last statistics interval, by location.");
 	namespace_metric_family_set(NULL, carg, "wazuh_logcollector_interval_files_targets_name", METRIC_TYPE_GAUGE,
 		"Log delivery target name marker (value 1) for the last statistics interval.");
+}
+
+static uint64_t wazuh_ts_from_string(const char *s)
+{
+	struct tm tm = {0};
+	if (!s || !strptime(s, "%Y-%m-%d %H:%M:%S", &tm))
+		return 0;
+	return (uint64_t)mktime(&tm);
+}
+
+static void wazuh_logcollector_emit_section(context_arg *carg, json_t *section, int is_global)
+{
+	const char *start = json_string_value(json_object_get(section, "start"));
+	const char *end = json_string_value(json_object_get(section, "end"));
+	uint64_t start_ts = wazuh_ts_from_string(start);
+	uint64_t end_ts = wazuh_ts_from_string(end);
+	json_t *files;
+	size_t i;
+	size_t n;
+
+	if (is_global) {
+		if (start_ts)
+			metric_add_auto("wazuh_logcollector_global_start", &start_ts, DATATYPE_UINT, carg);
+		if (end_ts)
+			metric_add_auto("wazuh_logcollector_global_end", &end_ts, DATATYPE_UINT, carg);
+	} else {
+		if (start_ts)
+			metric_add_auto("wazuh_logcollector_interval_start", &start_ts, DATATYPE_UINT, carg);
+		if (end_ts)
+			metric_add_auto("wazuh_logcollector_interval_end", &end_ts, DATATYPE_UINT, carg);
+	}
+
+	files = json_object_get(section, "files");
+	if (!json_is_array(files))
+		return;
+	n = json_array_size(files);
+	for (i = 0; i < n; i++) {
+		json_t *file = json_array_get(files, i);
+		const char *location = json_string_value(json_object_get(file, "location"));
+		int64_t events = json_integer_value(json_object_get(file, "events"));
+		int64_t bytes = json_integer_value(json_object_get(file, "bytes"));
+		json_t *targets = json_object_get(file, "targets");
+		uint64_t one = 1;
+		size_t ti;
+		size_t tn;
+
+		if (!location)
+			continue;
+
+		if (is_global) {
+			metric_add_labels("wazuh_logcollector_global_files_location", &one, DATATYPE_UINT, carg, "location", (char *)location);
+			metric_add_labels("wazuh_logcollector_global_files_events_total", &events, DATATYPE_INT, carg, "location", (char *)location);
+			metric_add_labels("wazuh_logcollector_global_files_bytes_total", &bytes, DATATYPE_INT, carg, "location", (char *)location);
+		} else {
+			metric_add_labels("wazuh_logcollector_interval_files_location", &one, DATATYPE_UINT, carg, "location", (char *)location);
+			metric_add_labels("wazuh_logcollector_interval_files_events", &events, DATATYPE_INT, carg, "location", (char *)location);
+			metric_add_labels("wazuh_logcollector_interval_files_bytes", &bytes, DATATYPE_INT, carg, "location", (char *)location);
+		}
+
+		if (!json_is_array(targets))
+			continue;
+		tn = json_array_size(targets);
+		for (ti = 0; ti < tn; ti++) {
+			json_t *target = json_array_get(targets, ti);
+			const char *name = json_string_value(json_object_get(target, "name"));
+			int64_t drops = json_integer_value(json_object_get(target, "drops"));
+			if (is_global) {
+				if (name)
+					metric_add_labels("wazuh_logcollector_global_files_targets_name", &one, DATATYPE_UINT, carg, "location", (char *)location);
+				metric_add_labels("wazuh_logcollector_global_files_targets_drops_total", &drops, DATATYPE_INT, carg, "location", (char *)location);
+			} else {
+				if (name)
+					metric_add_labels("wazuh_logcollector_interval_files_targets_name", &one, DATATYPE_UINT, carg, "location", (char *)location);
+				metric_add_labels("wazuh_logcollector_interval_files_targets_drops", &drops, DATATYPE_INT, carg, "location", (char *)location);
+			}
+		}
+	}
 }
 
 void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
@@ -161,13 +239,34 @@ void wazuh_stats_parser(char *metrics, size_t size, void *data, char *filename)
 void wazuh_logcollector_parser_json(char *metrics, size_t size, void *data, char *filename)
 {
 	context_arg *carg = data;
-	if (!carg->pquery) {
-		carg->pquery = calloc(1, sizeof(void*));
-		carg->pquery[0] = strdup(".global.files.[location]");
-		carg->pquery_size = 1;
-	}
+	json_error_t error;
+	json_t *root;
+	json_t *global;
+	json_t *interval;
+
+	(void)filename;
 	wazuh_logcollector_metric_families_set(carg);
-	carg->parser_status = json_query(metrics, NULL, "wazuh_logcollector", carg, carg->pquery, carg->pquery_size);
+	if (!metrics || !size) {
+		carg->parser_status = 0;
+		return;
+	}
+
+	root = json_loadb(metrics, size, 0, &error);
+	if (!root) {
+		carglog(carg, L_ERROR, "wazuh logcollector json error on line %d: %s\n", error.line, error.text);
+		carg->parser_status = 0;
+		return;
+	}
+
+	global = json_object_get(root, "global");
+	interval = json_object_get(root, "interval");
+	if (json_is_object(global))
+		wazuh_logcollector_emit_section(carg, global, 1);
+	if (json_is_object(interval))
+		wazuh_logcollector_emit_section(carg, interval, 0);
+
+	json_decref(root);
+	carg->parser_status = 1;
 }
 
 void wazuh_handler(char *metrics, size_t size, context_arg *carg)

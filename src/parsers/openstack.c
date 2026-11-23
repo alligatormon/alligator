@@ -1038,7 +1038,7 @@ void openstack_cinder_volumes_handler(char *metrics, size_t size, context_arg *c
 	arr = os_array(root, "volumes");
 	n = arr ? json_array_size(arr) : 0;
 	os_count(carg, "openstack_cinder_volumes", (int64_t)n);
-	os_family(carg, "openstack_cinder_volume_gb");
+	os_family(carg, "openstack_cinder_volume_bytes");
 	os_family(carg, "openstack_cinder_volume_status");
 	os_family(carg, "openstack_cinder_volume_status_counter");
 	for (i = 0; arr && i < n; i++) {
@@ -1047,6 +1047,7 @@ void openstack_cinder_volumes_handler(char *metrics, size_t size, context_arg *c
 		const char *server = os_vol_server(it);
 		char size_s[32];
 		int64_t gb = os_obj_i64(it, "size");
+		int64_t bytes = gb * GIGABYTE;
 		int64_t code = os_volume_status(status);
 		int mapped = os_volume_status(status);
 		alligator_ht *lbl = alligator_ht_init(NULL);
@@ -1064,7 +1065,7 @@ void openstack_cinder_volumes_handler(char *metrics, size_t size, context_arg *c
 		labels_hash_insert_nocache(lbl, "user_id", (char *)os_obj_str(it, "user_id"));
 		labels_hash_insert_nocache(lbl, "volume_type", (char *)os_obj_str(it, "volume_type"));
 		labels_hash_insert_nocache(lbl, "server_id", (char *)server);
-		metric_add("openstack_cinder_volume_gb", lbl, &gb, DATATYPE_INT, carg);
+		metric_add("openstack_cinder_volume_bytes", lbl, &bytes, DATATYPE_INT, carg);
 		labels_hash_insert_nocache(slbl, "id", (char *)os_obj_str(it, "id"));
 		labels_hash_insert_nocache(slbl, "name", (char *)os_obj_str(it, "name"));
 		labels_hash_insert_nocache(slbl, "status", (char *)status);
@@ -1094,10 +1095,10 @@ void openstack_cinder_snapshots_handler(char *metrics, size_t size, context_arg 
 	arr = os_array(root, "snapshots");
 	n = arr ? json_array_size(arr) : 0;
 	os_count(carg, "openstack_cinder_snapshots", (int64_t)n);
-	os_family(carg, "openstack_cinder_snapshot_gb");
+	os_family(carg, "openstack_cinder_snapshot_bytes");
 	for (i = 0; arr && i < n; i++) {
 		json_t *it = json_array_get(arr, i);
-		int64_t gb = os_obj_i64(it, "size");
+		int64_t bytes = os_obj_i64(it, "size") * GIGABYTE;
 		alligator_ht *lbl = alligator_ht_init(NULL);
 
 		labels_hash_insert_nocache(lbl, "id", (char *)os_obj_str(it, "id"));
@@ -1110,7 +1111,7 @@ void openstack_cinder_snapshots_handler(char *metrics, size_t size, context_arg 
 			labels_hash_insert_nocache(lbl, "tenant_id", (char *)tenant);
 		}
 		labels_hash_insert_nocache(lbl, "volume_id", (char *)os_obj_str(it, "volume_id"));
-		metric_add("openstack_cinder_snapshot_gb", lbl, &gb, DATATYPE_INT, carg);
+		metric_add("openstack_cinder_snapshot_bytes", lbl, &bytes, DATATYPE_INT, carg);
 	}
 	os_up(carg, "openstack_cinder_up");
 	json_decref(root);
@@ -1129,10 +1130,10 @@ void openstack_cinder_backups_handler(char *metrics, size_t size, context_arg *c
 	arr = os_array(root, "backups");
 	n = arr ? json_array_size(arr) : 0;
 	os_count(carg, "openstack_cinder_backups", (int64_t)n);
-	os_family(carg, "openstack_cinder_backup_gb");
+	os_family(carg, "openstack_cinder_backup_bytes");
 	for (i = 0; arr && i < n; i++) {
 		json_t *it = json_array_get(arr, i);
-		int64_t gb = os_obj_i64(it, "size");
+		int64_t bytes = os_obj_i64(it, "size") * GIGABYTE;
 		alligator_ht *lbl = alligator_ht_init(NULL);
 
 		labels_hash_insert_nocache(lbl, "id", (char *)os_obj_str(it, "id"));
@@ -1147,7 +1148,7 @@ void openstack_cinder_backups_handler(char *metrics, size_t size, context_arg *c
 		labels_hash_insert_nocache(lbl, "volume_id", (char *)os_obj_str(it, "volume_id"));
 		labels_hash_insert_nocache(lbl, "snapshot_id", (char *)os_obj_str(it, "snapshot_id"));
 		labels_hash_insert_nocache(lbl, "incremental", (char *)os_bool_str(json_object_get(it, "is_incremental")));
-		metric_add("openstack_cinder_backup_gb", lbl, &gb, DATATYPE_INT, carg);
+		metric_add("openstack_cinder_backup_bytes", lbl, &bytes, DATATYPE_INT, carg);
 	}
 	os_up(carg, "openstack_cinder_up");
 	json_decref(root);
@@ -1199,19 +1200,19 @@ void openstack_cinder_pools_handler(char *metrics, size_t size, context_arg *car
 		return;
 	arr = os_array(root, "pools");
 	n = arr ? json_array_size(arr) : 0;
-	os_family(carg, "openstack_cinder_pool_capacity_free_gb");
-	os_family(carg, "openstack_cinder_pool_capacity_total_gb");
+	os_family(carg, "openstack_cinder_pool_capacity_free_bytes");
+	os_family(carg, "openstack_cinder_pool_capacity_total_bytes");
 	for (i = 0; arr && i < n; i++) {
 		json_t *it = json_array_get(arr, i);
 		json_t *cap = json_object_get(it, "capabilities");
-		double free_gb = os_obj_f64(cap, "free_capacity_gb");
-		double total_gb = os_obj_f64(cap, "total_capacity_gb");
+		double free_bytes = os_obj_f64(cap, "free_capacity_gb") * (double)GIGABYTE;
+		double total_bytes = os_obj_f64(cap, "total_capacity_gb") * (double)GIGABYTE;
 		char *name = (char *)os_obj_str(it, "name");
 		char *backend = (char *)os_obj_str(cap, "volume_backend_name");
 		char *vendor = (char *)os_obj_str(cap, "vendor_name");
 
-		metric_add_labels3("openstack_cinder_pool_capacity_free_gb", &free_gb, DATATYPE_DOUBLE, carg, "name", name, "volume_backend_name", backend, "vendor_name", vendor);
-		metric_add_labels3("openstack_cinder_pool_capacity_total_gb", &total_gb, DATATYPE_DOUBLE, carg, "name", name, "volume_backend_name", backend, "vendor_name", vendor);
+		metric_add_labels3("openstack_cinder_pool_capacity_free_bytes", &free_bytes, DATATYPE_DOUBLE, carg, "name", name, "volume_backend_name", backend, "vendor_name", vendor);
+		metric_add_labels3("openstack_cinder_pool_capacity_total_bytes", &total_bytes, DATATYPE_DOUBLE, carg, "name", name, "volume_backend_name", backend, "vendor_name", vendor);
 	}
 	os_up(carg, "openstack_cinder_up");
 	json_decref(root);

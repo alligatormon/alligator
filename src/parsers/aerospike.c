@@ -44,14 +44,101 @@ static char *aerospike_memmem(char *haystack, size_t haystack_len, const char *n
 	return NULL;
 }
 
+#define AEROSPIKE_METRIC_SIZE 1000
+
 static inline void aerospike_metric_set(context_arg *carg, const char *metric_name)
 {
 	namespace_metric_family_set(NULL, carg, metric_name, METRIC_TYPE_GAUGE, "Aerospike exported metric value.");
 }
 
-static inline void aerospike_plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)
+/* Aerospike reports heap_*_kbytes; export OpenMetrics base unit bytes. */
+static int aerospike_kbytes_to_bytes(char *metric_name, uint64_t *val)
 {
-	plain_parse_family(text, size, sep, nlsep, prefix, psize, carg, aerospike_metric_set);
+	size_t len;
+
+	if (!metric_name || !val)
+		return 0;
+	len = strlen(metric_name);
+	if (len < 7 || strcmp(metric_name + len - 7, "_kbytes"))
+		return 0;
+	memcpy(metric_name + len - 7, "_bytes", 7);
+	*val *= 1024ULL;
+	return 1;
+}
+
+static void aerospike_plain_parse(char *text, uint64_t size, char *sep, char *nlsep, char *prefix, uint64_t psize, context_arg *carg)
+{
+	char *tmp;
+	uint64_t next;
+	char metric_name[AEROSPIKE_METRIC_SIZE];
+	uint64_t copysize;
+	uint64_t i;
+	char *prev;
+
+	if (!text)
+		return;
+
+	tmp = text;
+	strlcpy(metric_name, prefix, psize + 1);
+	i = 1000;
+	prev = NULL;
+	for (; (tmp - text) < size && i--; tmp += next)
+	{
+		int rc;
+
+		if (prev == tmp)
+			break;
+
+		tmp += strspn(tmp, nlsep);
+		next = strcspn(tmp, sep);
+
+		copysize = next + 1 + psize > AEROSPIKE_METRIC_SIZE ? AEROSPIKE_METRIC_SIZE : next;
+		strlcpy(metric_name + psize, tmp, copysize + 1);
+		metric_name_normalizer(metric_name + psize, copysize);
+
+		tmp += next;
+		tmp += strspn(tmp, sep);
+
+		next = strcspn(tmp, nlsep);
+		copysize = next > AEROSPIKE_METRIC_SIZE ? AEROSPIKE_METRIC_SIZE : next;
+
+		rc = metric_value_validator(tmp, copysize);
+		if (rc == DATATYPE_INT)
+		{
+			int64_t val = strtoll(tmp, NULL, 10);
+			uint64_t uval;
+
+			if (val < 0) {
+				aerospike_metric_set(carg, metric_name);
+				metric_add_auto(metric_name, &val, DATATYPE_INT, carg);
+			} else {
+				uval = (uint64_t)val;
+				aerospike_kbytes_to_bytes(metric_name, &uval);
+				aerospike_metric_set(carg, metric_name);
+				metric_add_auto(metric_name, &uval, DATATYPE_UINT, carg);
+			}
+		}
+		else if (rc == DATATYPE_UINT)
+		{
+			uint64_t val = strtoull(tmp, NULL, 10);
+			aerospike_kbytes_to_bytes(metric_name, &val);
+			aerospike_metric_set(carg, metric_name);
+			metric_add_auto(metric_name, &val, DATATYPE_UINT, carg);
+		}
+		else if (rc == DATATYPE_DOUBLE)
+		{
+			double dval = strtod(tmp, NULL);
+			size_t mlen = strlen(metric_name);
+
+			if (mlen >= 7 && !strcmp(metric_name + mlen - 7, "_kbytes")) {
+				memcpy(metric_name + mlen - 7, "_bytes", 7);
+				dval *= 1024.0;
+			}
+			aerospike_metric_set(carg, metric_name);
+			metric_add_auto(metric_name, &dval, DATATYPE_DOUBLE, carg);
+		}
+		prev = tmp;
+	}
 }
 
 static inline char *aerospike_statistics_payload(char *metrics, size_t size, size_t *payload_size)
@@ -316,6 +403,7 @@ void aerospike_namespace_handler(char *metrics, size_t size, context_arg *carg)
 		}
 		else
 		{
+			aerospike_kbytes_to_bytes(key, &vl);
 			aerospike_metric_set(carg, key);
 			metric_add_labels(key, &vl, DATATYPE_UINT, carg, "namespace", namespace);
 		}

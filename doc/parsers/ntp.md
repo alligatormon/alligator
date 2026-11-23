@@ -24,7 +24,7 @@ aggregate {
 
 - `ntp_drift_seconds`, `ntp_stratum`, `ntp_leap`
 - `ntp_root_dispersion_seconds`, `ntp_root_delay_seconds`
-- `ntp_precision_miliseconds`, `ntp_reference_timestamp_seconds`
+- `ntp_precision_seconds`, `ntp_reference_timestamp_seconds`
 - `ntp_rtt_seconds`, `ntp_root_distance_seconds`
 
 Unit tests: [`src/tests/unit2/parsers.h`](../../src/tests/unit2/parsers.h).

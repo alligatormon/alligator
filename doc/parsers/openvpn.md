@@ -66,7 +66,7 @@ Server dump:
 
 Client-mode statistics:
 
-- `openvpn_bytes{kind="tun_tap_read|tun_tap_write|tcp_udp_read|tcp_udp_write|auth_read|pre_compress|post_compress|pre_decompress|post_decompress"}`
+- `openvpn_bytes_total{kind="tun_tap_read|tun_tap_write|tcp_udp_read|tcp_udp_write|auth_read|pre_compress|post_compress|pre_decompress|post_decompress"}`
 
 Unit tests: [`src/tests/unit2/parsers.h`](../../src/tests/unit2/parsers.h) (`api_test_parser_openvpn`).
 

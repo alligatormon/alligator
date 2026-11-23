@@ -256,10 +256,10 @@ void nats_connz_handler(char *metrics, size_t size, context_arg *carg)
 
 	nats_emit_int(carg, "nats_connz_pending_bytes", pending_bytes);
 	nats_emit_int(carg, "nats_connz_subscriptions", subscriptions);
-	nats_emit_int(carg, "nats_connz_in_bytes", in_bytes);
-	nats_emit_int(carg, "nats_connz_out_bytes", out_bytes);
-	nats_emit_int(carg, "nats_connz_in_msgs", in_msgs);
-	nats_emit_int(carg, "nats_connz_out_msgs", out_msgs);
+	nats_emit_int(carg, "nats_connz_in_bytes_total", in_bytes);
+	nats_emit_int(carg, "nats_connz_out_bytes_total", out_bytes);
+	nats_emit_int(carg, "nats_connz_in_msgs_total", in_msgs);
+	nats_emit_int(carg, "nats_connz_out_msgs_total", out_msgs);
 
 	json_decref(root);
 	carg->parser_status = 1;

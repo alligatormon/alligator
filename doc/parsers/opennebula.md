@@ -33,13 +33,13 @@ Host (`hostname`, `cluster`):
 
 - `opennebula_monitoring_host_status` — 0=INIT, 1=MONITORING_MONITORED, 2=MONITORED, 3=ERROR, 4=DISABLED
 - `opennebula_monitoring_cpu_total` / `cpu_max` / `cpu_used` / `host_free_cpu` — CPU units (100 per core)
-- `opennebula_monitoring_memory_total` / `memory_allocated` / `memory_max`
+- `opennebula_monitoring_memory_total_bytes` / `memory_allocated_bytes` / `memory_max_bytes`
 
 VM (label `hostname` is the VM name, matching nebula_exporter):
 
 - `opennebula_monitoring_vm_status`
 - `opennebula_monitoring_vm_cpu`
-- `opennebula_monitoring_vm_memory`
+- `opennebula_monitoring_vm_memory_bytes`
 
 These are **allocated** values from the VM template, not live guest usage. For CPU, memory, disk, and NIC stats of running KVM/QEMU (and LXC) guests, run Alligator [cAdvisor](../system.md#cadvisor) on each OpenNebula hypervisor.
 
@@ -73,7 +73,7 @@ Virtual network (`vnet`):
 Datastore (label `hostname` is the datastore name):
 
 - `opennebula_monitoring_datastore_status` — 0=ON, 1=OFF
-- `opennebula_monitoring_datastore_total` / `datastore_free` / `datastore_used` — MB
+- `opennebula_monitoring_datastore_total_bytes` / `datastore_free_bytes` / `datastore_used_bytes`
 
 Free CPU is taken from `HOST_SHARE/FREE_CPU` in `one.hostpool.info` (the exporter additionally calls `one.hostpool.monitoring` and per-host `info`).
 

@@ -206,7 +206,7 @@ static void frr_metric_help(context_arg *carg)
 		"How long has the peer been up.");
 	namespace_metric_family_set(NULL, carg, "frr_bfd_peer_count", METRIC_TYPE_GAUGE,
 		"Number of peers detected.");
-	namespace_metric_family_set(NULL, carg, "frr_bfd_peer_uptime", METRIC_TYPE_GAUGE,
+	namespace_metric_family_set(NULL, carg, "frr_bfd_peer_uptime_seconds", METRIC_TYPE_GAUGE,
 		"Uptime of bfd peer in seconds.");
 	namespace_metric_family_set(NULL, carg, "frr_bfd_peer_state", METRIC_TYPE_GAUGE,
 		"State of the bfd peer (1 = Up, 0 = Down).");
@@ -481,7 +481,7 @@ int frr_parse_bfd_peers(const char *body, size_t size, context_arg *carg)
 		labels_hash_insert_nocache(labels, "peer", (char *)peer_a);
 		labels_hash_insert_nocache(labels, "iface", (char *)iface);
 		labels_hash_insert_nocache(labels, "vrf", (char *)vrf);
-		metric_add("frr_bfd_peer_uptime", labels_dup(labels), &uptime, DATATYPE_UINT, carg);
+		metric_add("frr_bfd_peer_uptime_seconds", labels_dup(labels), &uptime, DATATYPE_UINT, carg);
 		metric_add("frr_bfd_peer_state", labels, &state, DATATYPE_UINT, carg);
 	}
 	json_decref(root);

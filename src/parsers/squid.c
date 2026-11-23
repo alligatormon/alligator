@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include <jansson.h>
 #include "common/selector.h"
@@ -182,14 +183,50 @@ void squid_info_handler(char *metrics, size_t size, context_arg *carg)
 	cur = squid_info_5min_parser(carg, "Hits as \% of bytes sent", "squid_cache_hit_bytes_percent", cur);
 	cur = squid_info_5min_parser(carg, "Memory hits as \% of hit requests", "squid_memory_hit_requests_percent", cur);
 	cur = squid_info_5min_parser(carg, "Disk hits as \% of hit requests", "squid_disk_hit_requests_percent", cur);
-	cur = squid_info_counter_parser(carg, "Storage Swap size", "squid_swap_size_kbytes", cur, DATATYPE_UINT);
+	{
+		char *tmp = strstr(cur, "Storage Swap size");
+		if (tmp) {
+			tmp += strcspn(tmp, "0123456789");
+			uint64_t val = strtoull(tmp, &tmp, 10) * 1024ULL;
+			squid_metric_set(carg, "squid_swap_size_bytes");
+			metric_add_auto("squid_swap_size_bytes", &val, DATATYPE_UINT, carg);
+			cur = tmp;
+		}
+	}
 	cur = squid_info_counter_parser(carg, "Storage Swap capacity", "squid_swap_capacity_used", cur, DATATYPE_DOUBLE);
-	cur = squid_info_counter_parser(carg, "Storage Mem size", "squid_mem_size_kbytes", cur, DATATYPE_UINT);
+	{
+		char *tmp = strstr(cur, "Storage Mem size");
+		if (tmp) {
+			tmp += strcspn(tmp, "0123456789");
+			uint64_t val = strtoull(tmp, &tmp, 10) * 1024ULL;
+			squid_metric_set(carg, "squid_mem_size_bytes");
+			metric_add_auto("squid_mem_size_bytes", &val, DATATYPE_UINT, carg);
+			cur = tmp;
+		}
+	}
 	cur = squid_info_counter_parser(carg, "Storage Mem capacity", "squid_mem_capacity_used", cur, DATATYPE_DOUBLE);
-	cur = squid_info_counter_parser(carg, "Mean Object Size", "squid_cache_mean_object_size_kbytes", cur, DATATYPE_DOUBLE);
-	cur = squid_info_counter_parser(carg, "Total accounted", "squid_memory_accounted_kbytes", cur, DATATYPE_UINT);
-	cur = squid_info_counter_parser(carg, "memPoolAlloc calls", "squid_memory_pool_alloc_calls", cur, DATATYPE_UINT);
-	cur = squid_info_counter_parser(carg, "memPoolFree calls", "squid_memory_pool_free_calls", cur, DATATYPE_UINT);
+	{
+		char *tmp = strstr(cur, "Mean Object Size");
+		if (tmp) {
+			tmp += strcspn(tmp, "0123456789");
+			double val = strtod(tmp, &tmp) * 1024.0;
+			squid_metric_set(carg, "squid_cache_mean_object_size_bytes");
+			metric_add_auto("squid_cache_mean_object_size_bytes", &val, DATATYPE_DOUBLE, carg);
+			cur = tmp;
+		}
+	}
+	{
+		char *tmp = strstr(cur, "Total accounted");
+		if (tmp) {
+			tmp += strcspn(tmp, "0123456789");
+			uint64_t val = strtoull(tmp, &tmp, 10) * 1024ULL;
+			squid_metric_set(carg, "squid_memory_accounted_bytes");
+			metric_add_auto("squid_memory_accounted_bytes", &val, DATATYPE_UINT, carg);
+			cur = tmp;
+		}
+	}
+	cur = squid_info_counter_parser(carg, "memPoolAlloc calls", "squid_memory_pool_alloc_calls_total", cur, DATATYPE_UINT);
+	cur = squid_info_counter_parser(carg, "memPoolFree calls", "squid_memory_pool_free_calls_total", cur, DATATYPE_UINT);
 	cur = squid_info_counter_parser(carg, "Number of file desc currently in use", "squid_file_descriptors_used", cur, DATATYPE_UINT);
 	carg->parser_status = 1;
 }
@@ -362,67 +399,168 @@ void squid_pconn_handler(char *metrics, size_t read_size, context_arg *carg)
 	carg->parser_status = 1;
 }
 
-void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
+/*
+ * mgr:mem TSV columns after pool name (Squid 3.x).
+ * Former empty slots (chunk/allocated counts) are now emitted; former *_kb → *_bytes (×1024).
+ */
+static const char *squid_mem_fields[] = {
+	"object_size_bytes",
+	"chunk_size_bytes",
+	"objects_per_chunk",
+	"chunk_count",
+	"chunk_used",
+	"chunk_free",
+	"chunk_part",
+	"fragmentation_percent",
+	"allocated_count",
+	"memory_allocated_bytes",
+	"memory_in_use_high_bytes",
+	"memory_in_use_high_hours",
+	"memory_in_use_total_percent",
+	"memory_in_use_number",
+	"memory_in_use_bytes",
+	"memory_idle_high_bytes",
+	"memory_idle_high_hours",
+	"memory_idle_allocate_percent",
+	"allocations_saved_number",
+	"allocations_saved_bytes",
+	"allocations_saved_high_bytes",
+	"rate_number",
+	"rate_number_count_percent",
+	"rate_number_vol_percent",
+	"rate_number_per_second",
+};
+
+#define SQUID_MEM_FIELDS (sizeof(squid_mem_fields) / sizeof(squid_mem_fields[0]))
+
+static int squid_mem_value_from_kb(const char *field)
 {
-	if (!strstr(metrics, "Current memory usage"))
+	if (!strcmp(field, "object_size_bytes"))
+		return 0; /* Squid already reports object size in bytes */
+	if (!strcmp(field, "chunk_size_bytes"))
+		return 1;
+	if (strstr(field, "_bytes"))
+		return 1;
+	return 0;
+}
+
+static void squid_mem_emit_cell(context_arg *carg, const char *pool, const char *field, const char *cell)
+{
+	char mname[320];
+	char *end = NULL;
+	int from_kb;
+
+	if (!field || !field[0] || !cell || !cell[0] || cell[0] == '-')
 		return;
 
-	char *tmp = metrics;
+	from_kb = squid_mem_value_from_kb(field);
+	snprintf(mname, sizeof(mname), "squid_pool_%s", field);
 
-	// skip string
-	tmp += strcspn(tmp, "\n");
-	tmp += strspn(tmp, "\n");
-	
-	// skip string
-	tmp += strcspn(tmp, "\n");
-	tmp += strspn(tmp, "\n");
-	
-	// skip string
-	tmp += strcspn(tmp, "\n");
-	tmp += strspn(tmp, "\n");
+	if (strchr(cell, '.')) {
+		double dval = strtod(cell, &end);
+		if (end == cell)
+			return;
+		if (from_kb)
+			dval *= 1024.0;
+		squid_metric_set(carg, mname);
+		metric_add_labels(mname, &dval, DATATYPE_DOUBLE, carg, "pool", (char *)pool);
+	} else {
+		uint64_t uval = strtoull(cell, &end, 10);
+		if (end == cell)
+			return;
+		if (from_kb)
+			uval *= 1024ULL;
+		squid_metric_set(carg, mname);
+		metric_add_labels(mname, &uval, DATATYPE_UINT, carg, "pool", (char *)pool);
+	}
+}
 
-	uint64_t i;
-	uint64_t j;
-	uint64_t k;
-	size_t sz = size - (tmp - metrics);
-	size_t str_sz;
-	size_t obj_sz;
-	char obj[255];
+static int squid_mem_is_header_line(const char *line, size_t len)
+{
+	char buf[512];
+	size_t copy;
+
+	if (!len)
+		return 1;
+	copy = len < sizeof(buf) - 1 ? len : sizeof(buf) - 1;
+	memcpy(buf, line, copy);
+	buf[copy] = 0;
+	if (strstr(buf, "Pool") || strstr(buf, "(bytes)") || strstr(buf, "KB/ch") ||
+	    strstr(buf, "obj/ch") || strstr(buf, "Allocated") || strstr(buf, "%Frag") ||
+	    strstr(buf, "obj_size") || strstr(buf, "kb/chunk"))
+		return 1;
+	return 0;
+}
+
+void squid_mem_handler(char *metrics, size_t size, context_arg *carg)
+{
+	char *tmp;
+	char *end;
 	char pool[255];
+	char cell[255];
+	size_t line_len;
+	size_t col;
+	size_t pos;
+	size_t cell_len;
 
-	char *objname[] = { "object_size_bytes", "kilobytes_per_chunk", "objects_per_chunk", "", "chunk_used", "chunk_free", "chunk_part", "fragmentation_percent", "", "memory_allocated_kb", "memory_in_use_high_kb", "memory_in_use_high_hrs", "memory_in_use_total_percent", "memory_in_use_number", "memory_in_use_kb", "memory_idle_high_kb", "memory_idle_high_hrs", "memory_idle_allocate_percent", "allocations_saved_number", "allocations_saved_kb", "allocations_saved_high_kb", "rate_number", "rate_number_count_percent", "rate_number_vol_percent", "rate_number_per_second" };
+	tmp = strstr(metrics, "Current memory usage");
+	if (!tmp)
+		return;
 
-	for (i = 0; i < sz;)
-	{
-		str_sz = strcspn(tmp+i, "\n");
-		obj_sz = strcspn(tmp+i, "\t");
-		size_t pool_copy = obj_sz < (sizeof(pool) - 1) ? obj_sz : (sizeof(pool) - 1);
-		strlcpy(pool, tmp+i, pool_copy + 1);
+	end = metrics + size;
+	tmp += strcspn(tmp, "\n");
+	tmp += strspn(tmp, "\n");
+
+	/* Skip blank / header rows until the first pool data line. */
+	while (tmp < end) {
+		line_len = strcspn(tmp, "\n");
+		if (!squid_mem_is_header_line(tmp, line_len))
+			break;
+		tmp += line_len;
+		tmp += strspn(tmp, "\n");
+	}
+
+	while (tmp < end) {
+		line_len = strcspn(tmp, "\n");
+		if (!line_len)
+			break;
+
+		pos = strcspn(tmp, "\t");
+		if (pos >= sizeof(pool))
+			pos = sizeof(pool) - 1;
+		strlcpy(pool, tmp, pos + 1);
+
+		if (!strncmp(pool, "Cumulative allocated volume", 27) ||
+		    !strncmp(pool, "Total", 5))
+			break;
 
 		carglog(carg, L_TRACE, "squid pool '%s'\n", pool);
 
-		obj_sz += strspn(tmp+i+obj_sz, "\t");
-
-		if (!strncmp(pool, "Cumulative allocated volume", 27))
-			break;
-
-		for (k = 0, j = obj_sz; j < str_sz; j++, k++)
-		{
-			obj_sz = strcspn(tmp+i+j, "\t\n");
-			size_t obj_copy = obj_sz < (sizeof(obj) - 1) ? obj_sz : (sizeof(obj) - 1);
-			strlcpy(obj, tmp+i+j, obj_copy + 1);
-			carglog(carg, L_TRACE, "\tsquid pool '%s', object: '%s'[%zu]:'%s'\n", pool, objname[k], k, obj);
-			j += obj_sz;
-			j += strspn(tmp+i+j, "\t\n");
+		/* Consume at most one leading tab so empty TSV cells keep column alignment. */
+		if (pos < line_len && tmp[pos] == '\t')
+			pos++;
+		for (col = 0; col < SQUID_MEM_FIELDS; col++) {
+			if (pos >= line_len) {
+				cell[0] = 0;
+				cell_len = 0;
+			} else {
+				cell_len = strcspn(tmp + pos, "\t\n");
+				if (cell_len >= sizeof(cell))
+					cell_len = sizeof(cell) - 1;
+				strlcpy(cell, tmp + pos, cell_len + 1);
+				pos += cell_len;
+				if (pos < line_len && tmp[pos] == '\t')
+					pos++;
+			}
+			carglog(carg, L_TRACE, "\tsquid pool '%s' field '%s'='%s'\n",
+				pool, squid_mem_fields[col], cell);
+			squid_mem_emit_cell(carg, pool, squid_mem_fields[col], cell);
 		}
 
-		i += str_sz;
-		++i;
-		i += strspn(tmp+i, "\n");
+		tmp += line_len;
+		tmp += strspn(tmp, "\n");
 	}
 
-	tmp += i;
-	//puts(tmp);
 	carg->parser_status = 1;
 }
 
@@ -624,14 +762,14 @@ void squid_fqdncache_handler(char *metrics, size_t size, context_arg *carg)
 		metric_add_labels("squid_fqdn_cache_entries_in_use", &inuse, DATATYPE_UINT, carg, "pool", pool);
 		squid_metric_set(carg, "squid_fqdn_cache_entries_cached");
 		metric_add_labels("squid_fqdn_cache_entries_cached", &cached, DATATYPE_UINT, carg, "pool", pool);
-		squid_metric_set(carg, "squid_fqdn_cache_requests");
-		metric_add_labels("squid_fqdn_cache_requests", &requests, DATATYPE_UINT, carg, "pool", pool);
-		squid_metric_set(carg, "squid_fqdn_hits");
-		metric_add_labels("squid_fqdn_hits", &hits, DATATYPE_UINT, carg, "pool", pool);
-		squid_metric_set(carg, "squid_fqdn_negative_hits");
-		metric_add_labels("squid_fqdn_negative_hits", &nhits, DATATYPE_UINT, carg, "pool", pool);
-		squid_metric_set(carg, "squid_fqdn_misses");
-		metric_add_labels("squid_fqdn_misses", &misses, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_cache_requests_total");
+		metric_add_labels("squid_fqdn_cache_requests_total", &requests, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_hits_total");
+		metric_add_labels("squid_fqdn_hits_total", &hits, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_negative_hits_total");
+		metric_add_labels("squid_fqdn_negative_hits_total", &nhits, DATATYPE_UINT, carg, "pool", pool);
+		squid_metric_set(carg, "squid_fqdn_misses_total");
+		metric_add_labels("squid_fqdn_misses_total", &misses, DATATYPE_UINT, carg, "pool", pool);
 
 		tmp = strstr(tmp, "by");
 		if (!tmp)
@@ -679,8 +817,8 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
-		squid_metric_set(carg, "squid_disk_sent_count");
-		metric_add_auto("squid_disk_sent_count", &cnt, DATATYPE_UINT, carg);
+		squid_metric_set(carg, "squid_disk_sent_count_total");
+		metric_add_auto("squid_disk_sent_count_total", &cnt, DATATYPE_UINT, carg);
 	}
 	else
 		return;
@@ -689,8 +827,8 @@ void squid_diskd_handler(char *metrics, size_t size, context_arg *carg)
 	if (tmp)
 	{
 		cnt = strtoull(tmp, &tmp, 10);
-		squid_metric_set(carg, "squid_disk_recv_count");
-		metric_add_auto("squid_disk_recv_count", &cnt, DATATYPE_UINT, carg);
+		squid_metric_set(carg, "squid_disk_recv_count_total");
+		metric_add_auto("squid_disk_recv_count_total", &cnt, DATATYPE_UINT, carg);
 	}
 	else
 		return;

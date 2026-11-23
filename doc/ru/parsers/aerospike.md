@@ -18,7 +18,7 @@ aggregate {
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `aerospike_*` | gauge | Статистика сервера из info-команды `statistics`. |
+| `aerospike_*` | gauge | Статистика сервера из info-команды `statistics`. Имена с суффиксом `_kbytes` отдаются как `*_bytes` (значение ×1024). |
 | `aerospike_status` | gauge | Статус узла из info-команды `status`. |
 | `aerospike_*` with `namespace` label | gauge | Метрики по namespace из ответов info `namespace/{name}`. |
 | `aerospike_client`, `aerospike_batch`, `aerospike_scan`, and other grouped families | gauge | Метрики namespace, сгруппированные по типу операции с дополнительной меткой `type`. |

@@ -27,12 +27,12 @@ static void opennebula_host_families(context_arg *carg)
 		"OpenNebula host allocated CPU (100 per core).");
 	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_host_free_cpu", METRIC_TYPE_GAUGE,
 		"OpenNebula host free CPU (100 per core).");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_total", METRIC_TYPE_GAUGE,
-		"OpenNebula host total memory.");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_allocated", METRIC_TYPE_GAUGE,
-		"OpenNebula host allocated memory.");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_max", METRIC_TYPE_GAUGE,
-		"OpenNebula host maximum allocatable memory.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_total_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula host total memory in bytes.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_allocated_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula host allocated memory in bytes.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_memory_max_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula host maximum allocatable memory in bytes.");
 }
 
 static void opennebula_vm_families(context_arg *carg)
@@ -41,8 +41,8 @@ static void opennebula_vm_families(context_arg *carg)
 		"OpenNebula VM state (0=INIT, 1=PENDING, 2=HOLD, 3=ACTIVE, 4=STOPPED, 5=SUSPENDED, 6=DONE, 8=POWEROFF, 9=UNDEPLOYED, 10=CLONING, 11=CLONING_FAILURE).");
 	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_vm_cpu", METRIC_TYPE_GAUGE,
 		"OpenNebula VM allocated CPU from the VM template.");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_vm_memory", METRIC_TYPE_GAUGE,
-		"OpenNebula VM allocated memory from the VM template.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_vm_memory_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula VM allocated memory from the VM template (MEMORY MB → bytes).");
 }
 
 static void opennebula_vnet_families(context_arg *carg)
@@ -57,12 +57,12 @@ static void opennebula_ds_families(context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_status", METRIC_TYPE_GAUGE,
 		"OpenNebula datastore state (0=ON, 1=OFF).");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_total", METRIC_TYPE_GAUGE,
-		"OpenNebula datastore total capacity in MB.");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_free", METRIC_TYPE_GAUGE,
-		"OpenNebula datastore free space in MB.");
-	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_used", METRIC_TYPE_GAUGE,
-		"OpenNebula datastore used space in MB.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_total_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula datastore total capacity in bytes.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_free_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula datastore free space in bytes.");
+	namespace_metric_family_set(NULL, carg, "opennebula_monitoring_datastore_used_bytes", METRIC_TYPE_GAUGE,
+		"OpenNebula datastore used space in bytes.");
 }
 
 static const char *opennebula_find(const char *hay, const char *hay_end, const char *needle)
@@ -423,11 +423,14 @@ void opennebula_hosts_handler(char *metrics, size_t size, context_arg *carg)
 			"hostname", name, "cluster", cluster);
 		metric_add_labels2("opennebula_monitoring_host_free_cpu", &free_cpu, DATATYPE_INT, carg,
 			"hostname", name, "cluster", cluster);
-		metric_add_labels2("opennebula_monitoring_memory_total", &total_mem, DATATYPE_INT, carg,
+		total_mem *= 1024;
+		mem_alloc *= 1024;
+		max_mem *= 1024;
+		metric_add_labels2("opennebula_monitoring_memory_total_bytes", &total_mem, DATATYPE_INT, carg,
 			"hostname", name, "cluster", cluster);
-		metric_add_labels2("opennebula_monitoring_memory_allocated", &mem_alloc, DATATYPE_INT, carg,
+		metric_add_labels2("opennebula_monitoring_memory_allocated_bytes", &mem_alloc, DATATYPE_INT, carg,
 			"hostname", name, "cluster", cluster);
-		metric_add_labels2("opennebula_monitoring_memory_max", &max_mem, DATATYPE_INT, carg,
+		metric_add_labels2("opennebula_monitoring_memory_max_bytes", &max_mem, DATATYPE_INT, carg,
 			"hostname", name, "cluster", cluster);
 		found = 1;
 		host = host_end;
@@ -487,11 +490,12 @@ void opennebula_vms_handler(char *metrics, size_t size, context_arg *carg)
 		if (!tmpl)
 			tmpl = vm, tmpl_end = vm_end;
 		cpu = opennebula_tag_f64(tmpl, tmpl_end, "CPU", NULL);
-		memory = opennebula_tag_i64(tmpl, tmpl_end, "MEMORY", NULL);
+		/* TEMPLATE/MEMORY is megabytes in OpenNebula. */
+		memory = opennebula_tag_i64(tmpl, tmpl_end, "MEMORY", NULL) * 1024 * 1024;
 
 		metric_add_labels("opennebula_monitoring_vm_status", &state, DATATYPE_INT, carg, "hostname", name);
 		metric_add_labels("opennebula_monitoring_vm_cpu", &cpu, DATATYPE_DOUBLE, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_vm_memory", &memory, DATATYPE_INT, carg, "hostname", name);
+		metric_add_labels("opennebula_monitoring_vm_memory_bytes", &memory, DATATYPE_INT, carg, "hostname", name);
 		found = 1;
 		vm = vm_end;
 	}
@@ -603,13 +607,13 @@ void opennebula_datastores_handler(char *metrics, size_t size, context_arg *carg
 			continue;
 		}
 		state = opennebula_tag_i64(ds, ds_end, "STATE", NULL);
-		total = opennebula_tag_i64(ds, ds_end, "TOTAL_MB", NULL);
-		free_mb = opennebula_tag_i64(ds, ds_end, "FREE_MB", NULL);
-		used = opennebula_tag_i64(ds, ds_end, "USED_MB", NULL);
+		total = opennebula_tag_i64(ds, ds_end, "TOTAL_MB", NULL) * 1024 * 1024;
+		free_mb = opennebula_tag_i64(ds, ds_end, "FREE_MB", NULL) * 1024 * 1024;
+		used = opennebula_tag_i64(ds, ds_end, "USED_MB", NULL) * 1024 * 1024;
 		metric_add_labels("opennebula_monitoring_datastore_status", &state, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_total", &total, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_free", &free_mb, DATATYPE_INT, carg, "hostname", name);
-		metric_add_labels("opennebula_monitoring_datastore_used", &used, DATATYPE_INT, carg, "hostname", name);
+		metric_add_labels("opennebula_monitoring_datastore_total_bytes", &total, DATATYPE_INT, carg, "hostname", name);
+		metric_add_labels("opennebula_monitoring_datastore_free_bytes", &free_mb, DATATYPE_INT, carg, "hostname", name);
+		metric_add_labels("opennebula_monitoring_datastore_used_bytes", &used, DATATYPE_INT, carg, "hostname", name);
 		found = 1;
 		ds = ds_end;
 	}

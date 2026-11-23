@@ -513,10 +513,11 @@ void druid_indexer_tasks_handler(char *metrics, size_t size, context_arg *carg)
 			continue;
 
 		json_t *duration_json = json_object_get(task, "duration");
-		double duration = json_real_value(duration_json);
+		double duration_ms = json_is_integer(duration_json) ? (double)json_integer_value(duration_json) : json_real_value(duration_json);
+		double duration = duration_ms / 1000.0;
 
-		druid_metric_set(carg, "druid_indexer_tasks_duration");
-		metric_add_labels5("druid_indexer_tasks_duration", &duration, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "id", id, "groupId", groupId, "type", type, "status", status);
+		druid_metric_set(carg, "druid_indexer_tasks_duration_seconds");
+		metric_add_labels5("druid_indexer_tasks_duration_seconds", &duration, DATATYPE_DOUBLE, carg, "dataSource", dataSource, "id", id, "groupId", groupId, "type", type, "status", status);
 	}
 
 	json_decref(root);

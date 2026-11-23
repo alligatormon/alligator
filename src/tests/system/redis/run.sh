@@ -18,7 +18,7 @@ echo
 sleep 5
 TEXT=`curl -s localhost:1111`
 echo $TEXT | grep "cluster" 2>&1 >/dev/null && echo "redis cluster test ok" || echo "redis cluster test fail"
-echo $TEXT | grep "redis_used_memory" 2>&1 >/dev/null && echo "redis info test ok" || echo "redis info test fail"
+echo $TEXT | grep "redis_used_memory_bytes" 2>&1 >/dev/null && echo "redis info test ok" || echo "redis info test fail"
 
 
 kill `cat /var/run/redis_6379.pid`

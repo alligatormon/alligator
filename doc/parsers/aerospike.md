@@ -16,7 +16,7 @@ Check the service port in configuration file. The service is [typically](https:/
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `aerospike_*` | gauge | Server statistics from the `statistics` info command. |
+| `aerospike_*` | gauge | Server statistics from the `statistics` info command. Stats ending in `_kbytes` are exported as `*_bytes` (value ×1024). |
 | `aerospike_status` | gauge | Node status from the `status` info command. |
 | `aerospike_*` with `namespace` label | gauge | Per-namespace metrics from `namespace/{name}` info responses. |
 | `aerospike_client`, `aerospike_batch`, `aerospike_scan`, and other grouped families | gauge | Namespace metrics grouped by operation type with an additional `type` label. |

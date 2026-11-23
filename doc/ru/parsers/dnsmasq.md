@@ -32,8 +32,8 @@ aggregate {
 CHAOS (`dnsmasq`):
 
 - `dnsmasq_cachesize` — размер кэша
-- `dnsmasq_insertions`, `dnsmasq_evictions`, `dnsmasq_misses`, `dnsmasq_hits`, `dnsmasq_auth`
-- `dnsmasq_servers_queries{server}`, `dnsmasq_servers_queries_failed{server}` — по upstream (`addr#port`)
+- `dnsmasq_insertions_total`, `dnsmasq_evictions_total`, `dnsmasq_misses_total`, `dnsmasq_hits_total`, `dnsmasq_auth_total`
+- `dnsmasq_servers_queries_total{server}`, `dnsmasq_servers_queries_failed_total{server}` — по upstream (`addr#port`)
 
 DHCP leases (`dnsmasq_dhcp`):
 

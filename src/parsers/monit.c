@@ -130,8 +130,8 @@ void monit_handler(char *metrics, size_t size, context_arg *carg)
 					return;
 
 				double mval = atof(responsetime_value);
-				monit_metric_set(carg, "monit_service_responsetime");
-				metric_add_labels6("monit_service_responsetime", &mval, DATATYPE_DOUBLE, carg, "name", value, hostname_name, hostname_value, portnumber_name, portnumber_value, rawrequest_name, request, protocol_name, protocol_value, type_name, type_value);
+				monit_metric_set(carg, "monit_service_response_time_seconds");
+				metric_add_labels6("monit_service_response_time_seconds", &mval, DATATYPE_DOUBLE, carg, "name", value, hostname_name, hostname_value, portnumber_name, portnumber_value, rawrequest_name, request, protocol_name, protocol_value, type_name, type_value);
 
 				continue;
 			}

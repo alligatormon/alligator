@@ -28,5 +28,5 @@ Alligator отправляет `NSDCT1 stats_noreset\n` на control socket и �
 
 Примеры:
 
-- `nsd_queries{type="…"}`
+- `nsd_queries_total{type="…"}`
 - `nsd_num*`, `nsd_num_{class,opcode,rcode}*`

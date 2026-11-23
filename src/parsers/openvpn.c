@@ -60,7 +60,7 @@ static void openvpn_metric_families(context_arg *carg)
 		"OpenVPN server bytes in from management load-stats.");
 	namespace_metric_family_set(NULL, carg, "openvpn_bytes_out_total", METRIC_TYPE_COUNTER,
 		"OpenVPN server bytes out from management load-stats.");
-	namespace_metric_family_set(NULL, carg, "openvpn_bytes", METRIC_TYPE_COUNTER,
+	namespace_metric_family_set(NULL, carg, "openvpn_bytes_total", METRIC_TYPE_COUNTER,
 		"OpenVPN client-mode byte counters by kind.");
 }
 
@@ -441,7 +441,7 @@ void openvpn_handler(char *metrics, size_t size, context_arg *carg)
 			if (!kind)
 				continue;
 			val = strtoull(fields[1], NULL, 10);
-			metric_add_labels("openvpn_bytes", &val, DATATYPE_UINT, carg, "kind", (char *)kind);
+			metric_add_labels("openvpn_bytes_total", &val, DATATYPE_UINT, carg, "kind", (char *)kind);
 			found = 1;
 			continue;
 		}

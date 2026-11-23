@@ -38,7 +38,7 @@ aggregate {
 | `global_variables` (`admin-version`) | `proxysql_info{version=…}` (значение `0`) |
 | результат scrape | `proxysql_up` |
 
-`status` пула числовой: `ONLINE=1`, `SHUNNED=2`, `OFFLINE_SOFT=3`, `OFFLINE_HARD=4`, `SHUNNED_REPLICATION_LAG=5`. Колонки `Latency_ms` / `Latency_us` отдаются как `proxysql_connection_pool_latency_us` (всегда микросекунды).
+`status` пула числовой: `ONLINE=1`, `SHUNNED=2`, `OFFLINE_SOFT=3`, `OFFLINE_HARD=4`, `SHUNNED_REPLICATION_LAG=5`. Колонки `Latency_ms` / `Latency_us` отдаются как `proxysql_connection_pool_latency_seconds` (в секундах).
 
 Неизвестные колонки / переменные ProxySQL тоже экспортируются (untyped).
 

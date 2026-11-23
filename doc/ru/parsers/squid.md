@@ -20,7 +20,7 @@ aggregate {
 
 ### Metrics
 
-Поля cache manager становятся `squid_*`.
+Поля cache manager становятся `squid_*`. Таблица `mgr:mem` — `squid_pool_*{pool=…}` (колонки в KB → `*_bytes`, значение ×1024).
 
 Опциональные проверки process / socket:
 

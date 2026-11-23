@@ -23,7 +23,7 @@ pgbouncer_max_connections {database_server="pgbouncer", name="pgbouncer", user="
 pgbouncer_pool_cl_active {database_server="pgbouncer", user="pgbouncer"} 1
 pgbouncer_pool_cl_waiting {database_server="pgbouncer", user="pgbouncer"} 0
 pgbouncer_pool_maxwait {database_server="pgbouncer", user="pgbouncer"} 0
-pgbouncer_pool_maxwait_us {database_server="pgbouncer", user="pgbouncer"} 0
+pgbouncer_pool_maxwait_seconds {database_server="pgbouncer", user="pgbouncer"} 0
 pgbouncer_pool_size {database_server="pgbouncer", name="pgbouncer", user="pgbouncer"} 2
 pgbouncer_pool_sv_active {database_server="pgbouncer", user="pgbouncer"} 0
 pgbouncer_pool_sv_idle {database_server="pgbouncer", user="pgbouncer"} 0

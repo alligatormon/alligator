@@ -38,7 +38,7 @@ aggregate {
 | `global_variables` (`admin-version`) | `proxysql_info{version=…}` (value `0`) |
 | scrape result | `proxysql_up` |
 
-Pool `status` is numeric: `ONLINE=1`, `SHUNNED=2`, `OFFLINE_SOFT=3`, `OFFLINE_HARD=4`, `SHUNNED_REPLICATION_LAG=5`. `Latency_ms` / `Latency_us` both export as `proxysql_connection_pool_latency_us` (value is always microseconds).
+Pool `status` is numeric: `ONLINE=1`, `SHUNNED=2`, `OFFLINE_SOFT=3`, `OFFLINE_HARD=4`, `SHUNNED_REPLICATION_LAG=5`. `Latency_ms` / `Latency_us` both export as `proxysql_connection_pool_latency_seconds` (converted to seconds).
 
 Unknown ProxySQL columns / variables are still exported (untyped).
 

@@ -292,7 +292,7 @@ static const memcached_stat_rule memcached_stat_rules[] = {
 	{ "uptime", "memcached_uptime_seconds", METRIC_TYPE_COUNTER, MC_AUTO, NULL, NULL, NULL, NULL },
 	{ "rusage_user", "memcached_rusage_seconds_total", METRIC_TYPE_COUNTER, MC_L1, "type", "user", NULL, NULL },
 	{ "rusage_system", "memcached_rusage_seconds_total", METRIC_TYPE_COUNTER, MC_L1, "type", "system", NULL, NULL },
-	{ "time_in_listen_disabled_us", "memcached_listen_disabled_microseconds_total", METRIC_TYPE_COUNTER, MC_AUTO, NULL, NULL, NULL, NULL },
+	{ "time_in_listen_disabled_us", "memcached_listen_disabled_seconds_total", METRIC_TYPE_COUNTER, MC_AUTO, NULL, NULL, NULL, NULL },
 	{ "auth_cmds", "memcached_auth_commands_total", METRIC_TYPE_COUNTER, MC_AUTO, NULL, NULL, NULL, NULL },
 	{ "auth_errors", "memcached_auth_errors_total", METRIC_TYPE_COUNTER, MC_AUTO, NULL, NULL, NULL, NULL },
 	{ "slab_reassign_busy_deletes", "memcached_slab_reassign_total", METRIC_TYPE_COUNTER, MC_L1, "event", "busy_deletes", NULL, NULL },
@@ -376,7 +376,7 @@ static void memcached_register_families(context_arg *carg)
 	namespace_metric_family_set(NULL, carg, "memcached_malloc_fails_total", METRIC_TYPE_COUNTER, "Malloc failures.");
 	namespace_metric_family_set(NULL, carg, "memcached_uptime_seconds", METRIC_TYPE_COUNTER, "Seconds since the memcached server started.");
 	namespace_metric_family_set(NULL, carg, "memcached_rusage_seconds_total", METRIC_TYPE_COUNTER, "CPU time consumed by memcached by type.");
-	namespace_metric_family_set(NULL, carg, "memcached_listen_disabled_microseconds_total", METRIC_TYPE_COUNTER, "Microseconds spent with the listener disabled.");
+	namespace_metric_family_set(NULL, carg, "memcached_listen_disabled_seconds_total", METRIC_TYPE_COUNTER, "Seconds spent with the listener disabled.");
 	namespace_metric_family_set(NULL, carg, "memcached_auth_commands_total", METRIC_TYPE_COUNTER, "Authentication commands processed.");
 	namespace_metric_family_set(NULL, carg, "memcached_auth_errors_total", METRIC_TYPE_COUNTER, "Authentication errors.");
 	namespace_metric_family_set(NULL, carg, "memcached_slab_reassign_total", METRIC_TYPE_COUNTER, "Slab reassign events by type.");
@@ -519,6 +519,13 @@ void memcached_handler(char *metrics, size_t size, context_arg *carg)
 			uint64_t cas_val = (rc == DATATYPE_DOUBLE) ? (uint64_t)dval : (rc == DATATYPE_INT) ? (uint64_t)ival : uval;
 			cas_total += cas_val;
 			memcached_emit_value(carg, rule, DATATYPE_UINT, 0, cas_val, 0);
+			continue;
+		}
+
+		if (!strcmp(rule->stat_key, "time_in_listen_disabled_us"))
+		{
+			double seconds = ((rc == DATATYPE_DOUBLE) ? dval : (rc == DATATYPE_INT) ? (double)ival : (double)uval) / 1e6;
+			memcached_emit_value(carg, rule, DATATYPE_DOUBLE, 0, 0, seconds);
 			continue;
 		}
 

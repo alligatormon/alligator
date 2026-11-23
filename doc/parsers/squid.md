@@ -20,7 +20,7 @@ aggregate {
 
 ### Metrics
 
-Cache manager fields become `squid_*` metrics.
+Cache manager fields become `squid_*` metrics. The `mgr:mem` table is exported as `squid_pool_*{pool=…}` (KB columns as `*_bytes`, value ×1024).
 
 Optional process / socket checks:
 

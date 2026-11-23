@@ -1911,7 +1911,7 @@
               }
             ]
           },
-          "unit": "deckbytes"
+          "unit": "decbytes"
         },
         "overrides": []
       },
@@ -1948,7 +1948,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (aerospike_heap_active_kbytes{instance=~\"$instance\"})",
+          "expr": "sum by (instance) (aerospike_heap_active_bytes{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "active {{ instance }}",
@@ -1961,7 +1961,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (aerospike_heap_allocated_kbytes{instance=~\"$instance\"})",
+          "expr": "sum by (instance) (aerospike_heap_allocated_bytes{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "allocated {{ instance }}",
@@ -1974,7 +1974,7 @@
             "uid": "000000001"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (aerospike_heap_mapped_kbytes{instance=~\"$instance\"})",
+          "expr": "sum by (instance) (aerospike_heap_mapped_bytes{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "mapped {{ instance }}",

@@ -51,7 +51,7 @@ aggregate {
 - `frr_status_up{version,os}`
 - `frr_collector_up{collector}`, `frr_scrape_duration_seconds{collector}`
 - BGP: `frr_bgp_rib_count_total`, `frr_bgp_rib_memory_bytes`, `frr_bgp_peers_*`, `frr_bgp_peer_groups_*`, `frr_bgp_peer_message_{received,sent}_total`, `frr_bgp_peer_prefixes_*`, `frr_bgp_peer_state`, `frr_bgp_peer_uptime_seconds`
-- BFD: `frr_bfd_peer_count`, `frr_bfd_peer_uptime`, `frr_bfd_peer_state`
+- BFD: `frr_bfd_peer_count`, `frr_bfd_peer_uptime_seconds`, `frr_bfd_peer_state`
 - OSPF: `frr_ospf_neighbors`, `frr_ospf_neighbor_adjacencies`, LSA counters, `frr_ospf_neighbor_state`, `frr_ospf_data_ls_max_age`
 - Route: `frr_route_total`, `frr_route_total_fib`
 

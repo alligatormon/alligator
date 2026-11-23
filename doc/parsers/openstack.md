@@ -89,11 +89,11 @@ Neutron:
 Cinder:
 
 - `openstack_cinder_up`
-- `openstack_cinder_volumes` / `volume_gb` / `volume_status` / `volume_status_counter{status}`
-- `openstack_cinder_snapshots` / `snapshot_gb`
-- `openstack_cinder_backups` / `backup_gb`
+- `openstack_cinder_volumes` / `volume_bytes` / `volume_status` / `volume_status_counter{status}`
+- `openstack_cinder_snapshots` / `snapshot_bytes`
+- `openstack_cinder_backups` / `backup_bytes`
 - `openstack_cinder_agent_state{uuid,hostname,service,adminState,zone}`
-- `openstack_cinder_pool_capacity_free_gb` / `pool_capacity_total_gb`
+- `openstack_cinder_pool_capacity_free_bytes` / `pool_capacity_total_bytes`
 
 Glance:
 

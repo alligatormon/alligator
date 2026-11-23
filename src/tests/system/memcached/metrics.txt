@@ -43,7 +43,7 @@ memcached_slab_reassign_running 0
 memcached_slabs_moved_total 0
 memcached_threads 4
 memcached_time_seconds
-memcached_listen_disabled_microseconds_total 0
+memcached_listen_disabled_seconds_total 0
 memcached_connections_total
 memcached_items_total 0
 memcached_uptime_seconds

@@ -106,10 +106,10 @@ void ntp_handler(char *ntpData, size_t size, context_arg *carg)
 	metric_add_auto("ntp_root_delay_seconds", &rootDelay, DATATYPE_DOUBLE, carg);
 
 	int8_t precision = ntpp->precision;
-	double degreePrecision = ((long double)powl(2, precision) * (long double)1000.0);
+	double degreePrecision = (double)powl(2, precision);
 	
-	ntp_metric_set(carg, "ntp_precision_miliseconds");
-	metric_add_auto("ntp_precision_miliseconds", &degreePrecision, DATATYPE_DOUBLE, carg);
+	ntp_metric_set(carg, "ntp_precision_seconds");
+	metric_add_auto("ntp_precision_seconds", &degreePrecision, DATATYPE_DOUBLE, carg);
 
 	double refTm_s = ntohl(ntpp->refTm_s) + ((double)ntohl(ntpp->refTm_f)/0x100000000L);
 	ntp_metric_set(carg, "ntp_reference_timestamp_seconds");

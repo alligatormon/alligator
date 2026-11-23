@@ -128,9 +128,10 @@ void lighttpd_statistics_handler(char *metrics, size_t size, context_arg *carg)
 		strlcpy(debug_string, tmp, line_dbg_copy + 1);
 
 		if (is_requests) {
-			val = 0;
-			lighttpd_metric_set(carg, "lighttpd_requests");
-			metric_add("lighttpd_requests", lbl, &val, DATATYPE_UINT, carg);
+			val = strtoull(tmp, &tmp, 10);
+			namespace_metric_family_set(NULL, carg, "lighttpd_requests_total", METRIC_TYPE_COUNTER,
+				"Lighttpd request counters.");
+			metric_add("lighttpd_requests_total", lbl, &val, DATATYPE_UINT, carg);
 		}
 		else if (is_active_requests) {
 			val = strtoull(tmp, &tmp, 10);

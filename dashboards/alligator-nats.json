@@ -1158,7 +1158,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(nats_connz_in_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "rate(nats_connz_in_msgs_total{host=~\"$host\"}[$__rate_interval])",
                       "range": true,
                       "legendFormat": "in msgs"
                     },
@@ -1179,7 +1179,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(nats_connz_out_msgs{host=~\"$host\"}[$__rate_interval])",
+                      "expr": "rate(nats_connz_out_msgs_total{host=~\"$host\"}[$__rate_interval])",
                       "range": true,
                       "legendFormat": "out msgs"
                     },

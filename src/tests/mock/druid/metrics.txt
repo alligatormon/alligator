@@ -24,7 +24,7 @@ druid_coordinator_servers_maxSize {type="historical", host="172.18.0.5:8083", ti
 druid_coordinator_servers_priority {type="historical", host="172.18.0.5:8083", tier="_default_tier"} 0
 druid_historical_cacheInitialized 1
 druid_indexer_supervisor_healthy {spec="", detailedState=""} 1
-druid_indexer_tasks_duration {type="type", dataSource="test", groupId="12", status="running", id="1"} 12.200000
+druid_indexer_tasks_duration_seconds {type="type", dataSource="test", groupId="12", status="running", id="1"} 0.012200
 druid_selfDiscovered_status 1
 druid_status_health 1
 druid_worker_enabled {host="172.18.0.6:8091"} 1

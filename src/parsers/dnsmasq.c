@@ -95,13 +95,13 @@ DNSMASQ_MESG(dnsmasq_mesg_servers, "servers.bind")
 static void dnsmasq_metric_help(context_arg *carg)
 {
 	namespace_metric_family_set(NULL, carg, "dnsmasq_cachesize", METRIC_TYPE_GAUGE, "dnsmasq DNS cache size.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_insertions", METRIC_TYPE_COUNTER, "dnsmasq cache insertions.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_evictions", METRIC_TYPE_COUNTER, "dnsmasq cache evictions.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_misses", METRIC_TYPE_COUNTER, "dnsmasq cache misses.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_hits", METRIC_TYPE_COUNTER, "dnsmasq cache hits.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_auth", METRIC_TYPE_COUNTER, "dnsmasq authoritative queries.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_servers_queries", METRIC_TYPE_COUNTER, "dnsmasq queries forwarded to an upstream server.");
-	namespace_metric_family_set(NULL, carg, "dnsmasq_servers_queries_failed", METRIC_TYPE_COUNTER, "dnsmasq failed queries to an upstream server.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_insertions_total", METRIC_TYPE_COUNTER, "dnsmasq cache insertions.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_evictions_total", METRIC_TYPE_COUNTER, "dnsmasq cache evictions.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_misses_total", METRIC_TYPE_COUNTER, "dnsmasq cache misses.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_hits_total", METRIC_TYPE_COUNTER, "dnsmasq cache hits.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_auth_total", METRIC_TYPE_COUNTER, "dnsmasq authoritative queries.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_servers_queries_total", METRIC_TYPE_COUNTER, "dnsmasq queries forwarded to an upstream server.");
+	namespace_metric_family_set(NULL, carg, "dnsmasq_servers_queries_failed_total", METRIC_TYPE_COUNTER, "dnsmasq failed queries to an upstream server.");
 }
 
 static void dnsmasq_emit_txt(context_arg *carg, const char *qname, const char *txt)
@@ -116,9 +116,9 @@ static void dnsmasq_emit_txt(context_arg *carg, const char *qname, const char *t
 	if (dnsmasq_qname_is(qname, "servers.bind")) {
 		if (sscanf(txt, "%127s %llu %llu", server, &queries, &failed) >= 2) {
 			val = queries;
-			metric_add_labels("dnsmasq_servers_queries", &val, DATATYPE_UINT, carg, "server", server);
+			metric_add_labels("dnsmasq_servers_queries_total", &val, DATATYPE_UINT, carg, "server", server);
 			val = failed;
-			metric_add_labels("dnsmasq_servers_queries_failed", &val, DATATYPE_UINT, carg, "server", server);
+			metric_add_labels("dnsmasq_servers_queries_failed_total", &val, DATATYPE_UINT, carg, "server", server);
 		}
 		return;
 	}
@@ -127,15 +127,15 @@ static void dnsmasq_emit_txt(context_arg *carg, const char *qname, const char *t
 	if (dnsmasq_qname_is(qname, "cachesize.bind"))
 		metric_add_auto("dnsmasq_cachesize", &val, DATATYPE_UINT, carg);
 	else if (dnsmasq_qname_is(qname, "insertions.bind"))
-		metric_add_auto("dnsmasq_insertions", &val, DATATYPE_UINT, carg);
+		metric_add_auto("dnsmasq_insertions_total", &val, DATATYPE_UINT, carg);
 	else if (dnsmasq_qname_is(qname, "evictions.bind"))
-		metric_add_auto("dnsmasq_evictions", &val, DATATYPE_UINT, carg);
+		metric_add_auto("dnsmasq_evictions_total", &val, DATATYPE_UINT, carg);
 	else if (dnsmasq_qname_is(qname, "misses.bind"))
-		metric_add_auto("dnsmasq_misses", &val, DATATYPE_UINT, carg);
+		metric_add_auto("dnsmasq_misses_total", &val, DATATYPE_UINT, carg);
 	else if (dnsmasq_qname_is(qname, "hits.bind"))
-		metric_add_auto("dnsmasq_hits", &val, DATATYPE_UINT, carg);
+		metric_add_auto("dnsmasq_hits_total", &val, DATATYPE_UINT, carg);
 	else if (dnsmasq_qname_is(qname, "auth.bind"))
-		metric_add_auto("dnsmasq_auth", &val, DATATYPE_UINT, carg);
+		metric_add_auto("dnsmasq_auth_total", &val, DATATYPE_UINT, carg);
 }
 
 void dnsmasq_handler(char *metrics, size_t size, context_arg *carg)

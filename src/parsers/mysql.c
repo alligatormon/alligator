@@ -495,7 +495,7 @@ static const char *proxysql_pool_metric_suffix(const char *col, char *buf, size_
 	if (!strcmp(col, "connerr"))
 		return "conn_err";
 	if (!strcmp(col, "latency_ms") || !strcmp(col, "latency_us"))
-		return "latency_us";
+		return "latency_seconds";
 	snprintf(buf, bufsz, "%s", col);
 	prometheus_metric_name_normalizer(buf, strlen(buf));
 	return buf;
@@ -512,7 +512,7 @@ static int8_t proxysql_pool_metric_type(const char *suffix)
 	if (!strcmp(suffix, "status") ||
 	    !strcmp(suffix, "conn_used") ||
 	    !strcmp(suffix, "conn_free") ||
-	    !strcmp(suffix, "latency_us"))
+	    !strcmp(suffix, "latency_seconds"))
 		return METRIC_TYPE_GAUGE;
 	return METRIC_TYPE_UNTYPED;
 }
@@ -615,6 +615,10 @@ static void proxysql_pool_cb(mysql_row_t *row, void *ud)
 			val = strtod(valbuf, &end);
 			if (end == valbuf)
 				continue;
+			if (!strcmp(col, "latency_ms"))
+				val = val / 1000.0;
+			else if (!strcmp(col, "latency_us"))
+				val = val / 1e6;
 		}
 
 		ctx->rows++;
@@ -749,9 +753,13 @@ static void proxysql_runtime_cb(mysql_row_t *row, void *ud)
 			val = strtod(valbuf, &end);
 			if (end == valbuf)
 				continue;
-			if (!strcmp(col, "weight") || !strcmp(col, "compression") ||
+			if (!strcmp(col, "max_latency_ms")) {
+				val = val / 1000.0;
+				strlcpy(col, "max_latency_seconds", sizeof(col));
+				mtype = METRIC_TYPE_GAUGE;
+			} else if (!strcmp(col, "weight") || !strcmp(col, "compression") ||
 			    !strcmp(col, "max_connections") || !strcmp(col, "max_replication_lag") ||
-			    !strcmp(col, "use_ssl") || !strcmp(col, "max_latency_ms"))
+			    !strcmp(col, "use_ssl"))
 				mtype = METRIC_TYPE_GAUGE;
 			else
 				mtype = METRIC_TYPE_UNTYPED;

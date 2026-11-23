@@ -33,13 +33,13 @@ aggregate {
 
 - `opennebula_monitoring_host_status` — 0=INIT, 1=MONITORING_MONITORED, 2=MONITORED, 3=ERROR, 4=DISABLED
 - `opennebula_monitoring_cpu_total` / `cpu_max` / `cpu_used` / `host_free_cpu` — единицы CPU (100 на ядро)
-- `opennebula_monitoring_memory_total` / `memory_allocated` / `memory_max`
+- `opennebula_monitoring_memory_total_bytes` / `memory_allocated_bytes` / `memory_max_bytes`
 
 VM (лейбл `hostname` — имя VM, как в nebula_exporter):
 
 - `opennebula_monitoring_vm_status`
 - `opennebula_monitoring_vm_cpu`
-- `opennebula_monitoring_vm_memory`
+- `opennebula_monitoring_vm_memory_bytes`
 
 Это **выделенные** значения из шаблона VM, а не живое потребление гостя. CPU, память, диск и сеть работающих KVM/QEMU (и LXC) гостей собирает [cAdvisor](../system.md#cadvisor) Alligator на каждом гипервизоре OpenNebula.
 
@@ -73,7 +73,7 @@ cAdvisor отдаёт серии `container_*` (CPU, RSS, filesystem, сеть) 
 Datastore (лейбл `hostname` — имя datastore):
 
 - `opennebula_monitoring_datastore_status` — 0=ON, 1=OFF
-- `opennebula_monitoring_datastore_total` / `datastore_free` / `datastore_used` — МБ
+- `opennebula_monitoring_datastore_total_bytes` / `datastore_free_bytes` / `datastore_used_bytes`
 
 Свободный CPU берётся из `HOST_SHARE/FREE_CPU` в `one.hostpool.info` (exporter дополнительно вызывает `one.hostpool.monitoring` и per-host `info`).
 

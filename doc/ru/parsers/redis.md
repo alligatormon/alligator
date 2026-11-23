@@ -42,16 +42,16 @@ query {
 
 | Семейство | Тип | Примечание |
 |-----------|-----|------------|
-| `redis_used_memory{type}` | gauge | `total` / `rss` / `peak` / `lua` |
-| `redis_total_system_memory` / `redis_maxmemory` | gauge | |
+| `redis_used_memory_bytes{type}` | gauge | `total` / `rss` / `peak` / `lua` |
+| `redis_total_system_memory_bytes` / `redis_maxmemory_bytes` | gauge | |
 | `redis_mem_fragmentation_ratio` | gauge | |
 | `redis_maxmemory_policy{policy}` | gauge | Присутствие (`1`) |
-| `redis_used_cpu{type}` | counter | `sys` / `user` / `*_children` (секунды) |
-| `redis_error_stat{stat}` | counter | Из `# Errorstats` |
+| `redis_cpu_seconds_total{type}` | counter | `sys` / `user` / `*_children` (секунды) |
+| `redis_errors_total{stat}` | counter | Из `# Errorstats` |
 | `redis_cmdstat_calls_total{cmd}` | counter | Из `# Commandstats` |
 | `redis_cmdstat_duration_seconds_total{cmd}` | counter | Суммарное время команд (usec→секунды) |
 | `redis_cmdstat_duration_seconds{cmd}` | gauge | Среднее время на вызов |
-| `redis_keys` / `redis_expires` / `redis_avg_ttl` | gauge | По логической БД |
+| `redis_keys` / `redis_expires` / `redis_avg_ttl_seconds` | gauge | По логической БД |
 | `redis_role` / `redis_master_link_status` | gauge | Состояние через лейблы |
 | Прочие числовые поля `INFO` | gauge | Fallback `redis_<field>` |
 

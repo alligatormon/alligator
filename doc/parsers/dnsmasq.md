@@ -32,8 +32,8 @@ aggregate {
 CHAOS (`dnsmasq`):
 
 - `dnsmasq_cachesize` — configured cache size
-- `dnsmasq_insertions`, `dnsmasq_evictions`, `dnsmasq_misses`, `dnsmasq_hits`, `dnsmasq_auth`
-- `dnsmasq_servers_queries{server}`, `dnsmasq_servers_queries_failed{server}` — per upstream (`addr#port`)
+- `dnsmasq_insertions_total`, `dnsmasq_evictions_total`, `dnsmasq_misses_total`, `dnsmasq_hits_total`, `dnsmasq_auth_total`
+- `dnsmasq_servers_queries_total{server}`, `dnsmasq_servers_queries_failed_total{server}` — per upstream (`addr#port`)
 
 DHCP leases (`dnsmasq_dhcp`):
 
