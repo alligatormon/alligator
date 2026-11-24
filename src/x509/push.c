@@ -29,6 +29,15 @@ static string_tokens *x509_json_to_tokens(json_t *jtokens)
 	return tokens;
 }
 
+/* calloc leaves ttl and curr_ttl at 0, and 0 is the never-expire sentinel.
+   -1 inherits ac->ttl, same as context_arg_json_fill. Without this, a cert
+   that disappears stays in the tree forever and ignores the global ttl. */
+static void x509_carg_inherit_ttl(context_arg *carg)
+{
+	carg->ttl = -1;
+	carg->curr_ttl = -1;
+}
+
 int tls_fs_push(char *name, char *path, string_tokens *tokens_match, string_tokens *tokens_except, char *password, char *ca_file, char *type, uint64_t period, json_t *x509) {
 	glog(L_DEBUG, "run tls_fs_push with name %s, path %s, and password/passtr %p\n", name, path, password);
 	x509_fs_t *tls_fs = calloc(1, sizeof(*tls_fs));
@@ -52,6 +61,7 @@ int tls_fs_push(char *name, char *path, string_tokens *tokens_match, string_toke
 	tls_fs->fctx.ca_file = tls_fs->ca_file;
 	tls_fs->fctx.pol = &tls_fs->rev;
 	tls_fs->carg = calloc(1, sizeof(context_arg));
+	x509_carg_inherit_ttl(tls_fs->carg);
 	parse_add_label(tls_fs->carg, x509);
 	parse_metricstransform(tls_fs->carg, x509);
 	tls_fs->fctx.carg = tls_fs->carg;
@@ -96,6 +106,7 @@ int jks_push(char *name, char *path, string_tokens *tokens_match, string_tokens 
 	lo->hidden_arg = 1;
 	lo->carg = calloc(1, sizeof(context_arg));
 	lo->carg_allocated = 1;
+	x509_carg_inherit_ttl(lo->carg);
 	lo->carg->log_level = ac->system_carg->log_level;
 	lo->carg->no_metric = 1;
 	parse_add_label(lo->carg, x509);

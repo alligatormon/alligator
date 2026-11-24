@@ -3435,6 +3435,57 @@ static void test_metric_str_build_scrape_transforms(void)
     string_free(om);
 }
 
+/* A removed certificate must follow the global ttl. A zeroed context_arg
+   used to arm the never-expire sentinel, so the series outlived the file. */
+static void test_x509_probe_inherits_ttl(void)
+{
+    json_error_t error;
+    int64_t saved_ttl = ac->ttl;
+    int64_t v = 13;
+    r_time now;
+    int64_t key;
+    metric_node *m;
+    namespace_struct *ns;
+
+    if (!ac->fs_x509)
+        ac->fs_x509 = alligator_ht_init(NULL);
+
+    ac->ttl = 300;
+    insert_namespace("ut_x509_ttl", 0, UINT64_MAX);
+    ns = get_namespace("ut_x509_ttl");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, ns);
+
+    json_t *jx509 = json_loads(
+        "{\"name\":\"ut-x509-ttl\",\"path\":\"/tmp\",\"match\":[\".crt\"],\"period\":\"0\"}",
+        0, &error);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, jx509);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, x509_push(jx509));
+    x509_fs_t *tls_fs = alligator_ht_search(ac->fs_x509, ut_x509_fs_compare, "ut-x509-ttl", tommy_strhash_u32(0, "ut-x509-ttl"));
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, tls_fs->carg);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, tls_fs->carg->ttl);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, -1, tls_fs->carg->curr_ttl);
+
+    tls_fs->carg->namespace = "ut_x509_ttl";
+    now = setrtime();
+    metric_add_labels("ut_x509_ttl_m", &v, DATATYPE_INT, tls_fs->carg, "id", "wc");
+    m = ut_metric_by_id(ns, "ut_x509_ttl_m", "wc");
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m);
+    assert_ptr_notnull(__FILE__, __FUNCTION__, __LINE__, m->expire_node);
+    key = m->expire_node->key;
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, key >= now.sec + 300);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, key <= now.sec + 302);
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 1, m->expire_node->level != EXPIRE_LV_FAR);
+
+    expire_purge((uint64_t)key, NULL, ns);
+    assert_ptr_null(__FILE__, __FUNCTION__, __LINE__, ut_metric_by_id(ns, "ut_x509_ttl_m", "wc"));
+    assert_equal_int(__FILE__, __FUNCTION__, __LINE__, 0, ns->metrictree->count);
+
+    x509_del(jx509);
+    json_decref(jx509);
+    ac->ttl = saved_ttl;
+}
+
 static void test_x509_system_probe_query_add_label(void)
 {
     json_error_t error;
@@ -5451,6 +5502,7 @@ static void run_helpers_and_events_suites(void)
     test_metric_transform_paths();
     test_metric_transform_extended_paths();
     test_metric_str_build_scrape_transforms();
+    test_x509_probe_inherits_ttl();
     test_x509_system_probe_query_add_label();
     test_x509_path_basename_glob();
     test_serializer_extra_formats();
